@@ -1,5 +1,7 @@
 ﻿using DirectXTexNet;
+using HKLib.hk2018.hke;
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -166,26 +168,32 @@ namespace JortPob.Common
         public static byte[] Scale(byte[] dds)
         {
             GCHandle pinnedArray = GCHandle.Alloc(dds, GCHandleType.Pinned);
-            ScratchImage img = TexHelper.Instance.LoadFromDDSMemory(pinnedArray.AddrOfPinnedObject(), dds.Length, DDS_FLAGS.NONE);
-            int w = img.GetMetadata().Width / 2;
-            int h = img.GetMetadata().Height / 2;
-            if (TexHelper.Instance.IsCompressed(img.GetMetadata().Format))
+            try
             {
-                img = img.Decompress(DirectXTexNet.DXGI_FORMAT.R8G8B8A8_UNORM);
-            }
-            img = img.Resize(0, w, h, TEX_FILTER_FLAGS.LINEAR);
-            img = img.Compress(DirectXTexNet.DXGI_FORMAT.BC1_UNORM, TEX_COMPRESS_FLAGS.DEFAULT, 0.5f);
-            //img.OverrideFormat(DirectXTexNet.DXGI_FORMAT.BC2_UNORM_SRGB);
+                ScratchImage img = TexHelper.Instance.LoadFromDDSMemory(pinnedArray.AddrOfPinnedObject(), dds.Length, DDS_FLAGS.NONE);
+                int w = img.GetMetadata().Width / 2;
+                int h = img.GetMetadata().Height / 2;
+                if (TexHelper.Instance.IsCompressed(img.GetMetadata().Format))
+                {
+                    img = img.Decompress(DirectXTexNet.DXGI_FORMAT.R8G8B8A8_UNORM);
+                }
+                img = img.Resize(0, w, h, TEX_FILTER_FLAGS.LINEAR);
+                img = img.Compress(DirectXTexNet.DXGI_FORMAT.BC1_UNORM, TEX_COMPRESS_FLAGS.DEFAULT, 0.5f);
+                //img.OverrideFormat(DirectXTexNet.DXGI_FORMAT.BC2_UNORM_SRGB);
             
-            byte[] scaled;
-            using (UnmanagedMemoryStream uStream = img.SaveToDDSMemory(DDS_FLAGS.FORCE_DX10_EXT))
-            {
-                scaled = new byte[uStream.Length];
-                uStream.Read(scaled);
+                byte[] scaled;
+                using (UnmanagedMemoryStream uStream = img.SaveToDDSMemory(DDS_FLAGS.FORCE_DX10_EXT))
+                {
+                    scaled = new byte[uStream.Length];
+                    uStream.Read(scaled);
+                }
+                pinnedArray.Free();
+                img.Dispose();
+                return scaled;
+            } catch (Exception ex) {
+                Lort.Log($"{ex.Message} {ex.StackTrace} {ex.Source}", Lort.Type.Debug);
+                return null;
             }
-            pinnedArray.Free();
-            img.Dispose();
-            return scaled;
         }
 
         public static bool IsAlpha(string texPath)

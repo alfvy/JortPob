@@ -93,5 +93,67 @@ namespace JortPob.Model
 
             return obj;
         }
+
+        public static Obj COLLISIONtoOBJ(TES3.VecMesh collisions, Obj.CollisionMaterial material)
+        {
+            Obj obj = new();
+
+            for (int mIdx = 0; mIdx < collisions.Count; mIdx++)
+            {
+                var mesh = collisions[mIdx];
+                ObjG g = new();
+                g.name = material.ToString();
+                g.mtl = $"hkm_{g.name}_Safe1";
+
+                for (int tIdx = 0; tIdx < mesh.Triangles.Count; tIdx++)
+                {
+                    var tri = mesh.Triangles[tIdx];
+                    ObjV[] V = new ObjV[3];
+
+                    for (int i = 0; i < 3; i++)
+                    {
+                        int idx = (i == 0) ? tri.v0 : (i == 1 ? tri.v1 : tri.v2);
+
+                        // Position
+                        Vector3 pos = mesh.Vertices[idx].ToNumeric() * Const.GLOBAL_SCALE;
+                        pos.X *= -1f; // Mirror like your FBX pipeline
+
+                        // Normal
+                        Vector3 norm = (mesh.Normals != null && idx < mesh.Normals.Count)
+                            ? mesh.Normals[idx].ToNumeric()
+                            : Vector3.UnitY;
+                        norm.X *= -1f;
+
+                        // UVs
+                        Vector3 uvw;
+                        if (mesh.UvSet0 != null && idx < mesh.UvSet0.Count)
+                        {
+                            var uv = mesh.UvSet0[idx];
+                            uvw = new Vector3(uv.x, 1 - uv.y, 0); // flip V
+                        }
+                        else
+                        {
+                            uvw = Vector3.Zero;
+                        }
+
+                        // Push into OBJ arrays
+                        obj.vs.Add(pos);
+                        obj.vns.Add(norm);
+                        obj.vts.Add(uvw);
+
+                        V[i] = new ObjV(obj.vs.Count - 1, obj.vts.Count - 1, obj.vns.Count - 1);
+                    }
+
+                    // Reverse winding order like original code
+                    ObjF F = new ObjF(V[2], V[1], V[0]);
+                    g.fs.Add(F);
+                }
+
+                obj.gs.Add(g);
+            }
+
+            return obj;
+        }
+
     }
 }

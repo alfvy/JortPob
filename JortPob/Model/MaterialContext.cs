@@ -3,11 +3,13 @@ using SoulsFormats;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Xml;
+using TES3;
 
 namespace JortPob.Model
 {
@@ -189,6 +191,43 @@ namespace JortPob.Model
             { MaterialTemplate.Swamp, "Field_03_swamp"}              // swamp shader, functions similar to water, handled by liquidmanager
         };
 
+        public List<MaterialInfo> GenerateMaterials(List<Utf8String> texturePaths)
+        {
+            int index = 0;
+            List<MaterialInfo> materialInfos = new();
+            foreach (var sourceMaterial in texturePaths)
+            {
+                var mat = sourceMaterial;
+                if (mat.String != null && mat.String.ToLower().StartsWith("textures\\"))
+                {
+                    mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\{mat.String}");
+                } else if (Path.GetExtension(mat.String) == string.Empty)
+                {
+                    mat = Utf8String.From(Utility.ResourcePath(@"textures\tx_missing.dds"));
+                } else
+                {
+                    mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\Textures\\{mat.String}");
+                }
+
+                string diffuseTextureSourcePath = mat.String != null ? mat.String : Utility.ResourcePath(@"textures\tx_missing.dds");
+                    
+                string diffuseTexture = Utility.PathToFileName(diffuseTextureSourcePath);
+
+
+
+                /* Decide what kind of material to generate based on texture name */
+                if (diffuseTexture.Contains("leave") || diffuseTexture.Contains("leaf") || diffuseTexture.Contains("plant")) // @TODO: rework this system with an override
+                {
+                    materialInfos.Add(GenerateMaterialFoliage(mat, index++));
+                }
+                else
+                {
+                    materialInfos.Add(GenerateMaterialSingle(mat, index++));
+                }
+            }
+            return materialInfos;
+        }
+
         /* Create a full suite of a custom matbin, textures, and layout/gx/material info for a flver and return them all in a container */
         /* This method will make guesstimations based on the texture files about what type of material to use. For example, if the material has an alpha channel we will make it transparent */
         public List<MaterialInfo> GenerateMaterials(List<SharpAssimp.Material> sourceMaterials)
@@ -255,10 +294,104 @@ namespace JortPob.Model
 
             return new MaterialInfo(material, gx, layout, matbin, info, MaterialTemplate.Opaque);
         }
-
+        
         public MaterialInfo GenerateMaterialFoliage(SharpAssimp.Material sourceMaterial, int index)
         {
             string diffuseTextureSourcePath = sourceMaterial.TextureDiffuse.FilePath != null ? sourceMaterial.TextureDiffuse.FilePath : Utility.ResourcePath(@"textures\tx_missing.dds");
+            string normalTextureSourcePath = Utility.ResourcePath(@"textures\tx_flat.dds");
+            string diffuseTexture, normalTexture;
+            string AddTexture(string diffuseTextureSourcePath)
+            {
+                if (genTextures.ContainsKey(diffuseTextureSourcePath))
+                {
+                    return genTextures.GetValueOrDefault(diffuseTextureSourcePath);
+                }
+                else
+                {
+                    string n = Utility.PathToFileName(diffuseTextureSourcePath);
+                    genTextures.TryAdd(diffuseTextureSourcePath, n);
+                    return n;
+                }
+            }
+            diffuseTexture = AddTexture(diffuseTextureSourcePath);
+            normalTexture = AddTexture(normalTextureSourcePath);
+
+            string matbinTemplate = matbinTemplates[MaterialTemplate.Foliage];
+            string matbinName = diffuseTexture.StartsWith("tx_") ? $"mat_{diffuseTexture.Substring(3)}" : $"mat_{diffuseTexture}";
+
+            MATBIN matbin;
+            string matbinkey = $"{matbinTemplate}::{matbinName}";
+            if (genMATBINs.ContainsKey(matbinkey))
+            {
+                matbin = genMATBINs.GetValueOrDefault(matbinkey);
+            }
+            else
+            {
+                matbin = MATBIN.Read(Utility.ResourcePath($"matbins\\{matbinTemplate}.matbin"));
+                matbin.Samplers[0].Path = $"{diffuseTexture}";
+                matbin.Samplers[1].Path = $"{normalTexture}";
+                matbin.SourcePath = $"{matbinName}.matxml";
+                genMATBINs.TryAdd(matbinkey, matbin);
+            }
+
+            FLVER2.BufferLayout layout = GetLayout($"{matbinTemplate}.matxml", true);
+            FLVER2.GXList gx = GetGXList($"{matbinTemplate}.matxml");
+            FLVER2.Material material = GetMaterial($"{matbinTemplate}.matxml", index);
+            material.MTD = matbin.SourcePath;
+            material.Name = $"{matbinName}";
+
+            List<TextureInfo> info = new();
+            info.Add(new(diffuseTexture, $"textures\\{diffuseTexture}.tpf.dcx"));
+
+            return new MaterialInfo(material, gx, layout, matbin, info, MaterialTemplate.Foliage);
+        }
+
+        public MaterialInfo GenerateMaterialSingle(Utf8String sourceMaterial, int index)
+        {
+            string diffuseTextureSourcePath = sourceMaterial.String != null && sourceMaterial.String != "" ? sourceMaterial.String : Utility.ResourcePath(@"textures\tx_missing.dds");
+            string diffuseTexture;
+            if (genTextures.ContainsKey(diffuseTextureSourcePath))
+            {
+                diffuseTexture = genTextures.GetValueOrDefault(diffuseTextureSourcePath);
+            }
+            else
+            {
+                diffuseTexture = Utility.PathToFileName(diffuseTextureSourcePath);
+                genTextures.TryAdd(diffuseTextureSourcePath, diffuseTexture);
+            }
+
+            string matbinTemplate = matbinTemplates[MaterialTemplate.Opaque];
+            string matbinName = diffuseTexture.StartsWith("tx_") ? $"mat_{diffuseTexture.Substring(3)}" : $"mat_{diffuseTexture}";
+
+            MATBIN matbin;
+            string matbinkey = $"{matbinTemplate}::{matbinName}";
+            if (genMATBINs.ContainsKey(matbinkey))
+            {
+                matbin = genMATBINs.GetValueOrDefault(matbinkey);
+            }
+            else
+            {
+                matbin = MATBIN.Read(Utility.ResourcePath($"matbins\\{matbinTemplate}.matbin"));
+                matbin.Samplers[0].Path = $"{diffuseTexture}";
+                matbin.SourcePath = $"{matbinName}.matxml";
+                genMATBINs.TryAdd(matbinkey, matbin);
+            }
+
+            FLVER2.BufferLayout layout = GetLayout($"{matbinTemplate}.matxml", true);
+            FLVER2.GXList gx = GetGXList($"{matbinTemplate}.matxml");
+            FLVER2.Material material = GetMaterial($"{matbinTemplate}.matxml", index++);
+            material.MTD = matbin.SourcePath;
+            material.Name = $"{matbinName}";
+
+            List<TextureInfo> info = new();
+            info.Add(new(diffuseTexture, $"textures\\{diffuseTexture}.tpf.dcx"));
+
+            return new MaterialInfo(material, gx, layout, matbin, info, MaterialTemplate.Opaque);
+        }
+
+        public MaterialInfo GenerateMaterialFoliage(Utf8String sourceMaterial, int index)
+        {
+            string diffuseTextureSourcePath = sourceMaterial.String != null ? sourceMaterial.String : Utility.ResourcePath(@"textures\tx_missing.dds");
             string normalTextureSourcePath = Utility.ResourcePath(@"textures\tx_flat.dds");
             string diffuseTexture, normalTexture;
             string AddTexture(string diffuseTextureSourcePath)
@@ -679,39 +812,96 @@ namespace JortPob.Model
             foreach (KeyValuePair<string, string> kvp in genTextures)
             {
                 /* Load dds */
-                byte[] data = File.ReadAllBytes(kvp.Key);
+                var path = kvp.Key;
+                if (Path.GetExtension(path) == string.Empty)
+                {
+                    Lort.TaskIterate();
+                    continue;
+                }
+                if (path.ToLower().Contains(".tga"))
+                {
+                    path = path.Replace(".tga", ".dds");
+                }
+                if (path.ToLower().Contains(".bmp"))
+                {
+                    path = path.ToLower().Replace(".bmp", ".dds");
+                }
+                byte[] data = File.ReadAllBytes(path);
+                //for debugging
+                //Lort.Log($"Binding {path}", Lort.Type.Debug);
+                //Lort.Log($"Texture {path} exists?: {File.Exists(path)}", Lort.Type.Debug);
                 byte[] dataLow = Common.DDS.Scale(data);
 
-                /* Bind up the texture */
+                if (dataLow != null)
                 {
-                    int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(data);
+                    /* Bind up the texture */
+                    {
+                        int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(data);
 
-                    TPF tpf = new TPF();
-                    tpf.Encoding = 1;
-                    tpf.Flag2 = 3;
-                    tpf.Platform = TPF.TPFPlatform.PC;
-                    tpf.Compression = DCX.Type.DCX_KRAK;
+                        TPF tpf = new TPF();
+                        tpf.Encoding = 1;
+                        tpf.Flag2 = 3;
+                        tpf.Platform = TPF.TPFPlatform.PC;
+                        tpf.Compression = DCX.Type.DCX_KRAK;
 
-                    TPF.Texture tex = new($"{kvp.Value}", (byte)format, 0, data, TPF.TPFPlatform.PC);
-                    tpf.Textures.Add(tex);
+                        TPF.Texture tex = new($"{kvp.Value}", (byte)format, 0, data, TPF.TPFPlatform.PC);
+                        tpf.Textures.Add(tex);
 
-                    tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}.tpf.dcx");
+                        tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}.tpf.dcx");
+                    }
+
+                    /* And then, make a low detail texture for lods and bind that up */
+                    {
+                        int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(dataLow);
+
+                        TPF tpf = new TPF();
+                        tpf.Encoding = 1;
+                        tpf.Flag2 = 3;
+                        tpf.Platform = TPF.TPFPlatform.PC;
+                        tpf.Compression = DCX.Type.DCX_KRAK;
+
+                        TPF.Texture tex = new($"{kvp.Value}_l", (byte)format, 0, dataLow, TPF.TPFPlatform.PC);
+                        tpf.Textures.Add(tex);
+
+                        tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}_l.tpf.dcx");
+                    }
                 }
-
-                /* And then, make a low detail texture for lods and bind that up */
+                else
                 {
-                    int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(dataLow);
+                    var errorData = File.ReadAllBytes(Utility.ResourcePath(@"textures\tx_missing.dds"));
+                    var errorDataLow = Common.DDS.Scale(errorData);
 
-                    TPF tpf = new TPF();
-                    tpf.Encoding = 1;
-                    tpf.Flag2 = 3;
-                    tpf.Platform = TPF.TPFPlatform.PC;
-                    tpf.Compression = DCX.Type.DCX_KRAK;
+                    /* Bind up the texture */
+                    {
+                        int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(errorData);
 
-                    TPF.Texture tex = new($"{kvp.Value}_l", (byte)format, 0, dataLow, TPF.TPFPlatform.PC);
-                    tpf.Textures.Add(tex);
+                        TPF tpf = new TPF();
+                        tpf.Encoding = 1;
+                        tpf.Flag2 = 3;
+                        tpf.Platform = TPF.TPFPlatform.PC;
+                        tpf.Compression = DCX.Type.DCX_KRAK;
 
-                    tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}_l.tpf.dcx");
+                        TPF.Texture tex = new($"{kvp.Value}", (byte)format, 0, errorData, TPF.TPFPlatform.PC);
+                        tpf.Textures.Add(tex);
+
+                        tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}.tpf.dcx");
+                    }
+
+                    /* And then, make a low detail texture for lods and bind that up */
+                    {
+                        int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(errorDataLow);
+
+                        TPF tpf = new TPF();
+                        tpf.Encoding = 1;
+                        tpf.Flag2 = 3;
+                        tpf.Platform = TPF.TPFPlatform.PC;
+                        tpf.Compression = DCX.Type.DCX_KRAK;
+
+                        TPF.Texture tex = new($"{kvp.Value}_l", (byte)format, 0, errorDataLow, TPF.TPFPlatform.PC);
+                        tpf.Textures.Add(tex);
+
+                        tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}_l.tpf.dcx");
+                    }
                 }
 
                 Lort.TaskIterate();

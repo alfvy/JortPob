@@ -16,9 +16,18 @@
     <Reference Include="StudioUtils">
       <HintPath>..\JortPob\DLL\StudioUtils.dll</HintPath>
     </Reference>
+    <Reference Include="tes3-interop">
+      <HintPath>..\JortPob\DLL\tes3-interop.dll</HintPath>
+    </Reference>
     <Reference Include="WitchyFormats">
       <HintPath>..\JortPob\DLL\WitchyFormats.dll</HintPath>
     </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="tes3.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

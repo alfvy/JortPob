@@ -52,6 +52,9 @@
     <Reference Include="StudioUtils">
       <HintPath>DLL\StudioUtils.dll</HintPath>
     </Reference>
+    <Reference Include="tes3-interop">
+      <HintPath>DLL\tes3-interop.dll</HintPath>
+    </Reference>
     <Reference Include="WitchyFormats">
       <HintPath>DLL\WitchyFormats.dll</HintPath>
     </Reference>
@@ -77,6 +80,12 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="DLL\SoulsIds.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DLL\tes3-interop.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DLL\tes3.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="libzstd.dll">
