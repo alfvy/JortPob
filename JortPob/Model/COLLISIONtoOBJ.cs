@@ -136,6 +136,13 @@ namespace JortPob.Model
                             uvw = Vector3.Zero;
                         }
 
+                        Matrix4x4 rotateY180Matrix = Matrix4x4.CreateRotationY((float)Math.PI);
+                        Matrix4x4 rotateX90Matrix = Matrix4x4.CreateRotationX((float)Math.PI/2.0f);
+                        var fixedRotation = rotateY180Matrix * rotateX90Matrix;
+
+                        pos = Vector3.Transform(pos, fixedRotation);
+                        norm = Vector3.Transform(norm, fixedRotation);
+
                         // Push into OBJ arrays
                         obj.vs.Add(pos);
                         obj.vns.Add(norm);
@@ -154,6 +161,5 @@ namespace JortPob.Model
 
             return obj;
         }
-
     }
 }

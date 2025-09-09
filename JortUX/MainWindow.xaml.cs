@@ -40,32 +40,6 @@ namespace JortUX
             }
         }
 
-        //public void ReRender()
-        //{
-        //    TextBlock main = (TextBlock)FindName("MainOutput");
-        //    TextBlock debug = (TextBlock)FindName("DebugOutput");
-        //    TextBlock progress = (TextBlock)FindName("ProgressOutput");
-        //    ProgressBar bar = (ProgressBar)FindName("ProgressBar");
-        //    string mainText = "", debugText = "";
-        //    foreach(string line in JortPob.Common.Lort.mainOutput)
-        //    {
-        //        mainText = line + "\n" + mainText;
-        //    }
-        //    foreach(string line in JortPob.Common.Lort.debugOutput)
-        //    {
-        //        debugText = line + "\n" + debugText;
-        //    }
-
-        //    main.Text = mainText;
-        //    debug.Text = debugText;
-        //    progress.Text = $"{JortPob.Common.Lort.progressOutput} [ {JortPob.Common.Lort.current} / {JortPob.Common.Lort.total} ]";
-        //    float p = Math.Max(0, Math.Min(1, ((float)JortPob.Common.Lort.current / (float)JortPob.Common.Lort.total))) * 100f;
-        //    if (float.IsNaN(p)) { p = 0; }
-        //    bar.Value = p;
-
-        //    JortPob.Common.Lort.update = false;
-        //}
-
         public void ReRender()
         {
             TextBlock main = (TextBlock)FindName("MainOutput");

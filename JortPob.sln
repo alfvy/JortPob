@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JortPob", "JortPob\JortPob.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JortUX", "JortUX\JortUX.csproj", "{807E75F9-9521-49CF-8CA4-F55637CCD69C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Runner", "Runner\Runner.csproj", "{906696BF-DE5B-45A9-BB90-A11458A406C5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{807E75F9-9521-49CF-8CA4-F55637CCD69C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{807E75F9-9521-49CF-8CA4-F55637CCD69C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{807E75F9-9521-49CF-8CA4-F55637CCD69C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{906696BF-DE5B-45A9-BB90-A11458A406C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{906696BF-DE5B-45A9-BB90-A11458A406C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{906696BF-DE5B-45A9-BB90-A11458A406C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{906696BF-DE5B-45A9-BB90-A11458A406C5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -67,20 +67,20 @@ namespace JortPob.Model
                 }
             }
 
-            for (int i = flver.BufferLayouts.Count - 1; i >= 0; i--)
-            {
-                if (!usedLayouts.Contains(i))
-                {
-                    flver.BufferLayouts.RemoveAt(i);
-                    foreach (FLVER2.Mesh mesh in flver.Meshes)
-                    {
-                        foreach (FLVER2.VertexBuffer vb in mesh.VertexBuffers)
-                        {
-                            if (vb.LayoutIndex > i) { vb.LayoutIndex--; }
-                        }
-                    }
-                }
-            }
+            //for (int i = flver.BufferLayouts.Count - 1; i >= 0; i--)
+            //{
+            //    if (!usedLayouts.Contains(i))
+            //    {
+            //        flver.BufferLayouts.RemoveAt(i);
+            //        foreach (FLVER2.Mesh mesh in flver.Meshes)
+            //        {
+            //            foreach (FLVER2.VertexBuffer vb in mesh.VertexBuffers)
+            //            {
+            //                if (vb.LayoutIndex > i) { vb.LayoutIndex--; }
+            //            }
+            //        }
+            //    }
+            //}
 
 
             /* Delete unused gxlists */
@@ -151,14 +151,14 @@ namespace JortPob.Model
 
             public VertexKey(FLVER.Vertex vertex)
             {
-                uvs = [];
+                uvs = vertex.UVs;
                 position = vertex.Position;
                 normal = vertex.Normal;
     
-                foreach(Vector3 uv in  vertex.UVs)
-                {
-                    uvs.Add(uv);
-                }
+                //foreach(Vector3 uv in  vertex.UVs)
+                //{
+                //    uvs.Add(uv);
+                //}
 
                 string uvCombinedHash = "";
                 foreach (Vector3 uv in uvs)

@@ -201,19 +201,17 @@ namespace JortPob.Model
                 if (mat.String != null && mat.String.ToLower().StartsWith("textures\\"))
                 {
                     mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\{mat.String}");
-                } else if (Path.GetExtension(mat.String) == string.Empty)
-                {
-                    mat = Utf8String.From(Utility.ResourcePath(@"textures\tx_missing.dds"));
                 } else
                 {
                     mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\Textures\\{mat.String}");
                 }
 
-                string diffuseTextureSourcePath = mat.String != null ? mat.String : Utility.ResourcePath(@"textures\tx_missing.dds");
-                    
-                string diffuseTexture = Utility.PathToFileName(diffuseTextureSourcePath);
+                if (Path.GetExtension(mat.String) == string.Empty)
+                {
+                    mat = Utf8String.From(Utility.ResourcePath(@"textures\tx_missing.dds"));
+                }
 
-
+                string diffuseTexture = Utility.PathToFileName(mat.String);
 
                 /* Decide what kind of material to generate based on texture name */
                 if (diffuseTexture.Contains("leave") || diffuseTexture.Contains("leaf") || diffuseTexture.Contains("plant")) // @TODO: rework this system with an override
