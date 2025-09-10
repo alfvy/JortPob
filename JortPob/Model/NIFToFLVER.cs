@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Drawing.Printing;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -93,7 +94,10 @@ namespace JortPob.Model
                 flverBuffer.LayoutIndex = idx;
                 flverMesh.VertexBuffers.Add(flverBuffer);
 
-                var uvSanity = new List<dynamic>();
+                Matrix4x4 mt = Matrix4x4.CreateTranslation(mesh.Transform.Translation.ToVector3());
+                Matrix4x4 mr = Matrix4x4.CreateFromQuaternion(mesh.Transform.Rotation.ToQuaternion());
+                Matrix4x4 ms = Matrix4x4.CreateScale(mesh.Transform.Scale);
+
                 for (int f = 0; f < mesh.Triangles.Count; f++)
                 {
                     for (int t = 0; t < 3; t++)
@@ -107,6 +111,12 @@ namespace JortPob.Model
                         Vector3 norm = mesh.Normals[vertIdx].ToNumeric();
                         Vector3 tang = new Vector3(1, 0, 0);
                         Vector3 bitang  = new Vector3(0, 0, 1);
+
+                        // collapse the mesh transform onto the vert data
+                        pos = Vector3.Transform(pos, ms * mr * mt);
+                        norm = Vector3.TransformNormal(norm, mr);
+                        tang = Vector3.TransformNormal(tang, mr);
+                        bitang = Vector3.TransformNormal(bitang, mr);
 
                         // Fromsoftware lives in the mirror dimension. I do not know why.
                         pos = pos * Const.GLOBAL_SCALE;
@@ -130,13 +140,11 @@ namespace JortPob.Model
                         {
                             var uv = mesh.UvSet0[vertIdx];
                             flverVertex.UVs.Add(new Vector3(uv.x, uv.y, 0));
-                            uvSanity.Add(uv);
                         }
                         else
                         {
                             if (flverVertex.UVs == null) flverVertex.UVs = new();
                             flverVertex.UVs.Add(new Vector3(0, 0, 0));
-                            uvSanity.Add(Vector3.Zero);
                         }
 
                         flverVertex.Bitangent = new Vector4(bitang.X, bitang.Y, bitang.Z, 0);
@@ -279,6 +287,24 @@ namespace JortPob.Model
         public static Vector3 ToNumeric(this Vec3 vec)
         {
             return new System.Numerics.Vector3(vec.x, vec.y, vec.z);
+        }
+
+        public static Vector3 ToVector3(this float[] floats)
+        {
+            if (floats.Length < 3) return Vector3.Zero;
+            return new Vector3(floats[0], floats[1], floats[2]);
+        }
+
+        public static Vector4 ToVector4(this float[] floats)
+        {
+            if (floats.Length < 4) return Vector4.Zero;
+            return new Vector4(floats[0], floats[1], floats[2], floats[3]);
+        }
+
+        public static Quaternion ToQuaternion(this float[] floats)
+        {
+            if (floats.Length < 4) return Quaternion.Identity;
+            return new Quaternion(floats[0], floats[1], floats[2], floats[3]);
         }
 
         public static Vector3 ToNumeric(this Vec2 vec)

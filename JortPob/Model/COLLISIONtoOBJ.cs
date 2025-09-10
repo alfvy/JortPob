@@ -105,9 +105,14 @@ namespace JortPob.Model
                 g.name = material.ToString();
                 g.mtl = $"hkm_{g.name}_Safe1";
 
+                Matrix4x4 mt = Matrix4x4.CreateTranslation(mesh.Transform.Translation.ToVector3());
+                Matrix4x4 mr = Matrix4x4.CreateFromQuaternion(mesh.Transform.Rotation.ToQuaternion());
+                Matrix4x4 ms = Matrix4x4.CreateScale(mesh.Transform.Scale);
+
                 for (int tIdx = 0; tIdx < mesh.Triangles.Count; tIdx++)
                 {
                     var tri = mesh.Triangles[tIdx];
+
                     ObjV[] V = new ObjV[3];
 
                     for (int i = 0; i < 3; i++)
@@ -115,13 +120,14 @@ namespace JortPob.Model
                         int idx = (i == 0) ? tri.v0 : (i == 1 ? tri.v1 : tri.v2);
 
                         // Position
-                        Vector3 pos = mesh.Vertices[idx].ToNumeric() * Const.GLOBAL_SCALE;
-                        pos.X *= -1f; // Mirror like your FBX pipeline
+                        Vector3 pos = mesh.Vertices[idx].ToNumeric();
+                        Vector3 norm = mesh.Normals[idx].ToNumeric();
 
-                        // Normal
-                        Vector3 norm = (mesh.Normals != null && idx < mesh.Normals.Count)
-                            ? mesh.Normals[idx].ToNumeric()
-                            : Vector3.UnitY;
+                        pos = Vector3.Transform(pos, ms * mr * mt);
+                        norm = Vector3.TransformNormal(norm, mr);
+
+                        pos = pos * Const.GLOBAL_SCALE;
+                        pos.X *= -1f;
                         norm.X *= -1f;
 
                         // UVs
