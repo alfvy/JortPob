@@ -1,21 +1,11 @@
-﻿using HKLib.hk2018.hkHashMapDetail;
-using JortPob.Common;
+﻿using JortPob.Common;
 using SoulsFormats;
-using SoulsFormats.Formats.Morpheme.MorphemeBundle.Network;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
-using System.Drawing.Printing;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 using TES3;
-using static JortPob.Model.MaterialContext;
 
 namespace JortPob.Model
 {
@@ -63,10 +53,14 @@ namespace JortPob.Model
                 textures.Add(nif.VisualMeshes[texI].Texture);
             }
 
-            /* Generate material data */
-            List<MaterialContext.MaterialInfo> materialInfos = materialContext.GenerateMaterials(textures);
-            foreach (MaterialContext.MaterialInfo mat in materialInfos)
+            for (int idx = 0; idx < nif.VisualMeshes.Count; idx++)
             {
+                var mesh = nif.VisualMeshes[idx];
+
+                nodes.Add(new ($"Mesh {idx}", new Vector3(mesh.Transform.Translation)));
+
+                var mat = materialContext.GenerateMaterial(textures[idx], idx);
+
                 flver.Materials.Add(mat.material);
                 flver.GXLists.Add(mat.gx);
                 flver.BufferLayouts.Add(mat.layout);
@@ -74,13 +68,6 @@ namespace JortPob.Model
                 {
                     modelInfo.textures.Add(info);
                 }
-            }
-
-            for (int idx = 0; idx < nif.VisualMeshes.Count; idx++)
-            {
-                var mesh = nif.VisualMeshes[idx];
-
-                nodes.Add(new ($"Mesh {idx}", new Vector3(mesh.Transform.Translation)));
 
                 FLVER2.Mesh flverMesh = new();
                 FLVER2.FaceSet flverFaces = new();
@@ -152,7 +139,7 @@ namespace JortPob.Model
 
                         flverVertex.Colors.Add(new FLVER.VertexColor(255, 255, 255, 255));
 
-                        if (materialInfos[idx].template == MaterialContext.MaterialTemplate.Foliage)
+                        if (mat.template == MaterialContext.MaterialTemplate.Foliage)
                         {
                             flverVertex.UVs.Add(new Vector3(0f, .2f, 0f));
                             flverVertex.UVs.Add(new Vector3(1f, 1f, 0f));
@@ -164,7 +151,6 @@ namespace JortPob.Model
                     }
 
                 }
-                //Lort.Log($"Mesh {idx} in {modelPath} has {uvSanity.Count} uvs", Lort.Type.Debug);
 
                 flver.Meshes.Add(flverMesh);
             }
@@ -267,9 +253,47 @@ namespace JortPob.Model
 
                 obj = obj.optimize();
                 obj.write(objPath);
-            }
 
+                // check for bounding box difference between visual and collision meshes
+                //obj.GetBounds(out var min, out var max);
+                //var result = CompareBoundingBoxes(rootNode.BoundingBoxMax, rootNode.BoundingBoxMin, max, min);
+                //if (result > 0)
+                //{
+                //    Lort.Log($"{Path.GetFileNameWithoutExtension(modelPath)} has a bigger bb, by: {result}", Lort.Type.Debug);
+                //} else
+                //{
+                //    Lort.Log($"{Path.GetFileNameWithoutExtension(modelPath)} has a smaller bb, by: {result}", Lort.Type.Debug);
+                //}
+            }
             return modelInfo;
+        }
+
+        private static float CompareBoundingBoxes(Vector3 maxA, Vector3 minA, Vector3 maxB, Vector3 minB)
+        {
+            // Compute sizes
+            Vector3 sizeA = maxA - minA;
+            Vector3 sizeB = maxB - minB;
+
+            // Volume
+            float volumeA = sizeA.X * sizeA.Y * sizeA.Z;
+            float volumeB = sizeB.X * sizeB.Y * sizeB.Z;
+
+            Console.WriteLine($"A volume = {volumeA}");
+            Console.WriteLine($"B volume = {volumeB}");
+
+            if (volumeA > volumeB) Console.WriteLine("A is bigger");
+            else if (volumeA < volumeB) Console.WriteLine("B is bigger");
+            else Console.WriteLine("Equal volume");
+
+            // Per-axis comparison
+            Console.WriteLine($"Width comparison: {(sizeA.X > sizeB.X ? "A wider" : "B wider or equal")}");
+            Console.WriteLine($"Height comparison: {(sizeA.Y > sizeB.Y ? "A taller" : "B taller or equal")}");
+            Console.WriteLine($"Depth comparison: {(sizeA.Z > sizeB.Z ? "A deeper" : "B deeper or equal")}");
+
+            // Diagonal length
+            float diagA = sizeA.Length();
+            float diagB = sizeB.Length();
+            return diagA - diagB;
         }
     }
 
@@ -315,6 +339,29 @@ namespace JortPob.Model
         public static int T(this Triangle tri, int i)
         {
             return (new int[] { tri.v0, tri.v1, tri.v2 })[i];
+        }
+
+        public static void GetBounds(this Obj obj, out Vector3 min, out Vector3 max)
+        {
+            if (obj.vs == null || obj.vs.Count == 0)
+            {
+                min = max = Vector3.Zero;
+                return;
+            }
+
+            min = obj.vs[0];
+            max = obj.vs[0];
+
+            foreach (var v in obj.vs)
+            {
+                if (v.X < min.X) min.X = v.X;
+                if (v.Y < min.Y) min.Y = v.Y;
+                if (v.Z < min.Z) min.Z = v.Z;
+
+                if (v.X > max.X) max.X = v.X;
+                if (v.Y > max.Y) max.Y = v.Y;
+                if (v.Z > max.Z) max.Z = v.Z;
+            }
         }
     }
 }

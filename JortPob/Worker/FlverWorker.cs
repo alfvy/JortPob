@@ -3,6 +3,7 @@ using JortPob.Model;
 using SharpAssimp;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace JortPob.Worker
@@ -93,6 +94,10 @@ namespace JortPob.Worker
             }
             assimpContext.Dispose();
 
+            //var barkbark = models.AsParallel().Where(m => m.textures.Any(t => t.name.ToLower().Contains("wood")) || m.textures.Any(t => t.name.ToLower().Contains("wood") || m.textures.Any(t => t.name.ToLower().Contains("wood")))).Count();
+
+            //Lort.Log($"{barkbark} models contain wood materials", Lort.Type.Debug);
+
             IsDone = true;
             ExitCode = 0;
         }
@@ -100,7 +105,7 @@ namespace JortPob.Worker
         public static List<ModelInfo> Go(MaterialContext materialContext, List<PreModel> meshes)
         {
             Lort.Log($"Converting {meshes.Count} models...", Lort.Type.Main); // Not that slow but multithreading good
-            Lort.NewTask("Converting FBX", meshes.Count);
+            Lort.NewTask("Converting NIF", meshes.Count);
 
             int partition = (int)Math.Ceiling(meshes.Count / (float)Const.THREAD_COUNT);
             List<FlverWorker> workers = new();

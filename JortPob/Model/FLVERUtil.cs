@@ -67,20 +67,20 @@ namespace JortPob.Model
                 }
             }
 
-            //for (int i = flver.BufferLayouts.Count - 1; i >= 0; i--)
-            //{
-            //    if (!usedLayouts.Contains(i))
-            //    {
-            //        flver.BufferLayouts.RemoveAt(i);
-            //        foreach (FLVER2.Mesh mesh in flver.Meshes)
-            //        {
-            //            foreach (FLVER2.VertexBuffer vb in mesh.VertexBuffers)
-            //            {
-            //                if (vb.LayoutIndex > i) { vb.LayoutIndex--; }
-            //            }
-            //        }
-            //    }
-            //}
+            for (int i = flver.BufferLayouts.Count - 1; i >= 0; i--)
+            {
+                if (!usedLayouts.Contains(i))
+                {
+                    flver.BufferLayouts.RemoveAt(i);
+                    foreach (FLVER2.Mesh mesh in flver.Meshes)
+                    {
+                        foreach (FLVER2.VertexBuffer vb in mesh.VertexBuffers)
+                        {
+                            if (vb.LayoutIndex > i) { vb.LayoutIndex--; }
+                        }
+                    }
+                }
+            }
 
 
             /* Delete unused gxlists */

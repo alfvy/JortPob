@@ -226,6 +226,35 @@ namespace JortPob.Model
             return materialInfos;
         }
 
+        public MaterialInfo GenerateMaterial(Utf8String mat, int index)
+        {
+            if (mat.String != null && mat.String.ToLower().StartsWith("textures\\"))
+            {
+                mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\{mat.String}");
+            }
+            else
+            {
+                mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\Textures\\{mat.String}");
+            }
+
+            if (Path.GetExtension(mat.String) == string.Empty)
+            {
+                mat = Utf8String.From(Utility.ResourcePath(@"textures\tx_missing.dds"));
+            }
+
+            string diffuseTexture = Utility.PathToFileName(mat.String);
+
+            /* Decide what kind of material to generate based on texture name */
+            if (diffuseTexture.Contains("leave") || diffuseTexture.Contains("leaf") || diffuseTexture.Contains("plant")) // @TODO: rework this system with an override
+            {
+                return GenerateMaterialFoliage(mat, index);
+            }
+            else
+            {
+                return GenerateMaterialSingle(mat, index);
+            }
+        }
+
         /* Create a full suite of a custom matbin, textures, and layout/gx/material info for a flver and return them all in a container */
         /* This method will make guesstimations based on the texture files about what type of material to use. For example, if the material has an alpha channel we will make it transparent */
         public List<MaterialInfo> GenerateMaterials(List<SharpAssimp.Material> sourceMaterials)
