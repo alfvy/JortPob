@@ -94,7 +94,7 @@ namespace JortPob
     /* npcs, humanoid only */
     public class NpcContent : Content
     {
-        public enum Race { Any, Argonian, Khajiit, Imperial, Redguard, Nord, Breton, WoodElf, DarkElf, HighElf, Orc }
+        public enum Race { Any = 0, Argonian = 1, Breton = 2, DarkElf = 3, HighElf = 4, Imperial = 5, Khajiit = 6, Nord = 7, Orc = 8, Redguard = 9, WoodElf = 10 }
         public enum Sex { Any, Male, Female };
 
         public readonly string name, job, faction; // class is job, cant used reserved word

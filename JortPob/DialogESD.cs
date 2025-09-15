@@ -8,23 +8,29 @@ using static JortPob.NpcManager.TopicData;
 using static SoulsFormats.DRB.Shape;
 using static SoulsFormats.MSBS.Event;
 using static JortPob.Dialog;
+using System;
+using HKX2;
 
 namespace JortPob
 {
     /* Handles python state machine code generation for a dialog ESD */
     public class DialogESD
     {
-        private ScriptManager scriptManager;
-        private Script areaScript;
-        private NpcContent npcContent;
+        private readonly ScriptManager scriptManager;
+        private readonly TextManager textManager;
+        private readonly Script areaScript;
+        private readonly NpcContent npcContent;
 
-        private List<string> defs = new();
+        private readonly List<string> defs;
 
-        public DialogESD(ScriptManager scriptManager, Script areaScript, uint id, NpcContent npcContent, List<NpcManager.TopicData> topicData)
+        public DialogESD(ScriptManager scriptManager, TextManager textManager, Script areaScript, uint id, NpcContent npcContent, List<NpcManager.TopicData> topicData)
         {
             this.scriptManager = scriptManager;
+            this.textManager = textManager;
             this.areaScript = areaScript;
             this.npcContent = npcContent;
+
+            defs = new();
 
             // Create flags for this character's disposition and first greeting
             Script.Flag firstGreet = areaScript.CreateFlag(Script.Flag.Category.Saved, Script.Flag.Type.Bit, Script.Flag.Designation.TalkedToPc, npcContent.id);
@@ -498,6 +504,10 @@ namespace JortPob
             string id_s = id.ToString("D9");
             int shop1 = 100625;
             int shop2 = 100649;
+
+            List<string> generatedStates = new();
+            int nxtGenStateId = 45;
+
             string s = $"def t{id_s}_x44(shop1={shop1}, shop2={shop2}):\r\n    \"\"\"State 0\"\"\"\r\n    while True:\r\n        \"\"\"State 1\"\"\"\r\n        ClearPreviousMenuSelection()\r\n        ClearTalkActionState()\r\n        ClearTalkListData()\r\n        \"\"\"State 2\"\"\"\r\n";
 
             int listCount = 1; // starts at 1 idk
@@ -543,6 +553,8 @@ namespace JortPob
 
                 foreach (NpcManager.TopicData.TalkData talk in topic.talks)
                 {
+                    if (talk.dialogInfo.type == DialogRecord.Type.Choice) { continue; } // choice dialogs are unreachable from this context, discard
+
                     string filters = talk.dialogInfo.GenerateCondition(scriptManager, npcContent);
                     if(filters != "") { filters = $" and {filters}"; }
 
@@ -557,7 +569,17 @@ namespace JortPob
 
                     if (talk.dialogInfo.script != null)
                     {
-                        s += talk.dialogInfo.script.GenerateEsdSnippet(scriptManager, npcContent, 12);
+                        if (talk.dialogInfo.script.calls.Count() > 0)
+                        {
+                            s += talk.dialogInfo.script.GenerateEsdSnippet(scriptManager, npcContent, 12);
+                        }
+                        if(talk.dialogInfo.script.choice != null)
+                        {
+                            string genState = GeneratedState_Choice(id, nxtGenStateId, talk.dialogInfo.script.choice, topic);
+                            generatedStates.Add(genState);
+                            s += $"            assert t{id_s}_x{nxtGenStateId}()\r\n";
+                            nxtGenStateId++;
+                        }
                     }
 
 
@@ -565,7 +587,77 @@ namespace JortPob
                 }
             }
 
-            s += "        else:\r\n            \"\"\"State 10,11\"\"\"\r\n            return 0\r\n";
+            s += "        else:\r\n            \"\"\"State 10,11\"\"\"\r\n            return 0\r\n\r\n";
+
+            foreach(string genState in generatedStates)
+            {
+                s += genState;
+            }
+
+            return s;
+        }
+
+        private string GeneratedState_Choice(uint id, int x, DialogPapyrus.PapyrusChoice choice, NpcManager.TopicData topic)
+        {
+            string id_s = id.ToString("D9");
+
+            string s = "";
+            s += $"def t{id_s}_x{x}():\r\n    \"\"\"State 0\"\"\"\r\n    while True:\r\n        \"\"\"State 1\"\"\"\r\n        ClearPreviousMenuSelection()\r\n        ClearTalkActionState()\r\n        ClearTalkListData()\r\n        \"\"\"State 2\"\"\"\r\n";
+
+            string createList = "";
+            string executeList = "";
+
+            string ifop = "if";
+            foreach (Tuple<int, string> tuple in choice.choices)
+            {
+                int choiceId = tuple.Item1;
+                string choiceText = tuple.Item2;
+
+                for (int i = 0; i < topic.talks.Count(); i++)
+                {
+                    NpcManager.TopicData.TalkData talkData = topic.talks[i];
+                    if (talkData.dialogInfo.type != DialogRecord.Type.Choice) { continue; }
+
+                    // check if talkdata has the correct choice index
+                    bool match = false;
+                    foreach(Dialog.DialogFilter filter in talkData.dialogInfo.filters)
+                    {
+                        if(filter.type == DialogFilter.Type.Function && filter.function == DialogFilter.Function.Choice && filter.value == choiceId)
+                        {
+                            match = true; break;
+                        } 
+                    }
+                    if (!match) { continue; }
+
+                    int choiceTextId = textManager.AddChoice(choiceText);
+
+                    createList += $"        # action:{choiceTextId}:\"{choiceText}\"\r\n        AddTalkListData({choiceId}, {choiceTextId}, -1)\r\n";
+                    executeList += $"        {ifop} GetTalkListEntryResult() == {choiceId}:\r\n            assert t{id_s}_x33(text2={talkData.talkRow}, mode4=1)\r\n";
+                    if (talkData.dialogInfo.script != null)
+                    {
+                        executeList += talkData.dialogInfo.script.GenerateEsdSnippet(scriptManager, npcContent, 12);
+                    }
+
+                    if (ifop == "if") { ifop = "elif"; }
+
+                    break;
+                }
+            }
+
+            // Bethesda bug workaround!
+            // It is possible for a choice to have no valid options. Bethesda has some bugs like this in the base game
+            // In this stupid case we just return a blank-ish def that just returns 0.
+            if(createList == "")
+            {
+                return $"def t{id_s}_x{x}():\r\n    \"\"\"State 0\"\"\"\r\n    return 0\r\n\r\n";
+            }
+
+            s += createList;
+            s += $"        \"\"\"State 3\"\"\"\r\n        ShowShopMessage(TalkOptionsType.Regular)\r\n        \"\"\"State 4\"\"\"\r\n        assert not (CheckSpecificPersonMenuIsOpen(1, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n        \"\"\"State 5\"\"\"\r\n";
+            s += executeList;
+            s += "        else:\r\n            pass\r\n";
+            s += $"        \"\"\"State 10,11\"\"\"\r\n        return 0\r\n\r\n";
+
             return s;
         }
     }

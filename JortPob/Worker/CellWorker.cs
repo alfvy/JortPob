@@ -79,17 +79,18 @@ namespace JortPob.Worker
 
         public static List<List<Cell>> Go(ESM esm)
         {
-            Lort.Log($"Parsing {esm.records[ESM.Type.Cell].Count} cells...", Lort.Type.Main);
-            Lort.NewTask("Parsing Cells", esm.records[ESM.Type.Cell].Count);
+            var cellRecords = esm.GetAllRecordsByType(ESM.Type.Cell).ToList();
+            Lort.Log($"Parsing {cellRecords.Count} cells...", Lort.Type.Main);
+            Lort.NewTask("Parsing Cells", cellRecords.Count);
 
-            int partition = (int)Math.Ceiling(esm.records[ESM.Type.Cell].Count / (float)Const.THREAD_COUNT);
+            int partition = (int)Math.Ceiling(cellRecords.Count / (float)Const.THREAD_COUNT);
             List<CellWorker> workers = new();
 
             for (int i = 0; i < Const.THREAD_COUNT; i++)
             {
                 int start = i * partition;
                 int end = start + partition;
-                CellWorker worker = new(esm, esm.records[ESM.Type.Cell], start, end);
+                CellWorker worker = new(esm, cellRecords, start, end);
                 workers.Add(worker);
             }
 

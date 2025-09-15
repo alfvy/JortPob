@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text.Json.Nodes;
 using WitchyFormats;
 
 namespace JortPob
@@ -492,7 +493,8 @@ namespace JortPob
                     // If exists skip, duplicates happen during gen of these params beacuse a single talkparam can be used by any number of npcs. Hundreds in some cases.
                     if (talkParam[id] != null) { continue; }
 
-                    FsParam.Row row = CloneRow(templateTalkRow, talk.dialogInfo.text, id); // 1400000 is a line from opening cutscene
+                    // truncating the text in the row name because it can cause issues if it is too long
+                    FsParam.Row row = CloneRow(templateTalkRow, talk.dialogInfo.text.Substring(0, Math.Min(32, talk.dialogInfo.text.Length)), id); // 1400000 is a line from opening cutscene
 
                     msgId.SetValue(row, id * 10); // message id (male)
                     voiceId.SetValue(row, id * 10); // message id (male)
@@ -598,6 +600,93 @@ namespace JortPob
             AddRow(worldMapPointParam, row);
 
             return id;
+        }
+
+        /* Setup both the class and race params. These are refered to as BaseChrParam (origin) FaceParam (base template) */
+        /* also edits CharMakeMenuListItemParam and CharMakeMenuTopParam for text on the char creation screen */
+        public void GenerateCustomCharacterCreation(TextManager textManager)
+        {
+            // Race stuff
+            int[] charMakeMenuListItemParam_Races = new int[] { 240, 241, 242, 243, 244, 245, 246, 247, 248, 249 };
+            int charMakeMenuListItemParam_Race_Gender_Offset = 20; // add this to above value to get the female version
+
+            JsonNode jsonRaces = JsonNode.Parse(File.ReadAllText(Utility.ResourcePath(@"overrides\character_creation_race.json")));
+
+            FsParam charMakeMenuListItemParam = param[ParamType.CharMakeMenuListItemParam];
+            FsParam faceParam = param[ParamType.FaceParam];
+            for (int i = 0; i < charMakeMenuListItemParam_Races.Count(); i++)
+            {
+                JsonNode jsonRace = jsonRaces.AsArray()[i];
+
+                // Texy menu entry rows
+                int raceRowIdMale = charMakeMenuListItemParam_Races[i];
+                int raceRowIdFemale = raceRowIdMale + charMakeMenuListItemParam_Race_Gender_Offset;
+
+                FsParam.Row charMakemMenuListMaleRow = charMakeMenuListItemParam[raceRowIdMale];
+                FsParam.Row charMakemMenuListFemaleRow = charMakeMenuListItemParam[raceRowIdFemale];
+
+                int charMakemMenuListRowText = textManager.AddMenuText(jsonRace["race"].ToString(), jsonRace["description"].ToString());
+
+                charMakemMenuListMaleRow.Name = $"Male {jsonRace["race"].GetValue<string>()}";   // row names for helpful debugging
+                charMakemMenuListFemaleRow.Name = $"Female {jsonRace["race"].GetValue<string>()}";
+
+                charMakemMenuListMaleRow["captionId"].Value.SetValue(charMakemMenuListRowText);
+                charMakemMenuListFemaleRow["captionId"].Value.SetValue(charMakemMenuListRowText);
+
+                // Face param rows
+                FsParam.Row faceMaleRow = faceParam[(int)(charMakemMenuListMaleRow["value"].Value.Value)];
+                FsParam.Row faceFemaleRow = faceParam[(int)(charMakemMenuListFemaleRow["value"].Value.Value)];
+
+                byte raceId = byte.Parse(jsonRace["id"].ToString());  // these values match the enums in the NpcContent class
+
+                faceMaleRow.Name = $"Male {jsonRace["race"].GetValue<string>()}";   // row names for helpful debugging
+                faceFemaleRow.Name = $"Female {jsonRace["race"].GetValue<string>()}";
+
+                faceMaleRow["burn_scar"].Value.SetValue(raceId);  // the burn scars value is used as a race indentifier. this is picked up by scripts and reset to 0 on first game load
+                faceFemaleRow["burn_scar"].Value.SetValue(raceId);
+            }
+
+            // Class stuff
+            JsonNode jsonClasses = JsonNode.Parse(File.ReadAllText(Utility.ResourcePath(@"overrides\character_creation_class.json")));
+            FsParam baseChrSelectMenuParam = param[ParamType.BaseChrSelectMenuParam];
+            FsParam charInitParam = param[ParamType.CharaInitParam];
+
+            int[] baseChrSelectMenuParam_Classes = new int[] { 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009 };
+            int[] charMakeMenuListItemParam_Classes = new int[] { 100200, 100201, 100202, 100203, 100204, 100205, 100206, 100207, 100208, 100209 };
+            for (int i = 0; i < baseChrSelectMenuParam_Classes.Count(); i++)
+            {
+                JsonNode jsonClass = jsonClasses.AsArray()[i];
+                FsParam.Row baseClassRow = baseChrSelectMenuParam[baseChrSelectMenuParam_Classes[i]];
+
+                // Base class rows
+                int classTextId = textManager.AddMenuText(jsonClass["class"].GetValue<string>(), jsonClass["description"].GetValue<string>());
+                baseClassRow.Name = jsonClass["class"].GetValue<string>();   // row names for helpful debugging
+                baseClassRow["textId"].Value.SetValue(classTextId);
+
+                // Texty menu entry rows
+                FsParam.Row charMakeMenuListClassRow = charMakeMenuListItemParam[charMakeMenuListItemParam_Classes[i]];
+                charMakeMenuListClassRow.Name = jsonClass["class"].GetValue<string>();   // row names for helpful debugging
+                charMakeMenuListClassRow["captionId"].Value.SetValue(classTextId);
+
+                // Char init rows
+                FsParam.Row classRow = charInitParam[(int)(uint)baseClassRow["chrInitParam"].Value.Value];
+                FsParam.Row originRow = charInitParam[(int)(uint)baseClassRow["originChrInitParam"].Value.Value];
+
+                classRow.Name = jsonClass["class"].GetValue<string>();   // row names for helpful debugging
+                originRow.Name = jsonClass["class"].GetValue<string>();
+            }
+
+            // Minor text tweaks
+            {
+                FsParam charMakemneuTopParam = param[ParamType.CharMakeMenuTopParam];
+                FsParam.Row originRow = charMakemneuTopParam[6];
+                FsParam.Row keepsakeRow = charMakemneuTopParam[7];
+                FsParam.Row baseRow = charMakemneuTopParam[9];
+
+                originRow["captionId"].Value.SetValue(textManager.AddMenuText("Class", "Select class"));
+                //keepsakeRow["captionId"].Value.SetValue(textManager.AddMenuText("Sexy Item", "Select sexy item")); // dont actually wanna change this rn so guh
+                baseRow["captionId"].Value.SetValue(textManager.AddMenuText("Race", "Select race"));
+            }
         }
 
         /* Die */ // @TODO: maybe move all row removal into the constructor since it can just *happen*

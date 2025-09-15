@@ -9,6 +9,8 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text.Json.Nodes;
+using static JortPob.Script;
+using static SoulsFormats.MSBAC4.Event;
 
 namespace JortPob
 {
@@ -28,6 +30,9 @@ namespace JortPob
             Layout layout = new(cache, esm, param, text, scriptManager);                          // Subdivides all content data from ESM into a more elden ring friendly format
             SoundManager sound = new();                                                         // Manages vcbanks
             NpcManager character = new(esm, sound, param, text, scriptManager);                 // Manages dialog esd
+
+            /* Some quick setup stuff */
+            scriptManager.SetupSpecialFlags(esm);
 
             /* Generate exterior msbs from layout */
             List<ResourcePool> msbs = new();
@@ -203,7 +208,7 @@ namespace JortPob
                     lightManager.CreateLight(light);
                 }
 
-                /* TEST NPCs */  // make some c0000 npcs where humanoid npcs would spawn as a test
+                /* Create humanoid NPCs (c0000) */
                 foreach (NpcContent npc in tile.npcs)
                 {
                     MSBE.Part.Enemy enemy = MakePart.Npc();
@@ -212,6 +217,7 @@ namespace JortPob
 
                     enemy.TalkID = character.GetESD(tile.IdList(), npc);       // creates and returns a character esd
                     enemy.NPCParamID = character.GetParam(npc); // creates and returns an npcparam
+                    enemy.EntityID = npc.entity;
 
                     msb.Parts.Enemies.Add(enemy);
                 }
@@ -222,6 +228,7 @@ namespace JortPob
                     MSBE.Part.Enemy enemy = MakePart.Creature();
                     enemy.Position = creature.relative + Const.TEST_OFFSET1 + Const.TEST_OFFSET2;
                     enemy.Rotation = creature.rotation;
+                    enemy.EntityID = creature.entity;
 
                     msb.Parts.Enemies.Add(enemy);
                 }
@@ -429,6 +436,7 @@ namespace JortPob
 
                         enemy.TalkID = character.GetESD(group.IdList(), npc);       // creates and returns a character esd
                         enemy.NPCParamID = character.GetParam(npc); // creates and returns an npcparam
+                        enemy.EntityID = npc.entity;
 
                         enemy.Unk1.DisplayGroups[0] = 0;
                         enemy.CollisionPartName = rootCollision.Name;
@@ -445,6 +453,7 @@ namespace JortPob
 
                         enemy.Unk1.DisplayGroups[0] = 0;
                         enemy.CollisionPartName = rootCollision.Name;
+                        enemy.EntityID = creature.entity;
 
                         msb.Parts.Enemies.Add(enemy);
                     }
@@ -508,6 +517,7 @@ namespace JortPob
                 Lort.TaskIterate(); // Progress bar update
             }
 
+            /* Create debug warp area */
             {
                 /* DEBUG - Add a warp from church of elleh to Seyda Neen */
                 /* @TODO: DELETE THIS WHEN IT IS NO LONGER NEEDED! */
@@ -519,9 +529,9 @@ namespace JortPob
                     if (asset.ModelName == "AEG099_309") { debugThingToDupe = asset; break; }
                 }
 
-                Script debugWarpScript = new(scriptManager.common, 60, 42, 36, 0);
-                debugWarpScript.init.Instructions.Add(debugWarpScript.AUTO.ParseAdd($"RegisterBonfire(1042360000, 1042361950, 0, 0, 0, 5);"));
-                debugWarpScript.init.Instructions.Add(debugWarpScript.AUTO.ParseAdd($"RegisterBonfire(1042360001, 1042361951, 0, 0, 0, 5);"));
+                Script debugScript = new(scriptManager.common, 60, 42, 36, 0);
+                debugScript.init.Instructions.Add(debugScript.AUTO.ParseAdd($"RegisterBonfire(1042360000, 1042361950, 0, 0, 0, 5);"));
+                debugScript.init.Instructions.Add(debugScript.AUTO.ParseAdd($"RegisterBonfire(1042360001, 1042361951, 0, 0, 0, 5);"));
                 List<String> debugWarpCellList = new() { "Seyda Neen", "Balmora", "Tel Mora", "Pelagiad", "Caldera", "Khuul", "Gnisis", "Ald Ruhn" };
                 int actionParamId = 1555, debugCounty = 0;
                 for (int i=0;i<debugWarpCellList.Count();i++)
@@ -540,22 +550,62 @@ namespace JortPob
                         debugAsset.InstanceID++;
                         debugMSB.Parts.Assets.Add(debugAsset);
 
-                        Script.Flag debugEventFlag = debugWarpScript.CreateFlag(Script.Flag.Category.Event, Script.Flag.Type.Bit, Script.Flag.Designation.Event, $"m{debugWarpScript.map}_{debugWarpScript.x}_{debugWarpScript.y}_{debugWarpScript.block}::DebugWarp");
+                        Script.Flag debugEventFlag = debugScript.CreateFlag(Script.Flag.Category.Event, Script.Flag.Type.Bit, Script.Flag.Designation.Event, $"m{debugScript.map}_{debugScript.x}_{debugScript.y}_{debugScript.block}::DebugWarp");
                         EMEVD.Event debugWarpEvent = new(debugEventFlag.id);
 
                         param.GenerateActionButtonParam(text, actionParamId, $"Debug Warp: {areaName}");
-                        debugWarpEvent.Instructions.Add(debugWarpScript.AUTO.ParseAdd($"IfActionButtonInArea(MAIN, {actionParamId}, {debugAsset.EntityID});"));
-                        debugWarpEvent.Instructions.Add(debugWarpScript.AUTO.ParseAdd($"WarpPlayer({area.map}, {area.coordinate.x}, {area.coordinate.y}, 0, {area.warps[0].id}, 0)"));
+                        debugWarpEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"IfActionButtonInArea(MAIN, {actionParamId}, {debugAsset.EntityID});"));
+                        debugWarpEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"WarpPlayer({area.map}, {area.coordinate.x}, {area.coordinate.y}, 0, {area.warps[0].id}, 0)"));
 
-                        debugWarpScript.init.Instructions.Add(debugWarpScript.AUTO.ParseAdd($"InitializeEvent(0, {debugEventFlag.id})"));
+                        debugScript.init.Instructions.Add(debugScript.AUTO.ParseAdd($"InitializeEvent(0, {debugEventFlag.id})"));
 
-                        debugWarpScript.emevd.Events.Add(debugWarpEvent);
+                        debugScript.emevd.Events.Add(debugWarpEvent);
                         actionParamId++;
                         debugCounty++;
                     }
                 }
-                debugWarpScript.Write();
+
+                /* Create a mass flag reset button next to the warps */
+                List<Flag> allFlags = new();
+                allFlags.AddRange(scriptManager.common.flags);
+                foreach (Script script in scriptManager.scripts)
+                {
+                    allFlags.AddRange(script.flags);
+                }
+
+                MSBE.Part.Asset debugResetAsset = (MSBE.Part.Asset)(debugThingToDupe.DeepCopy());
+                debugResetAsset.Position = debugResetAsset.Position + new Vector3(7f, 1f, 0f);
+                debugResetAsset.EntityID = debugEntityIdNext++;
+                debugResetAsset.Name = $"AEG099_309_{9001 + debugCounty}";
+                debugResetAsset.UnkPartNames[4] = $"AEG099_309_{9001 + debugCounty}";
+                debugResetAsset.UnkPartNames[5] = $"AEG099_309_{9001 + debugCounty}";
+                debugResetAsset.UnkT54PartName = $"AEG099_309_{9001 + debugCounty}";
+                debugResetAsset.InstanceID++;
+                debugMSB.Parts.Assets.Add(debugResetAsset);
+
+                Script.Flag debugResetFlag = debugScript.CreateFlag(Script.Flag.Category.Event, Script.Flag.Type.Bit, Script.Flag.Designation.Event, $"m{debugScript.map}_{debugScript.x}_{debugScript.y}_{debugScript.block}::DebugReset");
+                param.GenerateActionButtonParam(text, actionParamId, $"Debug: Reset Save Data!");
+                EMEVD.Event debugResetEvent = new(debugResetFlag.id);
+                debugResetEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"IfActionButtonInArea(MAIN, {actionParamId}, {debugResetAsset.EntityID});"));
+
+                foreach (Flag flag in allFlags)
+                {
+                    if (flag.category == Flag.Category.Event) { continue; } // not values, used for event ids
+                    if (flag.category == Flag.Category.Temporary) { continue; } // not even saved anyways so skip
+                    if (flag.designation == Flag.Designation.PlayerRace) { continue; } // do not reset these as they are only set at character creation
+                    for (int i = 0; i < (int)flag.type; i++)
+                    {
+                        bool bit = (flag.value & (1 << i)) != 0;
+                        debugResetEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, {flag.id + i}, {(bit ? "ON" : "OFF")});"));
+                    }
+                }
+
+                debugScript.emevd.Events.Add(debugResetEvent);
+                debugScript.init.Instructions.Add(debugScript.AUTO.ParseAdd($"InitializeEvent(0, {debugResetFlag.id})"));
+
+                debugScript.Write();
                 debugMSB.Write($"{Const.OUTPUT_PATH}\\map\\mapstudio\\m60_42_36_00.msb.dcx");
+                Lort.Log($"Created {debugCounty} debug warps...", Lort.Type.Main);
             }
 
             /* Write sound BNKs */
@@ -574,6 +624,7 @@ namespace JortPob
             param.GenerateActionButtonParam(text, 1500, "Enter");
             param.GenerateActionButtonParam(text, 1501, "Exit");
             param.SetAllMapLocation(text);
+            param.GenerateCustomCharacterCreation(text);
             param.KillMapHeightParams();    // murder kill
             param.Write();
 

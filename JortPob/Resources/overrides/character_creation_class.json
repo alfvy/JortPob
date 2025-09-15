@@ -1,0 +1,42 @@
+﻿[
+  {
+    "class": "Warrior",
+    "description": "Descriptions describe things!"
+  },
+  {
+    "class": "Archer",
+    "description": "Descriptions describe things!"
+  },
+  {
+    "class": "Sorcerer",
+    "description": "Descriptions describe things!"
+  },
+  {
+    "class": "Monk",
+    "description": "Descriptions describe things!"
+  },
+  {
+    "class": "Thief",
+    "description": "Descriptions describe things!"
+  },
+  {
+    "class": "Barbarian",
+    "description": "Descriptions describe things!"
+  },
+  {
+    "class": "Knight",
+    "description": "Descriptions describe things!"
+  },
+  {
+    "class": "Spellsword",
+    "description": "Descriptions describe things!"
+  },
+  {
+    "class": "Bard",
+    "description": "Descriptions describe things!"
+  },
+  {
+    "class": "Pilgrim",
+    "description": "Descriptions describe things!"
+  }
+]

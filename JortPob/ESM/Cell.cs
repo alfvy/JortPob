@@ -48,6 +48,10 @@ namespace JortPob
             foreach (JsonNode reference in json["references"].AsArray())
             {
                 string id = reference["id"].ToString();
+                if (id == "ex_shore_all_lev+0")
+                {
+                    Console.WriteLine("HI");
+                }
                 Record record = esm.FindRecordById(id);
 
                 if(record == null) { continue; }
@@ -73,7 +77,7 @@ namespace JortPob
                         npcs.Add(new NpcContent(this, reference, record));
                         break;
                     case ESM.Type.Creature:
-                    case ESM.Type.LevelledCreature:
+                    case ESM.Type.LeveledCreature:
                         creatures.Add(new CreatureContent(this, reference, record));
                         break;
                 }

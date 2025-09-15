@@ -267,7 +267,7 @@ namespace JortPob
                 GC.Collect();
 
                 /* Create emitterinfos */
-                foreach(JsonNode json in esm.records[ESM.Type.Light])
+                foreach(JsonNode json in esm.GetAllRecordsByType(ESM.Type.Light))
                 {
                     if (json["mesh"] == null || json["mesh"].ToString().Trim() == "") { continue; }
 

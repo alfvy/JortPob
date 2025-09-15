@@ -298,6 +298,68 @@ namespace JortPob
                 text.SetLocation(textId, "Interior");
             }
 
+            /* Handling npc/creature death and respawn flags */
+
+            // Dead by type list.
+            // So morrowind uses a weird system where it keeps a count of each "type" of npc/creature is killed
+            // For most npcs this count will only ever be 0 or 1 since there is only one of that npc in the world
+            // But for like rats and shit it keeps count so it knows you've killed 10 rats or whatever
+            // So to emulate this system we will have a seperate counter flag for each record type of creature or npc
+            Dictionary<string, Script.Flag> typeFlags = new();
+            Script.Flag GetTypeCountFlag(string id)
+            {
+                if (typeFlags.ContainsKey(id))
+                {
+                    return typeFlags[id];
+                }
+
+                Script.Flag typeFlag = scriptManager.common.CreateFlag(Script.Flag.Category.Saved, Script.Flag.Type.Byte, Script.Flag.Designation.DeadCount, id);
+                typeFlags.Add(id, typeFlag);
+                return typeFlag;
+            }
+
+            // Create entity ids and dead/disable flags for npcs
+            void HandleNpcFlags(Script script, List<NpcContent> npcs)
+            {
+                foreach (NpcContent npc in npcs)
+                {
+                    Script.Flag countFlag = GetTypeCountFlag(npc.id);
+                    npc.entity = script.CreateEntity(Script.EntityType.Enemy);
+                    script.RegisterNpc(npc, countFlag);
+                }
+            }
+
+            // Create entity ids and dead/disable flags for creatures
+            void HandleCreatureFlags(Script script, List<CreatureContent> creatures)
+            {
+                foreach (CreatureContent creature in creatures)
+                {
+                    Script.Flag countFlag = GetTypeCountFlag(creature.id);
+                    creature.entity = script.CreateEntity(Script.EntityType.Enemy);
+                    script.RegisterCreature(creature, countFlag);
+                }
+            }
+
+            // Generate scripts
+            foreach (Tile tile in tiles)
+            {
+                if (tile.IsEmpty()) { continue; } // don't generate scripts for empty msbs
+                Script script = scriptManager.GetScript(tile);
+                HandleNpcFlags(script, tile.npcs);
+                HandleCreatureFlags(script, tile.creatures);
+            }
+
+            foreach (InteriorGroup group in interiors)
+            {
+                if (group.IsEmpty()) { continue; } // don't generate scripts for empty msbs
+                foreach (InteriorGroup.Chunk chunk in group.chunks)
+                {
+                    Script script = scriptManager.GetScript(group);
+                    HandleNpcFlags(script, chunk.npcs);
+                    HandleCreatureFlags(script, chunk.creatures);
+                }
+            }
+
             /* Render an ASCII image of the tiles for verification! */
             Lort.Log("Drawing ASCII art of worldspace map...", Lort.Type.Debug);
             for (int y = 66; y >= 28; y--)

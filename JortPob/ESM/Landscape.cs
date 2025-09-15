@@ -12,6 +12,8 @@ namespace JortPob
 {
     public class Landscape
     {
+        private static readonly ushort DEFAULT_TEXTURE_INDEX = 65535;
+
         public readonly Int2 coordinate;
 
         public readonly string flags;
@@ -21,7 +23,7 @@ namespace JortPob
         public readonly List<int>[] indices;   // 0 is full detail, 1 is reduced detail for lod, 2 is minimum possible detail for super overworld
         public readonly Vertex[,] borders;
 
-        public List<Texture> textures;
+        private readonly Dictionary<ushort, Texture> texturesByIndex;
 
         public List<Mesh> meshes;
 
@@ -63,42 +65,33 @@ namespace JortPob
                 }
             }
 
-            textures = new();
-            textures.Add(new Texture("Default Terrain Texture", $"{Const.MORROWIND_PATH}{Const.TERRAIN_DEFAULT_TEXTURE}", 65535));   // Default hardcoded terrain texture. Morrowind moment.
-            JsonNode GetLandscapeTextureRecord(int id)
+            texturesByIndex = new()
             {
-                foreach (JsonNode j in esm.records[ESM.Type.LandscapeTexture])
                 {
-                    if (int.Parse(j["index"].ToString()) == id)
-                    {
-                        return j;
-                    }
+                    DEFAULT_TEXTURE_INDEX, // Default hardcoded terrain texture. Morrowind moment.
+                    new Texture("Default Terrain Texture", $"{Const.MORROWIND_PATH}{Const.TERRAIN_DEFAULT_TEXTURE}", DEFAULT_TEXTURE_INDEX)
                 }
-                return null;
-            }
+            };
 
-            bool HasTexture(ushort id)
+            var landscapeTexturesByIndex = esm.GetAllRecordsByType(ESM.Type.LandscapeTexture)
+                .ToLookup(j => int.Parse(j["index"].ToString()));
+
+            foreach (ushort index in ltex)
             {
-                foreach (Texture t in textures)
-                {
-                    if (t.index == id) { return true; }
-                }
-                return false;
-            }
+                if (texturesByIndex.ContainsKey(index)) { continue; }
 
-            foreach (ushort id in ltex)
-            {
-                if (HasTexture(id)) { continue; }
-
-                JsonNode ltjson = GetLandscapeTextureRecord(id);
+                JsonNode ltjson = landscapeTexturesByIndex[index].FirstOrDefault();
 
                 if (ltjson != null)
                 {
-                    textures.Add(new Texture(ltjson["id"].ToString().ToLower(), $"{Const.MORROWIND_PATH}Data Files\\textures\\{ltjson["file_name"].ToString().ToLower().Substring(0, ltjson["file_name"].ToString().Length - 4)}.dds", id));
+                    texturesByIndex.Add(
+                        index,
+                        new Texture(ltjson["id"].ToString().ToLower(), $"{Const.MORROWIND_PATH}Data Files\\textures\\{ltjson["file_name"].ToString().ToLower().Substring(0, ltjson["file_name"].ToString().Length - 4)}.dds", index)
+                    );
                 }
                 else
                 {
-                    Lort.Log($" ## WARNING ## INVALID LANDSCAPE TEXTURE INDEX IN LANDSCAPE DATA: {id}", Lort.Type.Debug);
+                    Lort.Log($" ## WARNING ## INVALID LANDSCAPE TEXTURE INDEX IN LANDSCAPE DATA: {index}", Lort.Type.Debug);
                 }
             }
 
@@ -240,16 +233,11 @@ namespace JortPob
                         3,
                         2,
                     };
-                void AddTexture(Landscape land, int tex)
+                void AddTexture(Landscape land, ushort tex)
                 {
-                    Texture texture = null;
-                    foreach (Texture t in land.textures)
+                    if (land.texturesByIndex.TryGetValue(tex, out var texture))
                     {
-                        if (t.index == tex) { texture = t; break; }
-                    }
-                    if (texture != null && !textures.Contains(texture))
-                    {
-                        textures.Add(texture);
+                        texturesByIndex.TryAdd(tex, texture);
                     }
                 }
                 for (int ii = 0; ii < adjacents.Length; ii++)
@@ -538,15 +526,13 @@ namespace JortPob
 
         public Texture GetTexture(ushort id)
         {
-            foreach (Texture tex in textures)
+            if (texturesByIndex.TryGetValue(id, out var value))
             {
-                if (tex.index == id)
-                {
-                    return tex;
-                }
+                return value;
             }
+
             Lort.Log($"# ## WARNING ## Missing texture index [{id}] in landscape mesh!", Lort.Type.Debug);
-            return GetTexture(65535);
+            return texturesByIndex[DEFAULT_TEXTURE_INDEX];
         }
 
         public class Mesh

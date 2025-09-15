@@ -116,7 +116,7 @@ namespace JortPob
 
             Script areaScript = scriptManager.GetScript(msbIdList[0], msbIdList[1], msbIdList[2], msbIdList[3]); // get area script for this npc
 
-            DialogESD dialogEsd = new(scriptManager, areaScript, (uint)esdId, content, data);
+            DialogESD dialogEsd = new(scriptManager, text, areaScript, (uint)esdId, content, data);
             string pyPath = $"{Const.CACHE_PATH}esd\\t{esdId}.py";
             string esdPath = $"{Const.CACHE_PATH}esd\\t{esdId}.esd";
             dialogEsd.Write(pyPath);

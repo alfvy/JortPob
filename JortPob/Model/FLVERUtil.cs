@@ -151,14 +151,14 @@ namespace JortPob.Model
 
             public VertexKey(FLVER.Vertex vertex)
             {
-                uvs = vertex.UVs;
                 position = vertex.Position;
                 normal = vertex.Normal;
-    
-                //foreach(Vector3 uv in  vertex.UVs)
-                //{
-                //    uvs.Add(uv);
-                //}
+                uvs = new();
+
+                foreach(Vector3 uv in  vertex.UVs)
+                {
+                    uvs.Add(uv);
+                }
 
                 string uvCombinedHash = "";
                 foreach (Vector3 uv in uvs)
