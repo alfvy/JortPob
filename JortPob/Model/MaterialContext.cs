@@ -191,67 +191,72 @@ namespace JortPob.Model
             { MaterialTemplate.Swamp, "Field_03_swamp"}              // swamp shader, functions similar to water, handled by liquidmanager
         };
 
-        public List<MaterialInfo> GenerateMaterials(List<Utf8String> texturePaths)
+        public List<MaterialInfo> GenerateMaterials(List<string> texturePaths)
         {
             int index = 0;
-            List<MaterialInfo> materialInfos = new();
-            foreach (var sourceMaterial in texturePaths)
+            List<MaterialInfo> materialInfos = [];
+            foreach (var relpath in texturePaths)
             {
-                var mat = sourceMaterial;
-                if (mat.String != null && mat.String.ToLower().StartsWith("textures\\"))
+                // Make the path absolute.
+                var abspath = relpath;
+                if (relpath == string.Empty) 
                 {
-                    mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\{mat.String}");
-                } else
+                    abspath = Utility.ResourcePath(@"textures\tx_missing.dds");
+                } 
+                else if (relpath.ToLower().StartsWith("textures\\"))
                 {
-                    mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\Textures\\{mat.String}");
+                    abspath = $"{Const.MORROWIND_PATH}Data Files\\{relpath}";
+                } 
+                else
+                {
+                    abspath = $"{Const.MORROWIND_PATH}Data Files\\Textures\\{relpath}";
                 }
 
-                if (Path.GetExtension(mat.String) == string.Empty)
-                {
-                    mat = Utf8String.From(Utility.ResourcePath(@"textures\tx_missing.dds"));
-                }
-
-                string diffuseTexture = Utility.PathToFileName(mat.String);
+                string fileName = Utility.PathToFileName(abspath);
 
                 /* Decide what kind of material to generate based on texture name */
-                if (diffuseTexture.Contains("leave") || diffuseTexture.Contains("leaf") || diffuseTexture.Contains("plant")) // @TODO: rework this system with an override
+                if (
+                    fileName.Contains("leave") 
+                    || fileName.Contains("leaf") 
+                    || fileName.Contains("plant")
+                    ) // @TODO: rework this system with an override
                 {
-                    materialInfos.Add(GenerateMaterialFoliage(mat, index++));
+                    materialInfos.Add(GenerateMaterialFoliage(abspath, index++));
                 }
                 else
                 {
-                    materialInfos.Add(GenerateMaterialSingle(mat, index++));
+                    materialInfos.Add(GenerateMaterialSingle(abspath, index++));
                 }
             }
             return materialInfos;
         }
 
-        public MaterialInfo GenerateMaterial(Utf8String mat, int index)
+        public MaterialInfo GenerateMaterial(string texturePath, int materialIndex)
         {
-            if (mat.String != null && mat.String.ToLower().StartsWith("textures\\"))
+            if (texturePath.ToLower().StartsWith("textures\\"))
             {
-                mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\{mat.String}");
+                texturePath = $"{Const.MORROWIND_PATH}Data Files\\{texturePath}";
             }
             else
             {
-                mat = Utf8String.From($"{Const.MORROWIND_PATH}Data Files\\Textures\\{mat.String}");
+                texturePath = $"{Const.MORROWIND_PATH}Data Files\\Textures\\{texturePath}";
             }
 
-            if (Path.GetExtension(mat.String) == string.Empty)
+            if (Path.GetExtension(texturePath) == string.Empty)
             {
-                mat = Utf8String.From(Utility.ResourcePath(@"textures\tx_missing.dds"));
+                texturePath = Utility.ResourcePath(@"textures\tx_missing.dds");
             }
 
-            string diffuseTexture = Utility.PathToFileName(mat.String);
+            string fileName = Utility.PathToFileName(texturePath);
 
             /* Decide what kind of material to generate based on texture name */
-            if (diffuseTexture.Contains("leave") || diffuseTexture.Contains("leaf") || diffuseTexture.Contains("plant")) // @TODO: rework this system with an override
+            if (fileName.Contains("leave") || fileName.Contains("leaf") || fileName.Contains("plant")) // @TODO: rework this system with an override
             {
-                return GenerateMaterialFoliage(mat, index);
+                return GenerateMaterialFoliage(texturePath, materialIndex);
             }
             else
             {
-                return GenerateMaterialSingle(mat, index);
+                return GenerateMaterialSingle(texturePath, materialIndex);
             }
         }
 
@@ -373,9 +378,9 @@ namespace JortPob.Model
             return new MaterialInfo(material, gx, layout, matbin, info, MaterialTemplate.Foliage);
         }
 
-        public MaterialInfo GenerateMaterialSingle(Utf8String sourceMaterial, int index)
+        public MaterialInfo GenerateMaterialSingle(string sourceMaterial, int index)
         {
-            string diffuseTextureSourcePath = sourceMaterial.String != null && sourceMaterial.String != "" ? sourceMaterial.String : Utility.ResourcePath(@"textures\tx_missing.dds");
+            string diffuseTextureSourcePath = sourceMaterial != "" ? sourceMaterial : Utility.ResourcePath(@"textures\tx_missing.dds");
             string diffuseTexture;
             if (genTextures.ContainsKey(diffuseTextureSourcePath))
             {
@@ -416,9 +421,9 @@ namespace JortPob.Model
             return new MaterialInfo(material, gx, layout, matbin, info, MaterialTemplate.Opaque);
         }
 
-        public MaterialInfo GenerateMaterialFoliage(Utf8String sourceMaterial, int index)
+        public MaterialInfo GenerateMaterialFoliage(string sourceMaterial, int index)
         {
-            string diffuseTextureSourcePath = sourceMaterial.String != null ? sourceMaterial.String : Utility.ResourcePath(@"textures\tx_missing.dds");
+            string diffuseTextureSourcePath = sourceMaterial != "" ? sourceMaterial : Utility.ResourcePath(@"textures\tx_missing.dds");
             string normalTextureSourcePath = Utility.ResourcePath(@"textures\tx_flat.dds");
             string diffuseTexture, normalTexture;
             string AddTexture(string diffuseTextureSourcePath)

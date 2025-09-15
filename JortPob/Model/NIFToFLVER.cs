@@ -43,59 +43,51 @@ namespace JortPob.Model
             flver.Nodes.Add(rootNode);
             flver.Skeletons = skeletonSet;
 
-            List<Tuple<string, Vector3>> nodes = new(); // 
-            List<Utf8String> textures = new();
-
             Matrix4x4 desiredRotation = Matrix4x4.CreateRotationY((float)Math.PI) * Matrix4x4.CreateRotationX((float)Math.PI / 2);
 
-            for (int texI = 0; texI < nif.VisualMeshes.Count; texI++)
+            for (int meshIndex = 0; meshIndex < nif.VisualMeshes.Count; meshIndex++)
             {
-                textures.Add(nif.VisualMeshes[texI].Texture);
-            }
+                var mesh = nif.VisualMeshes[meshIndex];
 
-            for (int idx = 0; idx < nif.VisualMeshes.Count; idx++)
-            {
-                var mesh = nif.VisualMeshes[idx];
-
-                nodes.Add(new ($"Mesh {idx}", new Vector3(mesh.Transform.Translation)));
-
-                var mat = materialContext.GenerateMaterial(textures[idx], idx);
-
-                flver.Materials.Add(mat.material);
-                flver.GXLists.Add(mat.gx);
-                flver.BufferLayouts.Add(mat.layout);
-                foreach (TextureInfo info in mat.info)
+                /* Setup Material */
+                var materialInfo = materialContext.GenerateMaterial(mesh.Texture.String, meshIndex);
+                flver.Materials.Add(materialInfo.material);
+                flver.GXLists.Add(materialInfo.gx);
+                flver.BufferLayouts.Add(materialInfo.layout);
+                foreach (TextureInfo texInfo in materialInfo.info)
                 {
-                    modelInfo.textures.Add(info);
+                    modelInfo.textures.Add(texInfo);
                 }
 
+                /* Setup FLVER Mesh */
                 FLVER2.Mesh flverMesh = new();
                 FLVER2.FaceSet flverFaces = new();
                 flverMesh.FaceSets.Add(flverFaces);
                 flverFaces.CullBackfaces = true;
                 flverFaces.Unk06 = 1;
                 flverMesh.NodeIndex = 0;
+                flverMesh.MaterialIndex = meshIndex;
 
                 /* Setup Vertex Buffer */
                 FLVER2.VertexBuffer flverBuffer = new(0);
-                flverBuffer.LayoutIndex = idx;
+                flverBuffer.LayoutIndex = meshIndex;
                 flverMesh.VertexBuffers.Add(flverBuffer);
 
                 Matrix4x4 mt = Matrix4x4.CreateTranslation(mesh.Transform.Translation.ToVector3());
                 Matrix4x4 mr = Matrix4x4.CreateFromQuaternion(mesh.Transform.Rotation.ToQuaternion());
                 Matrix4x4 ms = Matrix4x4.CreateScale(mesh.Transform.Scale);
 
-                for (int f = 0; f < mesh.Triangles.Count; f++)
+                for (int triangleIndex = 0; triangleIndex < mesh.Triangles.Count; triangleIndex++)
                 {
-                    for (int t = 0; t < 3; t++)
+                    var triangle = mesh.Triangles[triangleIndex];
+                    var indices = new int[] { triangle.v0, triangle.v1, triangle.v2 };
+                    foreach (int vertexIndex in indices)
                     {
                         FLVER.Vertex flverVertex = new();
 
-                        var vertIdx = mesh.Triangles[f].T(t);
-
                         /* Grab vertice position + normals/tangents */
-                        Vector3 pos = mesh.Vertices[vertIdx].ToNumeric();
-                        Vector3 norm = mesh.Normals[vertIdx].ToNumeric();
+                        Vector3 pos = mesh.Vertices[vertexIndex].ToNumeric();
+                        Vector3 norm = mesh.Normals[vertexIndex].ToNumeric();
                         Vector3 tang = new Vector3(1, 0, 0);
                         Vector3 bitang  = new Vector3(0, 0, 1);
 
@@ -123,14 +115,14 @@ namespace JortPob.Model
                         // Set ...
                         flverVertex.Position = pos;
                         flverVertex.Normal = norm;
-                        if (mesh.UvSet0 != null && vertIdx < mesh.UvSet0.Count && mesh.UvSet0.Count != 0)
+                        if (mesh.UvSet0.Count != 0)
                         {
-                            var uv = mesh.UvSet0[vertIdx];
+                            var uv = mesh.UvSet0[vertexIndex];
                             flverVertex.UVs.Add(new Vector3(uv.x, uv.y, 0));
                         }
                         else
                         {
-                            if (flverVertex.UVs == null) flverVertex.UVs = new();
+                            flverVertex.UVs ??= [];
                             flverVertex.UVs.Add(new Vector3(0, 0, 0));
                         }
 
@@ -139,7 +131,7 @@ namespace JortPob.Model
 
                         flverVertex.Colors.Add(new FLVER.VertexColor(255, 255, 255, 255));
 
-                        if (mat.template == MaterialContext.MaterialTemplate.Foliage)
+                        if (materialInfo.template == MaterialContext.MaterialTemplate.Foliage)
                         {
                             flverVertex.UVs.Add(new Vector3(0f, .2f, 0f));
                             flverVertex.UVs.Add(new Vector3(1f, 1f, 0f));
@@ -157,13 +149,14 @@ namespace JortPob.Model
 
             /* Add Dummy Polys */
             short nextRef = 500; // idk why we start at 500, i'm copying old code from DS3 portjob here
-            nodes.Insert(0, new("root", Vector3.Zero));    // always add a dummy at root for potential use by fxr later
+            List<Tuple<string, Vector3>> nodes = [
+                new("root", Vector3.Zero), // always add a dummy at root for potential use by fxr later
+            ];
             foreach (Tuple<string, Vector3> tuple in nodes)
             {
                 string name = tuple.Item1;
                 Vector3 position = tuple.Item2;
 
-                if (name.Contains(".0")) { name = name.Substring(0, name.Length - 4); }   // Duplicate nodes get a '.001' and what not appended to their names. Remove that.
                 short refid = modelInfo.dummies.ContainsKey(name) ? modelInfo.dummies[name] : nextRef++;
 
                 // correct position using same math as we use for vertices above
@@ -217,13 +210,15 @@ namespace JortPob.Model
                 void Guess(string[] keys, Obj.CollisionMaterial type)
                 {
                     if (matguess != Obj.CollisionMaterial.None) { return; }
-                    foreach (var tex in textures)
+
+                    for (int i = 0; i < nif.VisualMeshes.Count; i++) 
                     {
+                        var tex = nif.VisualMeshes[i].Texture.String.ToLower();
                         foreach (string key in keys)
                         {
                             if (Utility.PathToFileName(modelInfo.name).ToLower().Contains(key)) { matguess = type; return; }
-                            if (tex.String.ToLower().Contains(key)) { matguess = type; return; }
-                            if (tex.String != null && Utility.PathToFileName(tex.String).ToLower().Contains(key)) { matguess = type; return; }
+                            if (tex.Contains(key)) { matguess = type; return; }
+                            if (Utility.PathToFileName(tex).ToLower().Contains(key)) { matguess = type; return; }
                         }
                     }
                     return;
