@@ -1,5 +1,6 @@
 ﻿using JortPob.Common;
 using JortPob.Worker;
+using Microsoft.Scripting.Utils;
 using SoulsFormats;
 using System;
 using System.Collections.Concurrent;
@@ -11,6 +12,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using static JortPob.Dialog;
 using static JortPob.NpcContent;
+using static JortPob.NpcContent.Stats;
 using static JortPob.NpcManager;
 using static JortPob.NpcManager.TopicData;
 using static JortPob.Script;
@@ -31,7 +33,9 @@ namespace JortPob
         private readonly Dictionary<Type, Dictionary<string, JsonNode>> recordsByType;
         private readonly ConcurrentDictionary<Int2, Landscape> landscapesByCoordinate;
         public List<DialogRecord> dialog;
-        public List<Faction> factions;
+        public List<RaceInfo> races;
+        public List<JobInfo> jobs;  // classes, but we cant really use that word so 'job'
+        public List<FactionInfo> factions;
         public List<Cell> exterior, interior;
         public List<Papyrus> scripts;
 
@@ -200,6 +204,19 @@ namespace JortPob
                 }
             }
 
+            /* Load raceinfo and jobinfo */
+            races = new();
+            foreach (JsonNode jsonNode in GetAllRecordsByType(ESM.Type.Race))
+            {
+                races.Add(new(jsonNode));
+            }
+
+            jobs = new();
+            foreach (JsonNode jsonNode in GetAllRecordsByType(ESM.Type.Class))
+            {
+                jobs.Add(new(jsonNode));
+            }
+
             /* Multi threading to speed this up... */
             (exterior, interior) = CellWorker.Go(this);
             landscapesByCoordinate = new();
@@ -225,7 +242,7 @@ namespace JortPob
             List<JsonNode> factionJson = [.. GetAllRecordsByType(ESM.Type.Faction)];
             foreach (JsonNode jsonNode in factionJson)
             {
-                Faction faction = new(jsonNode);
+                FactionInfo faction = new(jsonNode);
                 factions.Add(faction);
             }
         }
@@ -323,23 +340,13 @@ namespace JortPob
             }
         }
 
-        public Faction GetFaction(string id)
-        {
-            foreach (Faction faction in factions)
-            {
-                if (faction.id == id) { return faction; }
-            }
-            return null;
-        }
+        public JobInfo? GetJob(string id) => jobs.FirstOrDefault(job => job.id == id.ToLower());
 
-        public Papyrus GetPapyrus(string id)
-        {
-            foreach (Papyrus papyrus in scripts)
-            {
-                if (papyrus.id == id) { return papyrus; }
-            }
-            return null;
-        }
+        public RaceInfo? GetRace(string id) => races.FirstOrDefault(race => race.id == id.ToLower());
+
+        public FactionInfo? GetFaction(string id) => factions.FirstOrDefault(faction => faction.id == id.ToLower());
+
+        public Papyrus? GetPapyrus(string id) => scripts.FirstOrDefault(script => script.id == id.ToLower());
 
         /* Get dialog and character data for building esd */
         public List<Tuple<DialogRecord, List<DialogInfoRecord>>> GetDialog(ScriptManager scriptManager, NpcContent npc)
@@ -375,14 +382,132 @@ namespace JortPob
         }
     }
 
-    public class Faction
+    public class RaceInfo
+    {
+        public readonly string id, name, description;
+        public readonly Dictionary<NpcContent.Stats.Attribute, Dictionary<NpcContent.Sex, int>> attributes;
+        public readonly Dictionary<NpcContent.Stats.Skill, int> skills;
+
+        public RaceInfo(JsonNode json)
+        {
+            id = json["id"].GetValue<string>().ToLower();
+            name = json["name"].GetValue<string>();
+            description = json["description"].GetValue<string>();
+
+            attributes = new();
+            skills = new();
+
+            foreach (NpcContent.Stats.Attribute attribute in Enum.GetValues(typeof(NpcContent.Stats.Attribute)))
+            {
+                Dictionary<NpcContent.Sex, int> values = new();
+
+                JsonArray jary = json["data"][attribute.ToString().ToLower()].AsArray();
+                values.Add(Sex.Male, jary[0].GetValue<int>());
+                values.Add(Sex.Female, jary[1].GetValue<int>());
+
+                attributes.Add(attribute, values);
+
+            }
+
+            for (int i=0;i<=6;i++)  // 7 is the number of skills a race can have as thier 'bonus' skills. hardcoded to esm. indexed as skill_0 to skill_6
+            {
+                string s = json["data"]["skill_bonuses"][$"skill_{i}"].GetValue<string>();
+                if (s.ToLower() == "none") { continue; }
+                NpcContent.Stats.Skill skill = (NpcContent.Stats.Skill)System.Enum.Parse(typeof(NpcContent.Stats.Skill), s);
+                int value = json["data"]["skill_bonuses"][$"bonus_{i}"].GetValue<int>();
+                skills.Add(skill, value);
+            }
+        }
+
+        public int GetAttribute(NpcContent.Sex sex, NpcContent.Stats.Attribute attribute) { return attributes[attribute][sex]; }
+        public int GetSkill(NpcContent.Stats.Skill skill) { if (skills.ContainsKey(skill)) { return skills[skill]; } else { return 0; } }
+    }
+
+    public class JobInfo
+    {
+        public enum Specialization
+        {
+            Combat, Stealth, Magic
+        }
+
+        public readonly string id, name, description;
+        private readonly Specialization specialization;
+        private readonly List<NpcContent.Stats.Attribute> attributes;
+        private readonly List<NpcContent.Stats.Skill> major, minor;
+        private readonly List<NpcContent.Service> services;
+
+        public JobInfo(JsonNode json)
+        {
+            id = json["id"].GetValue<string>().ToLower();
+            name = json["name"].GetValue<string>();
+            description = json["description"].GetValue<string>();
+            specialization = (Specialization)System.Enum.Parse(typeof(Specialization), json["data"]["specialization"].GetValue<string>());
+
+            attributes = new();
+            major = new();
+            minor = new();
+            services = new();
+
+            attributes.Add((NpcContent.Stats.Attribute)System.Enum.Parse(typeof(NpcContent.Stats.Attribute), json["data"]["attribute1"].GetValue<string>()));
+            attributes.Add((NpcContent.Stats.Attribute)System.Enum.Parse(typeof(NpcContent.Stats.Attribute), json["data"]["attribute2"].GetValue<string>()));
+            for(int i=1;i<=5;i++)
+            {
+                major.Add((NpcContent.Stats.Skill)System.Enum.Parse(typeof(NpcContent.Stats.Skill), json["data"][$"major{i}"].GetValue<string>()));
+                minor.Add((NpcContent.Stats.Skill)System.Enum.Parse(typeof(NpcContent.Stats.Skill), json["data"][$"minor{i}"].GetValue<string>()));
+            }
+        }
+
+        public bool HasAttribute(NpcContent.Stats.Attribute attribute) { return attributes.Contains(attribute); }
+        public bool HasMajor(NpcContent.Stats.Skill skill) { return major.Contains(skill); }
+        public bool HasMinor(NpcContent.Stats.Skill skill) { return minor.Contains(skill); }
+        public bool HasSpecialization(NpcContent.Stats.Skill skill)
+        {
+            switch(skill)
+            {
+                case NpcContent.Stats.Skill.Armorer:
+                case NpcContent.Stats.Skill.Athletics:
+                case NpcContent.Stats.Skill.Axe:
+                case NpcContent.Stats.Skill.Block:
+                case NpcContent.Stats.Skill.BluntWeapon:
+                case NpcContent.Stats.Skill.HeavyArmor:
+                case NpcContent.Stats.Skill.LongBlade:
+                case NpcContent.Stats.Skill.MediumArmor:
+                case NpcContent.Stats.Skill.Spear:
+                    return specialization == Specialization.Combat;
+                case NpcContent.Stats.Skill.Acrobatics:
+                case NpcContent.Stats.Skill.HandToHand:
+                case NpcContent.Stats.Skill.LightArmor:
+                case NpcContent.Stats.Skill.Marksman:
+                case NpcContent.Stats.Skill.Mercantile:
+                case NpcContent.Stats.Skill.Security:
+                case NpcContent.Stats.Skill.ShortBlade:
+                case NpcContent.Stats.Skill.Sneak:
+                case NpcContent.Stats.Skill.Speechcraft:
+                    return specialization == Specialization.Stealth;
+                case NpcContent.Stats.Skill.Alchemy:
+                case NpcContent.Stats.Skill.Alteration:
+                case NpcContent.Stats.Skill.Conjuration:
+                case NpcContent.Stats.Skill.Destruction:
+                case NpcContent.Stats.Skill.Enchant:
+                case NpcContent.Stats.Skill.Illusion:
+                case NpcContent.Stats.Skill.Mysticism:
+                case NpcContent.Stats.Skill.Restoration:
+                case NpcContent.Stats.Skill.Unarmored:
+                    return specialization == Specialization.Magic;
+                default:
+                    throw new Exception("What the fuck");
+            }
+        }
+    }
+
+    public class FactionInfo
     {
         public readonly string id, name;
         public readonly List<Rank> ranks;
 
-        public Faction(JsonNode json)
+        public FactionInfo(JsonNode json)
         {
-            id = json["id"].GetValue<string>();
+            id = json["id"].GetValue<string>().ToLower();
             name = json["name"].GetValue<string>();
             ranks = new();
 

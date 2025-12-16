@@ -33,8 +33,8 @@ namespace JortPob
             TextManager text = new();                                                           // Manages FMG text files
             IconManager icon = new(esm);                                                       // Manages the creation and assignment of item icons
             Paramanager param = new(text);                                                        // Class for managing PARAM files
-            SpeffManager speff = new(esm, param, icon, text);                                                   // Manages speff params, primarily for magic effects like potions and enchanted gear. NOT SPELLS!
-            ItemManager item = new(esm, param, speff, icon, text);                                                   // Handles generation and reampping of items
+            SpeffManager speff = new(esm, param, icon, text);                                             // Manages speff params, primarily for magic effects like potions and enchanted gear. NOT SPELLS!
+            ItemManager item = new(esm, param, scriptManager, speff, icon, text);                         // Handles generation and reampping of items
             Layout layout = new(cache, esm, param, text, scriptManager);                          // Subdivides all content data from ESM into a more elden ring friendly format
             SoundManager sound = new();                                                         // Manages vcbanks
             NpcManager character = new(esm, sound, param, text, item, scriptManager);                 // Manages dialog esd
@@ -300,6 +300,25 @@ namespace JortPob
                         Papyrus papyrusScript = esm.GetPapyrus(content.papyrus);
                         if (papyrusScript != null) { PapyrusEMEVD.Compile(scriptManager, param, item, script, papyrusScript, content); } // this != null check only exists because bugs. @TODO: remove when we get 100% papyrus support
                     }
+
+                    asset.EntityID = content.entity;
+
+                    msb.Parts.Assets.Add(asset);
+                }
+
+                /* Add pickables */
+                foreach (PickableContent content in tile.pickables)
+                {
+                    if (Override.CheckDoNotPlace(content.mesh)) { continue; } // skip any meshes listed in the do_not_place override json
+
+                    /* Grab ModelInfo */
+                    PickableInfo pickableInfo = cache.GetPickableModel(content);
+
+                    /* Make part */
+                    MSBE.Part.Asset asset = MakePart.Asset(pickableInfo);
+                    asset.Position = content.relative + Const.TEST_OFFSET1 + Const.TEST_OFFSET2;
+                    asset.Rotation = content.rotation;
+                    asset.Scale = new Vector3(content.scale * 0.01f);
 
                     asset.EntityID = content.entity;
 
@@ -777,6 +796,7 @@ namespace JortPob
             param.GeneratePartDrawParams();
             param.GenerateAssetRows(cache.assets);
             param.GenerateAssetRows(cache.emitters);
+            param.GeneratePickableAssetRows(item, cache.pickables);
             param.GenerateAssetRows(cache.liquids);
             param.GenerateMapInfoParam(layout);
             param.SetAllMapLocation();
@@ -802,6 +822,7 @@ namespace JortPob
             Lort.NewTask("Binding Assets", cache.assets.Count);
             Bind.BindAssets(cache);
             Bind.BindEmitters(cache);
+            Bind.BindPickables(cache);
             foreach (LiquidInfo water in cache.liquids)  // bind up them waters toooooo
             {
                 Bind.BindAsset(water, $"{Const.OUTPUT_PATH}asset\\aeg\\{water.AssetPath()}.geombnd.dcx");

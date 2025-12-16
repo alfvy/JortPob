@@ -13,10 +13,10 @@ namespace JortPob.Model
     public partial class ModelConverter
     {
         public static ModelInfo NIFToFLVER(MaterialContext materialContext,
-            ModelInfo modelInfo,
-            bool forceCollision,
-            string modelPath,
-            string outputPath)
+                    ModelInfo modelInfo,
+                    bool forceCollision,
+                    string modelPath,
+                    string outputPath)
         {
             var loadResult = Interop.LoadScene(Utf8String.From(modelPath));
 
@@ -148,6 +148,20 @@ namespace JortPob.Model
                 flver.Meshes.Add(flverMesh);
             }
 
+            Vector3 center = Vector3.Lerp(flver.Nodes[0].BoundingBoxMin, flver.Nodes[0].BoundingBoxMax, .5f);
+            {
+                FLVER.Dummy dmy = new();
+                dmy.Position = center;
+                dmy.Forward = new(0, 0, 1);
+                dmy.Upward = new(0, 1, 0);
+                dmy.Color = System.Drawing.Color.White;
+                dmy.ReferenceID = 90;
+                dmy.ParentBoneIndex = 0;
+                dmy.AttachBoneIndex = 0;
+                dmy.UseUpwardVector = true;
+                flver.Dummies.Add(dmy);
+            }
+
             /* Add Dummy Polys */
             short nextRef = 500; // idk why we start at 500, i'm copying old code from DS3 portjob here
             List<Tuple<string, Vector3>> nodes = [
@@ -192,12 +206,8 @@ namespace JortPob.Model
             /* Write flver */
             flver.Write(outputPath);
 
-            /* Load overrides list for collision */
-            JsonNode json = JsonNode.Parse(File.ReadAllText(Utility.ResourcePath(@"overrides\static_collision.json")));
-            HashSet<string> nodeNames = json.AsArray().ToList().Select(node => node.ToString().ToLower()).ToHashSet();
-
             /* Generate collision obj if the model contains a collision mesh */
-            if ((nif.CollisionMeshes.Count > 0 || forceCollision) && !nodeNames.Contains(modelInfo.name))
+            if ((nif.CollisionMeshes.Count > 0 || forceCollision) && !Override.CheckStaticCollision(modelInfo.name))
             {
                 /* Best guess for collision material */
                 Obj.CollisionMaterial matguess = Obj.CollisionMaterial.None;
@@ -246,7 +256,7 @@ namespace JortPob.Model
             return modelInfo;
         }
     }
-    public static class Tes3Extensions
+        public static class Tes3Extensions
     {
         public static Vec3 Multiply(this Vec3 vec, float value)
         {

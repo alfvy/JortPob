@@ -1,0 +1,48 @@
+[
+  {
+    "comment": "Lion's Claw",
+    "row": 10000,
+    "value": 720,
+    "tier": "Journeyman"
+  },
+  {
+    "comment": "Impaling Thrust",
+    "row": 10100,
+    "value": 55,
+    "tier": "Novice"
+  },
+  {
+    "comment": "Repeating Thrust",
+    "row": 10900,
+    "value": 15,
+    "tier": "Novice"
+  },
+  {
+    "comment": "Black Flame Tornado",
+    "row": 22100,
+    "value": 7270,
+    "tier": "Master"
+  },
+  {
+    "comment": "Mighty Shot",
+    "row": 40200,
+    "value": 32,
+    "tier": "Novice"
+  },
+  {
+    "comment": "Chilling Mist",
+    "row": 22700,
+    "value": 550,
+    "tier": "Apprentice"
+  },
+  {
+    "comment": "Loretta's Slash",
+    "row": 11800,
+    "value": 374,
+    "tier": "Journeyman",
+    "text": {
+      "name": "Magicka Slash",
+      "description": "Descriptions describe things!"
+    }
+  }
+]

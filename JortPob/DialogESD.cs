@@ -9,7 +9,7 @@ using System.Linq;
 using System.Security;
 using System.Text;
 using static JortPob.Dialog;
-using static JortPob.Faction;
+using static JortPob.FactionInfo;
 using static JortPob.NpcContent;
 using static JortPob.NpcManager.TopicData;
 
@@ -725,7 +725,8 @@ namespace JortPob
         private string State_x44(uint id, List<NpcManager.TopicData> topics)
         {
             string id_s = id.ToString("D9");
-            int barterShopId = itemManager.CreateShop(npcContent.barter); // returns -1 if no barter shop
+            int barterShopId = itemManager.CreateShop(npcContent.barter);
+            int spellShopId = itemManager.CreateShop(npcContent.spells);
 
             StringBuilder s = new();
 
@@ -742,13 +743,59 @@ namespace JortPob
             }
 
             int listCount = 1; // starts at 1 because guh
+
+            // Add barter if npc offers it
             if(barterShopId > 0)
             {
                 int barterMenuTopicId = textManager.GetTopic("Barter");
                 s.Append($"        # action:{barterMenuTopicId}:\"Barter\"\r\n        AddTalkListData({listCount++}, {barterMenuTopicId}, -1)\r\n        # action:20000011:\"Sell\"\r\n        AddTalkListData({listCount++}, 20000011, -1)\r\n");
             }
 
-            // Add travel option
+            // Add smithing if npc offers it
+            if(npcContent.OffersSmithing())
+            {
+                int smithingMenuTopicId = textManager.GetTopic("Smith Weapons");
+                s.Append($"        # action:{smithingMenuTopicId}:\"Smith Weapons\"\r\n        AddTalkListData({listCount++}, {smithingMenuTopicId}, -1)\r\n");
+            }
+
+            // Add tailoring if npc offers it
+            if(npcContent.OffersTailoring())
+            {
+                int tailorMenuTopicId = textManager.GetTopic("Alter Garments");
+                s.Append($"        # action:{tailorMenuTopicId}:\"Alter Garments\"\r\n        AddTalkListData({listCount++}, {tailorMenuTopicId}, -1)\r\n");
+            }
+
+            // Add spell shop if npc offers it
+            if (spellShopId > 0)
+            {
+                int spellMenuTopicId = textManager.GetTopic("Learn Spells");
+                s.Append($"        # action:{spellMenuTopicId}:\"Learn Spells\"\r\n        AddTalkListData({listCount++}, {spellMenuTopicId}, -1)\r\n");
+            }
+
+            // Add memorize spells if npc offers it
+            if (npcContent.OffersMemorize())
+            {
+                int memorizeMenuTopicId = textManager.GetTopic("Memorize Spells");
+                s.Append($"        # action:{memorizeMenuTopicId}:\"Memorize Spells\"\r\n        AddTalkListData({listCount++}, {memorizeMenuTopicId}, -1)\r\n");
+            }
+
+            // Add enchanting if npc offers it
+            if (npcContent.OffersEnchanting())
+            {
+                int learnEnchantMenuTopicId = textManager.GetTopic("Learn Enchantments");
+                int createEnchantMenuTopicId = textManager.GetTopic("Enchant Weapons");
+                s.Append($"        # action:{learnEnchantMenuTopicId}:\"Learn Enchantments\"\r\n        AddTalkListData({listCount++}, {learnEnchantMenuTopicId}, -1)\r\n");
+                s.Append($"        # action:{createEnchantMenuTopicId}:\"Enchant Weapons\"\r\n        AddTalkListData({listCount++}, {createEnchantMenuTopicId}, -1)\r\n");
+            }
+
+            // Add alchemy recipe book shop if npc offers it
+            if (npcContent.OffersAlchemy())
+            {
+                int alchemyMenuTopicId = textManager.GetTopic("Learn Alchemy Recipes");
+                s.Append($"        # action:{alchemyMenuTopicId}:\"\"Learn Alchemy Recipes\"\r\n        AddTalkListData({listCount++}, {alchemyMenuTopicId}, -1)\r\n");
+            }
+
+            // Add travel option if npc offers it
             if (npcContent.travel.Count() > 0)
             {
                 int travelMenuTopicId = textManager.GetTopic("Travel");
@@ -789,9 +836,66 @@ namespace JortPob
 
             string ifopA = "if";
             listCount = 1; // reset
+            // barter options
             if (barterShopId > 0)
             {
-                s.Append($"        if GetTalkListEntryResult() == {listCount++}:\r\n            \"\"\"State 6\"\"\"\r\n            OpenRegularShop({barterShopId}, {barterShopId+99})\r\n            \"\"\"State 7\"\"\"\r\n            assert not (CheckSpecificPersonMenuIsOpen(5, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n        elif GetTalkListEntryResult() == {listCount++}:\r\n            \"\"\"State 9\"\"\"\r\n            OpenSellShop(-1, -1)\r\n            \"\"\"State 8\"\"\"\r\n            assert not (CheckSpecificPersonMenuIsOpen(6, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n");
+                s.Append($"        {ifopA} GetTalkListEntryResult() == {listCount++}:\r\n            OpenRegularShop({barterShopId}, {barterShopId+99})\r\n            assert not (CheckSpecificPersonMenuIsOpen(5, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n        elif GetTalkListEntryResult() == {listCount++}:\r\n            OpenSellShop(-1, -1)\r\n            assert not (CheckSpecificPersonMenuIsOpen(6, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n");
+                ifopA = "elif";
+            }
+
+            // smithing options
+            if (npcContent.OffersSmithing())
+            {
+                s.Append($"        {ifopA} GetTalkListEntryResult() == {listCount++}:\r\n            OpenEnhanceShop(EnhanceType.UnlimitedRange)\r\n            assert not (CheckSpecificPersonMenuIsOpen(9, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n");
+                ifopA = "elif";
+            }
+
+            // tailoring options
+            if (npcContent.OffersTailoring())
+            {
+                s.Append($"        {ifopA} GetTalkListEntryResult() == {listCount++}:\r\n            OpenTailoringShop(111000, 111399)\r\n            assert not (CheckSpecificPersonMenuIsOpen(26, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n");
+                ifopA = "elif";
+            }
+
+            // spell options
+            if (spellShopId > 0)
+            {
+                s.Append($"        {ifopA} GetTalkListEntryResult() == {listCount++}:\r\n            OpenRegularShop({spellShopId}, {spellShopId + 99})\r\n            assert not (CheckSpecificPersonMenuIsOpen(5, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n");
+                ifopA = "elif";
+            }
+
+            // memorize options
+            if (npcContent.OffersMemorize())
+            {
+                s.Append($"        {ifopA} GetTalkListEntryResult() == {listCount++}:\r\n            OpenMagicEquip(-1, -1)\r\n            assert not (CheckSpecificPersonMenuIsOpen(11, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n");
+                ifopA = "elif";
+            }
+
+            // enchanting options
+            if (npcContent.OffersEnchanting())
+            {
+                int enchantShopId = itemManager.CreateShop(npcContent.stats.GetTier(Stats.Skill.Enchant));
+                s.Append($"        {ifopA} GetTalkListEntryResult() == {listCount++}:\r\n            OpenRegularShop({enchantShopId}, {enchantShopId + 99})\r\n            assert not (CheckSpecificPersonMenuIsOpen(5, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n");
+                s.Append($"        {ifopA} GetTalkListEntryResult() == {listCount++}:\r\n            OpenEquipmentChangeOfPurposeShop()\r\n            assert not (CheckSpecificPersonMenuIsOpen(7, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n");
+                ifopA = "elif";
+            }
+
+            // alchemy options
+            if (npcContent.OffersAlchemy())
+            {
+                s.Append($"        {ifopA} GetTalkListEntryResult() == {listCount++}:\r\n");
+
+                foreach (NpcContent.Stats.Tier tier in Enum.GetValues(typeof(NpcContent.Stats.Tier)))
+                {
+                    RecipeManager.RecipeBookInfo book = itemManager.recipeManager.GetBook(tier);
+                    s.Append($"            if ComparePlayerStat(PlayerStat.Intelligence, CompareType.Greater, {(int)(((int)tier) * Const.ALCHEMY_TIER_REQUIREMENT_SCALE)}):\r\n");
+                    s.Append($"                SetEventFlag({book.visible.id}, FlagState.On)\r\n");
+                    s.Append($"            else:\r\n");
+                    s.Append($"                pass\r\n");
+                }
+
+                int alchemyShopId = itemManager.recipeManager.GetShop();
+                s.Append($"            OpenRegularShop({alchemyShopId}, {alchemyShopId + 99})\r\n            assert not (CheckSpecificPersonMenuIsOpen(5, 0) and not CheckSpecificPersonGenericDialogIsOpen(0))\r\n");
                 ifopA = "elif";
             }
 
@@ -1294,7 +1398,7 @@ namespace JortPob
             Script.Flag repFlag = scriptManager.GetFlag(Script.Flag.Designation.FactionReputation, npcContent.faction);
             Script.Flag rankFlag = scriptManager.GetFlag(Script.Flag.Designation.FactionRank, npcContent.faction);
             Script.Flag returnValue = areaScript.CreateFlag(Script.Flag.Category.Temporary, Script.Flag.Type.Nibble, Script.Flag.Designation.ReturnValueRankReq, npcContent.entity.ToString());
-            Faction faction = esm.GetFaction(npcContent.faction);
+            FactionInfo faction = esm.GetFaction(npcContent.faction);
 
             // First rank
             s += $"    if GetEventFlagValue({rankFlag.id}, {rankFlag.Bits()}) == 0:\r\n";
@@ -1302,8 +1406,8 @@ namespace JortPob
 
             for (int i = 0; i < faction.ranks.Count()-1; i++)
             {
-                Faction.Rank rank = faction.ranks[i];
-                Faction.Rank nextRank = faction.ranks[i + 1];
+                FactionInfo.Rank rank = faction.ranks[i];
+                FactionInfo.Rank nextRank = faction.ranks[i + 1];
 
                 // Not max rank
                 if (rank != nextRank)

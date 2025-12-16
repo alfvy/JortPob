@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using static SoulsIds.Events;
 
 namespace JortPob.Common
 {
@@ -11,6 +12,7 @@ namespace JortPob.Common
     public class MakePart
     {
         public static Dictionary<ModelInfo, int> AssetInstances = new(); // counts instances of assets
+        public static Dictionary<PickableInfo, int> PickableInstances = new(); // counts instances of pickables
         public static Dictionary<EmitterInfo, int> EmitterInstances = new(); // counts instances of emitter assets
         public static Dictionary<string, int> EnemyInstances = new();      // counts instances of enemies
         public static Dictionary<LiquidInfo, int> WaterInstances = new();
@@ -105,6 +107,27 @@ namespace JortPob.Common
             /* AssetUnk4 */
             asset.AssetUnk4.Unk01 = 255;
             asset.AssetUnk4.Unk02 = 255;
+
+            return asset;
+        }
+
+        public static MSBE.Part.Asset Asset(PickableInfo pickableInfo)
+        {
+            MSBE.Part.Asset asset = Asset(pickableInfo.model);  // kind of lazy but it works guh
+
+            /* Instance */
+            if (!PickableInstances.TryGetValue(pickableInfo, out var inst)) { inst = 0; }
+            asset.InstanceID = inst;
+            PickableInstances[pickableInfo] = ++inst;
+
+            /* Model Stuff */
+            asset.Name = $"{pickableInfo.AssetName().ToUpper()}_{asset.InstanceID.ToString("D4")}";
+            asset.ModelName = pickableInfo.AssetName().ToUpper();
+
+            /* Asset Partnames */
+            asset.UnkT54PartName = asset.Name;
+            asset.UnkPartNames[4] = asset.Name;
+            asset.UnkPartNames[5] = asset.Name;
 
             return asset;
         }

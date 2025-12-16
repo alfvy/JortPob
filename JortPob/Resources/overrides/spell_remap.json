@@ -1,0 +1,27 @@
+{
+  "spark": {
+    "row": 6900,
+    "comment": "Spark to lightning spear"
+  },
+  "resist magicka": {
+    "row": 6460,
+    "comment": "Resist magicka to magic fortification"
+  },
+  "hearth heal": {
+    "row": 6421,
+    "comment": "Hearth heal to Heal"
+  },
+  "fireball": {
+    "row": 6010,
+    "comment": "Fireball to Flame Sling",
+    "text": {
+      "name": "Fireball",
+      "description": "Descriptions describe things!",
+      "summary":  "Summaries summarize things!"
+    }
+  },
+  "frostbite": {
+    "row": 4420,
+    "comment": "Frostbite to freezing mist"
+  }
+}

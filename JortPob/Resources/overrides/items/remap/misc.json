@@ -1,41 +1,50 @@
 {
-	"gold_005" : {
+	"gold_001": {
+		"type": "Goods",
+		"row": 2900,
+		"text": {
+			"name": "Tiny Coin Pouch",
+			"description": "A tiny pouch of Runes.",
+			"effect": "Grants 200 Runes on use."
+		}
+	},
+	"gold_005": {
 		"type": "Goods",
 		"row": 2901,
 		"text": {
 			"name": "Small Coin Pouch",
-			"description" : "A small pouch of Runes.",
+			"description": "A small pouch of Runes.",
 			"effect": "Grants 400 Runes on use."
 		}
 	},
-	"gold_010" : {
+	"gold_010": {
 		"type": "Goods",
 		"row": 2902,
 		"text": {
 			"name": "Coin Pouch",
-			"description" : "A pouch of Runes.",
+			"description": "A pouch of Runes.",
 			"effect": "Grants 800 Runes on use."
 		}
 	},
-	"gold_025" : {
+	"gold_025": {
 		"type": "Goods",
 		"row": 2904,
 		"text": {
 			"name": "Big Coin Pouch",
-			"description" : "A big pouch of Runes.",
+			"description": "A big pouch of Runes.",
 			"effect": "Grants 1600 Runes on use."
 		}
 	},
-	"gold_100" : {
+	"gold_100": {
 		"type": "Goods",
 		"row": 2910,
 		"text": {
 			"name": "Huge Coin Pouch",
-			"description" : "A huge pouch of Runes.",
+			"description": "A huge pouch of Runes.",
 			"effect": "Grants 6250 Runes on use."
 		}
 	},
-	"artifact_bittercup_01" : {
+	"artifact_bittercup_01": {
 		"type": "Accessory",
 		"row": 1051,
 		"comment": "Remapping Bittercup to Radagon's Soreseal"

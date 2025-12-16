@@ -7,7 +7,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static HKLib.hk2018.hknpShape.MassConfig;
+using static JortPob.ItemManager;
 using static JortPob.NpcContent;
+using static JortPob.Papyrus;
 using static JortPob.Script;
 using static JortPob.Script.Flag;
 
@@ -26,6 +29,7 @@ namespace JortPob
 
         public List<Flag> flags;
         private Dictionary<Flag.Category, uint> flagUsedCounts;
+        private Dictionary<EntityType, uint> entityUsedCounts;
 
         public enum Event
         {
@@ -63,6 +67,16 @@ namespace JortPob
                 { Flag.Category.Event, 0 },
                 { Flag.Category.Saved, 0 },
                 { Flag.Category.Temporary, 0 }
+            };
+
+            entityUsedCounts = new()
+            {
+                { EntityType.Enemy, 0 },
+                { EntityType.Asset, 0 },
+                { EntityType.Region, 0 },
+                { EntityType.Event, 0 },
+                { EntityType.Collision, 0 },
+                { EntityType.Group, 0 }
             };
 
             events = new();
@@ -427,6 +441,30 @@ namespace JortPob
             return removeItemFlag;
         }
 
+        /* Create a fixed common event that handles the players ability to use the crafting menu based on what alchemy equipment they have */
+        public void CreateAlchemyHandler(List<ItemManager.ItemInfo> items)
+        {
+            EMEVD.Event alchemyEvent = new();
+            Flag alchemyEventFlag = CreateFlag(Flag.Category.Event, Flag.Type.Bit, Flag.Designation.Event, $"AlchemyHandlerEvent");
+            alchemyEvent.ID = alchemyEventFlag.id;
+
+            alchemyEvent.Instructions.Add(AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, 60120, OFF);"));  // initialize as crafting disabled
+
+            foreach(ItemManager.ItemInfo item in items)
+            {
+                alchemyEvent.Instructions.Add(AUTO.ParseAdd($"IfPlayerHasdoesntHaveItem(OR_01, ItemType.Goods, {item.row}, OwnershipState.Owns);"));  // does player have alchemy tool
+                alchemyEvent.Instructions.Add(AUTO.ParseAdd($"SkipIfConditionGroupStateUncompiled(1, FAIL, OR_01);"));
+                alchemyEvent.Instructions.Add(AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, 60120, ON);"));                    // if they do then enable crafting
+                alchemyEvent.Instructions.Add(AUTO.ParseAdd($"IfElapsedSeconds(MAIN, 0);"));                                                 // reset condition group
+            }
+
+            alchemyEvent.Instructions.Add(AUTO.ParseAdd($"WaitFixedTimeSeconds(3);"));  // only do this check every few seconds as its not high priority
+            alchemyEvent.Instructions.Add(AUTO.ParseAdd($"EndUnconditionally(EventEndType.Restart);"));  // restart
+
+            emevd.Events.Add(alchemyEvent);
+            init.Instructions.Insert(0, AUTO.ParseAdd($"InitializeEvent(0, {alchemyEvent.ID}, 0);"));
+        }
+
         public Script.Flag GetFlag(Designation designation, string name)
         {
             var lookupKey = Script.FormatFlagLookupKey(designation, name.ToLower());
@@ -479,6 +517,15 @@ namespace JortPob
         public Flag FindFlagByLookupKey(ScriptFlagLookupKey key)
         {
             return flagsByLookupKey.GetValueOrDefault(key);
+        }
+
+        /* Create a unique entity id, this is primarily used as an overflow for other msbs when they run out of room. */
+        public uint CreateEntity(EntityType type, string name)
+        {
+            uint rawCount = entityUsedCounts[type]++;
+            uint newid = COMMON_FLAG_BASES[(rawCount / 1000)] + ((uint)type) + rawCount;
+
+            return newid;
         }
 
         public void Write()

@@ -29,6 +29,9 @@ namespace JortPob
         private static List<ItemRemap> ITEM_REMAPS;
         private static List<ItemDefinition> ITEM_DEFINITIONS;
         private static List<SpeffDefinition> SPEFF_DEFINITIONS;
+        private static List<SpellRemap> SPELL_REMAPS;
+        private static List<SkillInfo> SKILL_INFOS;
+        private static List<AlchemyInfo> ALCHEMY_INFOS;
 
         public static bool CheckDoNotPlace(string id)
         {
@@ -87,6 +90,30 @@ namespace JortPob
             return SPEFF_DEFINITIONS;
         }
 
+        public static SpellRemap GetSpellRemap(string id)
+        {
+            foreach (SpellRemap remap in SPELL_REMAPS)
+            {
+                if (remap.id == id) { return remap; }
+            }
+            return null;
+        }
+
+        public static List<SkillInfo> GetSkills()
+        {
+            return SKILL_INFOS;
+        }
+
+        public static List<SkillInfo> GetSkills(NpcContent.Stats.Tier tier)
+        {
+            return SKILL_INFOS.Where(skill => skill.tier <= tier).ToList();
+        }
+
+        public static List<AlchemyInfo> GetAlchemy()
+        {
+            return ALCHEMY_INFOS;
+        }
+
         /* load all the override jsons into this class */
         public static void Initialize()
         {
@@ -113,6 +140,35 @@ namespace JortPob
 
             /* Load character creation race overrides */
             CHARACTER_CREATION_RACE = JsonSerializer.Deserialize<List<PlayerRace>>(File.ReadAllText(Utility.ResourcePath(@"overrides\character_creation_race.json")), new JsonSerializerOptions { IncludeFields = true });
+
+            /* Load alchemy recipe information */
+            ALCHEMY_INFOS = new();
+            JsonNode jsonAlchemyInfo = JsonNode.Parse(File.ReadAllText(Utility.ResourcePath(@"overrides\alchemy.json")));
+            foreach (var property in jsonAlchemyInfo.AsObject())
+            {
+                JsonNode jsonNode = property.Value;
+                AlchemyInfo alchy = new(property.Key, jsonNode);
+                ALCHEMY_INFOS.Add(alchy);
+            }
+
+            /* Load weapon skill information list */
+            SKILL_INFOS = new();
+            JsonNode jsonSkillInfo = JsonNode.Parse(File.ReadAllText(Utility.ResourcePath(@"overrides\weapon_skill_info.json")));
+            foreach(JsonNode jsonNode in jsonSkillInfo.AsArray())
+            {
+                SkillInfo skillInfo = new(jsonNode);
+                SKILL_INFOS.Add(skillInfo);
+            }
+
+            /* Load spell remapping list */
+            SPELL_REMAPS = new();
+            JsonNode jsonSpellRemap = JsonNode.Parse(File.ReadAllText(Utility.ResourcePath(@"overrides\spell_remap.json")));
+            foreach (var property in jsonSpellRemap.AsObject())
+            {
+                JsonNode jsonNode = property.Value;
+                SpellRemap sprmo = new(property.Key, jsonNode);
+                SPELL_REMAPS.Add(sprmo);
+            }
 
             /* Load item remapping list */
             ITEM_REMAPS = new();
@@ -160,6 +216,95 @@ namespace JortPob
             public PlayerRace() { }
         }
 
+        public class AlchemyInfo
+        {
+            public readonly string comment;
+            public readonly string id;
+            public readonly NpcContent.Stats.Tier tier;
+            public readonly List<string> ingredients;
+
+            public AlchemyInfo(string id, JsonNode json)
+            {
+                this.id = id;
+                comment = json["comment"]?.GetValue<string>();
+                tier = (NpcContent.Stats.Tier)System.Enum.Parse(typeof(NpcContent.Stats.Tier), json["tier"].GetValue<string>());
+
+                ingredients = new();
+                JsonArray jsonArray = json["ingredients"].AsArray();
+                for(int i=0;i<jsonArray.Count;i++)
+                {
+                    ingredients.Add(jsonArray[i].GetValue<string>());
+                }
+            }
+        }
+
+        public class SkillInfo
+        {
+            public readonly string comment;
+            public readonly int row;    // gemparam row
+            public readonly NpcContent.Stats.Tier tier;  // strength and rarity of skill
+            public readonly int value;  // value is how much merchants will sell it for
+
+            public readonly ItemText text;
+
+            public SkillInfo(JsonNode json)
+            {
+                comment = json["comment"]?.GetValue<string>();
+                row = json["row"].GetValue<int>();
+                tier = (NpcContent.Stats.Tier)System.Enum.Parse(typeof(NpcContent.Stats.Tier), json["tier"].GetValue<string>());
+                value = json["value"].GetValue<int>();
+
+                if (json["text"] != null)
+                {
+                    text = new();
+                    text.name = json["text"]["name"] != null ? json["text"]["name"].GetValue<string>() : null;
+                    text.summary = json["text"]["summary"] != null ? json["text"]["summary"].GetValue<string>() : null;
+                    text.description = json["text"]["description"] != null ? json["text"]["description"].GetValue<string>() : null;
+                }
+                else
+                {
+                    text = null;
+                }
+            }
+
+            public bool HasTextChanges()
+            {
+                return text != null && (text.name != null || text.summary != null || text.description != null || text.effect != null);
+            }
+        }
+
+        public class SpellRemap
+        {
+            public readonly string id, comment;
+            public readonly int row;  // both the GoodsParam for the spell item and the MagicParam for the actual spell share the same row so we good
+
+            public readonly ItemText text;
+
+            public SpellRemap(string id, JsonNode json)
+            {
+                this.id = id;
+                row = json["row"].GetValue<int>();
+                comment = json["comment"]?.GetValue<string>();
+
+                if (json["text"] != null)
+                {
+                    text = new();
+                    text.name = json["text"]["name"] != null ? json["text"]["name"].GetValue<string>() : null;
+                    text.summary = json["text"]["summary"] != null ? json["text"]["summary"].GetValue<string>() : null;
+                    text.description = json["text"]["description"] != null ? json["text"]["description"].GetValue<string>() : null;
+                }
+                else
+                {
+                    text = null;
+                }
+            }
+
+            public bool HasTextChanges()
+            {
+                return text != null && (text.name != null || text.summary != null || text.description != null || text.effect != null);
+            }
+        }
+
         public class ItemRemap
         {
             public readonly string id, comment;
@@ -177,7 +322,7 @@ namespace JortPob
                 this.id = id;
                 type = (ItemManager.Type)System.Enum.Parse(typeof(ItemManager.Type), json["type"].GetValue<string>());
                 row = json["row"].GetValue<int>();
-                comment = json["comment"] != null ? json["comment"].GetValue<string>() : null;
+                comment = json["comment"]?.GetValue<string>();
 
                 if (json["infusion"] != null)
                 {
@@ -235,7 +380,7 @@ namespace JortPob
 
                 JsonNode json = JsonNode.Parse(File.ReadAllText(jsonPath));
 
-                comment = json["comment"].GetValue<string>();
+                comment = json["comment"]?.GetValue<string>();
                 row = json["row"].GetValue<int>();
 
                 if (json["icon"] != null && json["icon"].GetValue<string>().Trim().ToLower() != "none")
@@ -272,7 +417,7 @@ namespace JortPob
 
                 JsonNode json = JsonNode.Parse(File.ReadAllText(jsonPath));
 
-                comment = json["comment"].GetValue<string>();
+                comment = json["comment"]?.GetValue<string>();
                 type = (ItemManager.Type)System.Enum.Parse(typeof(ItemManager.Type), json["type"].GetValue<string>());
                 row = json["row"].GetValue<int>();
 

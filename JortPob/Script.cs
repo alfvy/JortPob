@@ -347,12 +347,16 @@ namespace JortPob
             {
                 mapOffset = uint.Parse($"{map:D2}{x:D2}0000");
             }
-            
 
-            if (rawCount >= 1000) { Lort.Log($" ## CRITICAL ## ENTITY ID OVERFLOWED IN m{map:D2}_{x:D2}_{y:D2}", Lort.Type.Debug); }
 
-            uint newid = mapOffset + ((uint)type) + rawCount;
+            //if (rawCount >= 1000) { throw new Exception($" Entity ID overflow in m{map:D2}_{x:D2}_{y:D2}"); }
+
+            uint newid;
+            if (rawCount >= 1000) { newid = common.CreateEntity(type, name); }
+            else { newid = mapOffset + ((uint)type) + rawCount; }
+
             entityIdMapping.Add(newid, name);
+
             return newid;
         }
 
@@ -389,6 +393,7 @@ namespace JortPob
             {
                 Event,                                          // Flag is an event ID
                 Item,                                           // ItemLot awarded flag
+                ItemVisibility,                                 // Flag that determines if an item in a shop is visible for the player to buy
                 Global, Local, Reputation, Journal, CrimeLevel,          // CrimeLevel is gold owed to guards, the Crime below is a per npc variable for if you comitted a crime against them
                 Dead, DeadCount, Disabled, Hostile, CrimeEvent, FriendHitCounter, Pickpocketed, ThiefCrime,      // hostile flag exists for friendly npcs, if you piss em off they stab you
                 TopicEnabled, TalkedToPc, Disposition, PlayerRace,

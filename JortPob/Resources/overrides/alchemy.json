@@ -1,0 +1,54 @@
+{
+  "p_restore_health_b": {
+    "comment": "Bargain Restore Health Potion Recipe",
+    "tier": "Novice",
+    "ingredients": [ "ingred_saltrice_01", "ingred_marshmerrow_01" ]
+  },
+  "p_restore_health_c": {
+    "comment": "Cheap Restore Health Potion Recipe",
+    "tier": "Apprentice",
+    "ingredients": [ "ingred_marshmerrow_01", "ingred_corkbulb_root_01" ]
+  },
+  "p_restore_health_s": {
+    "comment": "Standard Restore Health Potion Recipe",
+    "tier": "Journeyman",
+    "ingredients": [ "ingred_wickwheat_01", "ingred_saltrice_01" ]
+  },
+  "p_restore_health_q": {
+    "comment": "Quality Restore Health Potion Recipe",
+    "tier": "Expert",
+    "ingredients": [ "ingred_marshmerrow_01", "ingred_resin_01" ]
+  },
+  "p_restore_health_e": {
+    "comment": "Exclusive Restore Health Potion Recipe",
+    "tier": "Master",
+    "ingredients": [ "ingred_corkbulb_root_01", "ingred_emerald_01" ]
+  },
+
+
+  "p_restore_magicka_b": {
+    "comment": "Bargain Restore Magicka Potion Recipe",
+    "tier": "Novice",
+    "ingredients": [ "ingred_heather_01", "ingred_comberry_01" ]
+  },
+  "p_restore_magicka_c": {
+    "comment": "Cheap Restore Magicka Potion Recipe",
+    "tier": "Apprentice",
+    "ingredients": [ "ingred_russula_01", "ingred_stoneflower_petals_01" ]
+  },
+  "p_restore_magicka_s": {
+    "comment": "Standard Restore Magicka Potion Recipe",
+    "tier": "Journeyman",
+    "ingredients": [ "ingred_bc_coda_flower", "ingred_frost_salts_01" ]
+  },
+  "p_restore_magicka_q": {
+    "comment": "Quality Restore Magicka Potion Recipe",
+    "tier": "Expert",
+    "ingredients": [ "ingred_stoneflower_petals_01", "ingred_void_salts_01" ]
+  },
+  "p_restore_magicka_e": {
+    "comment": "Exclusive Restore Magicka Potion Recipe",
+    "tier": "Master",
+    "ingredients": [ "ingred_willow_anther_01", "ingred_daedras_heart_01" ]
+  }
+}

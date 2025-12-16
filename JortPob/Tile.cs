@@ -120,6 +120,7 @@ namespace JortPob
         public readonly List<CreatureContent> creatures;
         public readonly List<NpcContent> npcs;
         public readonly List<ContainerContent> containers;
+        public readonly List<PickableContent> pickables;
         public readonly List<ItemContent> items;
 
         public readonly List<Layout.WarpDestination> warps; // end points for load doors in other cells. also used by travel npcs
@@ -141,6 +142,7 @@ namespace JortPob
             creatures = new();
             npcs = new();
             containers = new();
+            pickables = new();
             items = new();
 
             warps = new();
@@ -173,6 +175,8 @@ namespace JortPob
                     lights.Add(l); break;
                 case ContainerContent o:
                     containers.Add(o); break;
+                case PickableContent p:
+                    pickables.Add(p); break;
                 case ItemContent i:
                     items.Add(i); break;
                 case NpcContent n:

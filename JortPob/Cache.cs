@@ -16,8 +16,9 @@ namespace JortPob
     public class Cache
     {
         public List<TerrainInfo> terrains;
-        public List<ModelInfo> maps;        // Map pieces
+        public List<ModelInfo> maps;        // Map pieces (deprecated)
         public List<ModelInfo> assets;
+        public List<PickableInfo> pickables;  // models for harvestable plants. seperated because they have very different params than most assets
         public List<EmitterInfo> emitters;
         public List<ObjectInfo> objects;
         public List<LiquidInfo> liquids;
@@ -29,6 +30,7 @@ namespace JortPob
         {
             maps = new();     /// @TODO: deelte deprecated
             assets = new();
+            pickables = new();
             emitters = new();
             objects = new();
             terrains = new();
@@ -60,6 +62,27 @@ namespace JortPob
                 }
             }
             return null;
+        }
+
+        /* Get a pickable modelinfo. These are generated on the fly. Pickables are always dynamic. */
+        public PickableInfo GetPickableModel(PickableContent content)
+        {
+            /* If pickable exists return it */
+            foreach(PickableInfo pickable in pickables)
+            {
+                if(pickable.record == content.id.ToLower())
+                {
+                    return pickable;
+                }
+            }
+
+            /* If it doesn't exist we look for the asset model of it and then create a pickable from that */
+            ModelInfo modelInfo = GetModel(content.mesh);
+            PickableInfo p = new(content, modelInfo);
+            p.id = pickables.Count();
+            pickables.Add(p);
+
+            return p;
         }
 
         /* Get a modelinfo by the nif name and scale */
@@ -188,6 +211,7 @@ namespace JortPob
                         if(model.mesh == content.mesh)
                         {
                             if (content.type == ESM.Type.Static) { model.forceCollision = true; }
+                            if (content is ItemContent || content is ContainerContent) { model.forceDynamic = true; }
                             return model;
                         }
                     }
@@ -500,21 +524,21 @@ namespace JortPob
             size = -1f;
         }
 
-        public string AssetPath()
+        public virtual string AssetPath()
         {
             int v1 = Const.ASSET_GROUP + (int)(id / 1000);
             int v2 = id % 1000;
             return $"aeg{v1.ToString("D3")}\\aeg{v1.ToString("D3")}_{v2.ToString("D3")}";
         }
 
-        public string AssetName()
+        public virtual string AssetName()
         {
             int v1 = Const.ASSET_GROUP + (int)(id / 1000);
             int v2 = id % 1000;
             return $"aeg{v1.ToString("D3")}_{v2.ToString("D3")}";
         }
 
-        public int AssetRow()
+        public virtual int AssetRow()
         {
             int v1 = Const.ASSET_GROUP + (int)(id / 1000);
             int v2 = id % 1000;
@@ -526,12 +550,12 @@ namespace JortPob
             return collision != null;
         }
 
-        public bool IsDynamic()
+        public virtual bool IsDynamic()
         {
             return scale == Const.DYNAMIC_ASSET;
         }
 
-        public bool UseScale()
+        public virtual bool UseScale()
         {
             return !HasCollision() || IsDynamic();
         }
@@ -544,6 +568,54 @@ namespace JortPob
             }
             return false;
         }
+    }
+
+    public class PickableInfo
+    {
+        public int id;                   // AEG id
+        public readonly string record;   // record id from the container we are creating this pickable of
+        public readonly string name;     // Actual name of the object, for display to the player
+        public readonly List<(string id, int quantity)> inventory;
+
+        public readonly ModelInfo model;
+
+        public PickableInfo(PickableContent pickable, ModelInfo model)
+        {
+            record = pickable.id.ToLower();
+            name = pickable.name;
+            inventory = pickable.inventory;
+
+            this.model = model;
+        }
+
+        public string ActionText()
+        {
+            return $"Harvest {name}";
+        }
+
+        public string AssetPath()
+        {
+            int v1 = Const.PICKABLE_ASSET_GROUP + (int)(id / 1000);
+            int v2 = id % 1000;
+            return $"aeg{v1.ToString("D3")}\\aeg{v1.ToString("D3")}_{v2.ToString("D3")}";
+        }
+
+        public string AssetName()
+        {
+            int v1 = Const.PICKABLE_ASSET_GROUP + (int)(id / 1000);
+            int v2 = id % 1000;
+            return $"aeg{v1.ToString("D3")}_{v2.ToString("D3")}";
+        }
+
+        public int AssetRow()
+        {
+            int v1 = Const.PICKABLE_ASSET_GROUP + (int)(id / 1000);
+            int v2 = id % 1000;
+            return int.Parse($"{v1.ToString("D3")}{v2.ToString("D3")}");  // yes i know this the wrong way to do this but guh
+        }
+
+        public bool IsDynamic() { return true; }  // pickables are always dynamic
+        public bool UseScale() { return true; }
     }
 
     /* contains info on type of water and it's files and filepaths */

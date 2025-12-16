@@ -29,6 +29,7 @@ namespace JortPob
         public readonly List<LightContent> lights;
         public readonly List<EmitterContent> emitters;
         public readonly List<ContainerContent> containers;
+        public readonly List<PickableContent> pickables;
         public readonly List<ItemContent> items;
 
         public Cell(ESM esm, JsonNode json)
@@ -63,6 +64,7 @@ namespace JortPob
             emitters = new();
             lights = new();
             containers = new();
+            pickables = new();
             items = new();
 
             foreach (JsonNode reference in json["references"].AsArray())
@@ -89,14 +91,18 @@ namespace JortPob
                         else { emitters.Add(new EmitterContent(this, reference, record)); }
                         break;
                     case ESM.Type.Npc:
-                        npcs.Add(new NpcContent(this, reference, record));
+                        npcs.Add(new NpcContent(esm, this, reference, record));
                         break;
                     case ESM.Type.Creature:
                     case ESM.Type.LeveledCreature:
                         creatures.Add(new CreatureContent(this, reference, record));
                         break;
                     case ESM.Type.Container:
-                        containers.Add(new ContainerContent(this, reference, record));
+                        if (id.ToLower().StartsWith("flora_") && id.ToLower() != "flora_treestump_unique") // this specific id is a weird outlier so just adding it as a condition here
+                        {
+                            pickables.Add(new PickableContent(this, reference, record));
+                        }
+                        else { containers.Add(new ContainerContent(this, reference, record)); }
                         break;
                     case ESM.Type.Weapon:
                     case ESM.Type.Armor:
@@ -121,6 +127,7 @@ namespace JortPob
             contents.AddRange(emitters);
             contents.AddRange(lights);
             contents.AddRange(containers);
+            contents.AddRange(pickables);
             contents.AddRange(items);
 
 

@@ -288,6 +288,28 @@ namespace JortPob
             if (description != null) { entryDescription.Text = description; }
         }
 
+        public void RenameGem(int id, string name, string description)
+        {
+            FMG fmgName = item[TextType.GemName];
+            FMG fmgSummary = item[TextType.GemInfo];
+            FMG fmgDescription = item[TextType.GemCaption];
+
+            FMG.Entry entryName = GetEntry(fmgName, id);
+            FMG.Entry entrySummary = GetEntry(fmgSummary, id);
+            FMG.Entry entryDescription = GetEntry(fmgDescription, id);
+
+            if (name != null) { entryName.Text = name; }
+            entrySummary.Text = "Can be used to enchant a weapon or shield";
+            if (description != null) { entryDescription.Text = description; }
+        }
+
+        public void EditMenuText(int id, string text)
+        {
+            FMG fmg = menu[TextType.GR_MenuText];
+            FMG.Entry entry = GetEntry(fmg, id);
+            entry.Text = text;
+        }
+
         public void Write(string dir)
         {
 

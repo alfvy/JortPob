@@ -198,7 +198,7 @@ namespace JortPob
             System.IO.File.WriteAllText(hksOutPath, hksFile);
 
             // Max rep seems to be 120, may need to cap it incase you can somehow overflow that
-            foreach (Faction faction in esm.factions)
+            foreach (FactionInfo faction in esm.factions)
             {
                 common.CreateFlag(Flag.Category.Saved, Flag.Type.Bit, Flag.Designation.FactionJoined, faction.id, 0);
                 common.CreateFlag(Flag.Category.Saved, Flag.Type.Byte, Flag.Designation.FactionReputation, faction.id, 0);

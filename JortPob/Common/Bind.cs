@@ -64,6 +64,37 @@ namespace JortPob.Common
         }
 
         /* Bind all emitter assets */
+        public static void BindPickables(Cache cache)
+        {
+            foreach (PickableInfo pickable in cache.pickables)
+            {
+                string outPath = $@"{Const.OUTPUT_PATH}asset\aeg\{pickable.AssetPath()}.geombnd.dcx";
+
+                // Bind up emitter asset flver
+                {
+                    BND4 bnd = new();
+                    bnd.Compression = SoulsFormats.DCX.Type.DCX_DFLT_11000_44_9;
+                    bnd.Extended = 4;
+                    bnd.Format = SoulsFormats.Binder.Format.IDs | SoulsFormats.Binder.Format.Names1 | SoulsFormats.Binder.Format.Names2 | SoulsFormats.Binder.Format.Compression;
+                    bnd.Unicode = true;
+                    bnd.Version = "07D7R6";
+
+                    FLVER2 flver = FLVER2.Read($"{Const.CACHE_PATH}{pickable.model.path}");
+
+                    BinderFile file = new();
+                    file.CompressionType = SoulsFormats.DCX.Type.Zlib;
+                    file.Flags = SoulsFormats.Binder.FileFlags.Flag1;
+                    file.ID = 200;
+                    file.Name = $@"N:\GR\data\INTERROOT_win64\asset\aeg\{pickable.AssetPath()}\sib\{pickable.AssetName()}.flver";
+                    file.Bytes = flver.Write();
+
+                    bnd.Files.Add(file);
+                    bnd.Write(outPath);
+                }
+            }
+        }
+
+        /* Bind all emitter assets */
         public static void BindEmitters(Cache cache)
         {
             foreach(EmitterInfo emitterInfo in cache.emitters)

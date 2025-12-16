@@ -1,11 +1,8 @@
-﻿using HKLib.hk2018.hk;
-using JortPob.Common;
-using SoulsFormats.Formats.Morpheme.MorphemeBundle;
+﻿using JortPob.Common;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
-using System.Reflection.Metadata;
-using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
 namespace JortPob
@@ -121,12 +118,14 @@ namespace JortPob
         public readonly bool hostile, dead;
 
         public readonly bool essential; // player gets called dumb if they kill this dood
+        public bool hasWitness; // this value is set based on local npcs. defaults false. if true then crimes comitted against this npc will cause bounty
+
+        public readonly Stats stats; // skills and attributes
 
         public readonly List<Service> services;
 
-        public bool hasWitness; // this value is set based on local npcs. defaults false. if true then crimes comitted against this npc will cause bounty
-
         public List<(string id, int quantity)> inventory;
+        public List<string> spells; // spells this character knows or sells as a vendor
 
         public List<(string id, int quantity)> barter; // can be null
 
@@ -144,7 +143,149 @@ namespace JortPob
             }
         }
 
-        public NpcContent(Cell cell, JsonNode json, Record record) : base(cell, json, record)
+        public class Stats
+        {
+            public enum Tier { Novice = 0, Apprentice = 25, Journeyman = 50, Expert = 75, Master = 100 }
+            public enum Skill { Acrobatics, Alchemy, Alteration, Armorer, Athletics, Axe, Block, BluntWeapon, Conjuration, Destruction, Enchant, HandToHand, HeavyArmor, Illusion, LightArmor, LongBlade, Marksman, MediumArmor, Mercantile, Mysticism, Restoration, Security, ShortBlade, Sneak, Spear, Speechcraft, Unarmored };
+            public enum Attribute { Strength, Intelligence, Willpower, Agility, Speed, Endurance, Personality, Luck };
+
+            private readonly Dictionary<Skill, int> skills;
+            private readonly Dictionary<Attribute, int> attributes;
+
+            /* Defined stats constructor */
+            public Stats(JsonNode json)
+            {
+                attributes = new();
+                skills = new();
+
+                JsonArray jsonAttributes = json["attributes"].AsArray();
+                JsonArray jsonSkills = json["skills"].AsArray();
+
+                int i = 0;
+                foreach (Attribute attribute in Enum.GetValues(typeof(Attribute)))
+                {
+                    attributes.Add(attribute, jsonAttributes[i++].GetValue<int>());
+                }
+
+                i = 0;
+                foreach (Skill skill in Enum.GetValues(typeof(Skill)))
+                {
+                    skills.Add(skill, jsonSkills[i++].GetValue<int>());
+                }
+            }
+
+            /* Autocalculated stats constructor */
+            public Stats(Sex sex, RaceInfo raceInfo, JobInfo jobInfo, int level)
+            {
+                attributes = new();
+                skills = new();
+
+                foreach (Attribute attribute in Enum.GetValues(typeof(Attribute)))
+                {
+                    float baseVal = raceInfo.GetAttribute(sex, attribute);  // base racial value for attribute
+                    float bonus = 0;
+                    if(jobInfo.HasAttribute(attribute)) { baseVal += 10f; }
+                    foreach(Skill skill in Enum.GetValues(typeof(Skill)))
+                    {
+                        if(attribute == GetParent(skill))
+                        {
+                            if(jobInfo.HasMajor(skill)) { bonus += 1f; }
+                            else if(jobInfo.HasMinor(skill)) { bonus += .5f; }
+                            else { bonus += .2f; }
+                        }
+                    }
+
+                    int calculatedValue = (int)(baseVal + (bonus * (level - 1)));
+                    attributes.Add(attribute, calculatedValue);
+                }
+
+                foreach (Skill skill in Enum.GetValues(typeof(Skill)))
+                {
+                    float baseVal = raceInfo.GetSkill(skill);
+                    float bonus;
+                    if (jobInfo.HasMajor(skill)) { baseVal += 30f; bonus = 1f; }
+                    else if (jobInfo.HasMinor(skill)) { baseVal += 15f; bonus = 1f; }
+                    else { baseVal += 5f; bonus = .1f; }
+
+                    if(jobInfo.HasSpecialization(skill)) { baseVal += 5f; bonus += .5f; }
+
+                    int calculatedValue = (int)(baseVal + (bonus * (level - 1)));
+                    skills.Add(skill, calculatedValue);
+                }
+            }
+
+            private Attribute GetParent(Skill skill)
+            {
+                switch (skill)
+                {
+                    case NpcContent.Stats.Skill.HeavyArmor:
+                    case NpcContent.Stats.Skill.MediumArmor:
+                    case NpcContent.Stats.Skill.Spear:
+                        return Attribute.Endurance;
+                    case NpcContent.Stats.Skill.Acrobatics:
+                    case NpcContent.Stats.Skill.Armorer:
+                    case NpcContent.Stats.Skill.Axe:
+                    case NpcContent.Stats.Skill.BluntWeapon:
+                    case NpcContent.Stats.Skill.LongBlade:
+                        return Attribute.Strength;
+                    case NpcContent.Stats.Skill.Block:
+                    case NpcContent.Stats.Skill.LightArmor:
+                    case NpcContent.Stats.Skill.Marksman:
+                    case NpcContent.Stats.Skill.Sneak:
+                        return Attribute.Agility;
+                    case NpcContent.Stats.Skill.Athletics:
+                    case NpcContent.Stats.Skill.HandToHand:
+                    case NpcContent.Stats.Skill.ShortBlade:
+                    case NpcContent.Stats.Skill.Unarmored:
+                        return Attribute.Speed;
+                    case NpcContent.Stats.Skill.Mercantile:
+                    case NpcContent.Stats.Skill.Speechcraft:
+                    case NpcContent.Stats.Skill.Illusion:
+                        return Attribute.Personality;
+                    case NpcContent.Stats.Skill.Security:
+                    case NpcContent.Stats.Skill.Alchemy:
+                    case NpcContent.Stats.Skill.Conjuration:
+                    case NpcContent.Stats.Skill.Enchant:
+                        return Attribute.Intelligence;
+                    case NpcContent.Stats.Skill.Alteration:
+                    case NpcContent.Stats.Skill.Destruction:
+                    case NpcContent.Stats.Skill.Mysticism:
+                    case NpcContent.Stats.Skill.Restoration:
+                        return Attribute.Willpower;
+                    default:
+                        throw new Exception("What the fuck");
+                }
+            }
+
+            public int Get(Skill skill) { return skills[skill]; }
+            public int Get(Attribute attribute) { return attributes[attribute]; }
+
+            public Tier GetTier(Skill skill) {
+                int val = skills[skill];
+                if (val >= (int)Tier.Master) { return Tier.Master; }
+                else if(val >= (int)Tier.Expert) { return Tier.Expert; }
+                else if(val >= (int)Tier.Journeyman) { return Tier.Journeyman; }
+                else if(val >= (int)Tier.Apprentice) { return Tier.Apprentice; }
+                else { return Tier.Novice; }
+            }
+
+            /* Return # highest skills. This is how MW determines trainer skills */
+            public List<Skill> GetHighest(int num)
+            {
+                var list = skills.ToList();
+                list.Sort((x, y) => y.Value.CompareTo(x.Value));
+
+                List<Skill> highest = new();
+                for(int i=0;i<num||i<list.Count();i++)
+                {
+                    highest.Add(list[i].Key);
+                }
+
+                return highest;
+            }
+        }
+
+        public NpcContent(ESM esm, Cell cell, JsonNode json, Record record) : base(cell, json, record)
         {
             race = (Race)System.Enum.Parse(typeof(Race), record.json["race"].ToString().Replace(" ", ""));
             job = record.json["class"].ToString();
@@ -168,6 +309,15 @@ namespace JortPob
             hostile = fight >= 80; // @TODO: recalc with disposition mods based off UESP calc
             dead = record.json["data"]["stats"] != null && record.json["data"]["stats"]["health"] != null ? (int.Parse(record.json["data"]["stats"]["health"].ToString()) <= 0) : false;
 
+            if (record.json["data"]["stats"] != null)
+            {
+                stats = new(record.json["data"]["stats"]);
+            }
+            else
+            {
+                stats = new(sex, esm.GetRace(record.json["race"].ToString()), esm.GetJob(job), level);
+            }
+
             string[] serviceFlags = record.json["ai_data"]["services"].ToString().Split("|");
             services = new();
             foreach (string s in serviceFlags)
@@ -189,6 +339,16 @@ namespace JortPob
             {
                 JsonArray item = node.AsArray();
                 inventory.Add(new(item[1].GetValue<string>().ToLower(), Math.Max(1, Math.Abs(item[0].GetValue<int>()))));
+            }
+
+            spells = new();
+            if (record.json["spells"] != null)
+            {
+                JsonArray spellJson = record.json["spells"].AsArray();
+                for(int i=0;i<spellJson.Count;i++)
+                {
+                    spells.Add(spellJson[i].GetValue<string>().ToLower());
+                }
             }
 
             travel = new();
@@ -219,6 +379,49 @@ namespace JortPob
                 services.Contains(Service.BartersLockpicks) ||
                 services.Contains(Service.BartersProbes) ||
                 services.Contains(Service.BartersLights);
+        }
+
+        public bool SellsSpells()
+        {
+            return services.Contains(Service.OffersSpells);
+        }
+
+        public bool OffersMemorize()
+        {
+            return
+                services.Contains(Service.OffersSpells) ||
+                services.Contains(Service.OffersSpellmaking) ||
+                OffersTraining(Stats.Skill.Alteration) ||
+                OffersTraining(Stats.Skill.Conjuration) ||
+                OffersTraining(Stats.Skill.Destruction) ||
+                OffersTraining(Stats.Skill.Illusion) ||
+                OffersTraining(Stats.Skill.Mysticism) ||
+                OffersTraining(Stats.Skill.Restoration);
+        }
+
+        public bool OffersEnchanting()
+        {
+            return job.ToLower() == "enchanter service" || services.Contains(Service.OffersEnchanting) || OffersTraining(Stats.Skill.Enchant);
+        }
+
+        public bool OffersTraining(Stats.Skill skill)
+        {
+            return services.Contains(Service.OffersTraining) && stats.GetHighest(3).Contains(skill) && stats.Get(skill) >= (int)Stats.Tier.Apprentice;
+        }
+
+        public bool OffersAlchemy()
+        {
+            return job.ToLower() == "alchemist service" || job.ToLower() == "apothecary service" || OffersTraining(Stats.Skill.Alchemy);
+        }
+
+        public bool OffersTailoring()
+        {
+            return job.ToLower() == "clothier";
+        }
+
+        public bool OffersSmithing()
+        {
+            return job.ToLower() == "smith" || OffersTraining(Stats.Skill.Armorer);
         }
     }
 
@@ -354,6 +557,31 @@ namespace JortPob
         {
             if (ownerNpc != null || ownerFaction != null) { return $"Steal from {name}"; }
             return $"Loot {name}";
+        }
+    }
+
+    /* PickableContent */    // plants you can pick for alchemy ingredients. EX: rowa berry bushes
+    public class PickableContent : Content
+    {
+        public List<(string id, int quantity)> inventory;
+
+        public PickableContent(Cell cell, JsonNode json, Record record) : base(cell, json, record)
+        {
+            mesh = record.json["mesh"].ToString().ToLower();
+
+            inventory = new();
+            JsonArray invJson = record.json["inventory"].AsArray();
+            foreach (JsonNode node in invJson)
+            {
+                JsonArray item = node.AsArray();
+                inventory.Add(new(item[1].GetValue<string>().ToLower(), Math.Max(1, Math.Abs(item[0].GetValue<int>()))));  // get item record id and quantity from json
+            }
+        }
+
+        // Generates button prompt text for looting this container
+        public string ActionText()
+        {
+            return $"Harvest {name}";
         }
     }
 
