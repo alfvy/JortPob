@@ -54,9 +54,9 @@ namespace JortPob.Worker
                 );
 
                 Lort.Log("Writing map files... ", Lort.Type.Main);
-                File.Copy(maskPath, Path.Combine(Const.OUTPUT_PATH, "menu\\71_maptile.mtmskbnd.dcx"));
                 File.WriteAllBytes(Path.Combine(Const.OUTPUT_PATH, "menu\\71_maptile.tpfbhd"), result.bhdBytes);
                 File.WriteAllBytes(Path.Combine(Const.OUTPUT_PATH, "menu\\71_maptile.tpfbdt"), result.bdtBytes);
+                File.Copy(maskPath, Path.Combine(Const.OUTPUT_PATH, "menu\\71_maptile.mtmskbnd.dcx"), true);
             } catch (Exception ex) 
             {
                 Lort.Log($"Failed to generate UI map: {ex.Message}", Lort.Type.Debug);

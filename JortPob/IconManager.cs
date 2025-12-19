@@ -20,10 +20,10 @@ using static JortPob.SpeffManager.Speff.Effect;
 
 namespace JortPob
 {
-    public class IconManager
+    public class IconManager : IDisposable
     {
-        public readonly List<IconInfo> icons;
-        public readonly List<BuffInfo> buffs;
+        public List<IconInfo> icons { get; private set; }
+        public List<BuffInfo> buffs { get; private set; }
 
         public ushort nextIconId = 19000; // all ids after this are free to use
         public ushort nextBuffId = 20600; // all ids after this are free to use
@@ -121,9 +121,9 @@ namespace JortPob
             return null;
         }
 
-        public void Write()
+        public (BXF4 hiBxf, BXF4 lowBxf) Write()
         {
-            if (Const.DEBUG_SKIP_ICONS) { return; }
+            if (Const.DEBUG_SKIP_ICONS) { return (null, null); }
 
             /* Do regular icons for use in the inventory */
             const int WIDTH = 4096;
@@ -278,7 +278,7 @@ namespace JortPob
             Lort.Log($"Generating {icons.Count()} previews...", Lort.Type.Main);
             Lort.NewTask("Generating Previews", icons.Count());
 
-            void AddIcons(string path)
+            BXF4 AddIcons(string path)
             {
                 /* Load BXF4 from elden ring directory (requires game unpacked!) */
                 BXF4 bxf = BXF4.Read($"{Const.ELDEN_PATH}Game\\{path}.tpfbhd", $"{Const.ELDEN_PATH}Game\\{path}.tpfbdt");
@@ -326,15 +326,24 @@ namespace JortPob
                 }
 
                 /* Write */
-                bxf.Write($"{Const.OUTPUT_PATH}{path}.tpfbhd", $"{Const.OUTPUT_PATH}{path}.tpfbdt");
+                //bxf.Write($"{Const.OUTPUT_PATH}{path}.tpfbhd", $"{Const.OUTPUT_PATH}{path}.tpfbdt");
+                return bxf;
             }
 
             Lort.Log($"Binding {icons.Count()} previews...", Lort.Type.Main);
             Lort.NewTask("Binding Previews", 2);
-            AddIcons(hiPath); Lort.TaskIterate();
-            AddIcons(lowPath); Lort.TaskIterate();
+            var hiBxf = AddIcons(hiPath); Lort.TaskIterate();
+            var lowBxf = AddIcons(lowPath); Lort.TaskIterate();
 
             Lort.TaskIterate();
+
+            return (hiBxf, lowBxf);
+        }
+
+        public void Dispose()
+        {
+            icons = null;
+            buffs = null;
         }
 
         public class IconInfo

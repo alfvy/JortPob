@@ -1,6 +1,8 @@
 ﻿using JortPob.Common;
 using JortPob.Worker;
 using Microsoft.Scripting.Hosting;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SoulsFormats;
 using System;
 using System.Collections.Generic;
@@ -1128,6 +1130,37 @@ namespace JortPob
                 mapGridHeightDetailParam.RemoveRow(row);
                 i--;
             }
+        }
+
+        internal void GenerateLoadingMenuRows(TextManager text)
+        {
+            const string dpNT = "disableParam_NT";
+            const string ufID = "unlockFlagId";
+            const string idID = "invalidFlagId";
+            const string msgID = "msgId";
+
+            // load loading menu text
+            var loadingMenuRaw = File.ReadAllText(Utility.ResourcePath("msg\\loadingMenuItems.json"));
+            var loadingMenuText = JsonConvert.DeserializeObject<Dictionary<string, string>>(loadingMenuRaw);
+            
+            var loadingMenuParam = param[ParamType.KnowledgeLoadScreenItemParam];
+
+            loadingMenuParam.ClearRows();
+
+            int id = 0;
+            foreach (var element in loadingMenuText)
+            {
+                var newRow = new FsParam.Row(id, element.Key, loadingMenuParam);
+
+                newRow[dpNT].Value.SetValue((byte)0);
+                newRow[ufID].Value.SetValue((UInt32)0);
+                newRow[idID].Value.SetValue((UInt32)0);
+                newRow[msgID].Value.SetValue(id);
+
+                id++;
+                loadingMenuParam.AddRow(newRow);
+            }
+            text.ReplaceLoadingEntries(loadingMenuText);
         }
     }
 }

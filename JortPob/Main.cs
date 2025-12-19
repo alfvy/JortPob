@@ -2,6 +2,8 @@
 using JortPob.Common;
 using JortPob.Worker;
 using Microsoft.Scripting.Hosting;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using PortJob;
 using SoulsFormats;
 using System;
@@ -11,6 +13,7 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection.Metadata;
 using System.Text.Json.Nodes;
+using WitchyFormats;
 using static IronPython.Modules._ast;
 using static JortPob.InteriorGroup;
 using static JortPob.Script;
@@ -31,10 +34,11 @@ namespace JortPob
             ESM esm = new ESM(scriptManager);                                               // Morrowind ESM parse and partial serialization
             Cache cache = Cache.Load(esm);                                                  // Load existing cache (FAST!) or generate a new one (SLOW!)
             TextManager text = new();                                                           // Manages FMG text files
-            IconManager icon = new(esm);                                                       // Manages the creation and assignment of item icons
+            //IconManager icon = new(esm);                                                       // Manages the creation and assignment of item icons
+            MenuTexManager texManager = new(esm);
             Paramanager param = new(text);                                                        // Class for managing PARAM files
-            SpeffManager speff = new(esm, param, icon, text);                                             // Manages speff params, primarily for magic effects like potions and enchanted gear. NOT SPELLS!
-            ItemManager item = new(esm, param, scriptManager, speff, icon, text);                         // Handles generation and reampping of items
+            SpeffManager speff = new(esm, param, texManager.icon, text);                                             // Manages speff params, primarily for magic effects like potions and enchanted gear. NOT SPELLS!
+            ItemManager item = new(esm, param, scriptManager, speff, texManager.icon, text);                         // Handles generation and reampping of items
             Layout layout = new(cache, esm, param, text, scriptManager);                          // Subdivides all content data from ESM into a more elden ring friendly format
             SoundManager sound = new();                                                         // Manages vcbanks
             NpcManager character = new(esm, sound, param, text, item, scriptManager);                 // Manages dialog esd
@@ -802,6 +806,7 @@ namespace JortPob
             param.SetAllMapLocation();
             param.GenerateCustomCharacterCreation();
             param.KillMapHeightParams();    // murder kill
+            param.GenerateLoadingMenuRows(text);
             param.Write();
 
             /* Write FMGs */
@@ -815,7 +820,7 @@ namespace JortPob
             /* Bind and write all materials and textures */
             Bind.BindMaterials($"{Const.OUTPUT_PATH}material\\allmaterial.matbinbnd.dcx");
             Bind.BindTPF(cache, layout.ListCommon());
-            icon.Write();
+            texManager.Write();
 
             /* Bind all assets */    // Multithreaded because slow
             Lort.Log($"Binding {cache.assets.Count} assets...", Lort.Type.Main);
@@ -838,7 +843,7 @@ namespace JortPob
             /* Write msbs */
             esm = null;  // free some memory here
             param = null;
-            icon = null;
+            texManager.Dispose();
             GC.Collect();
             MsbWorker.Go(msbs);
 

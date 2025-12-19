@@ -133,4 +133,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Resources\msg\" />
+  </ItemGroup>
 </Project>

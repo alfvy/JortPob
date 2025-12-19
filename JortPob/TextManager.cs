@@ -13,7 +13,7 @@ namespace JortPob
             GoodsName = 10, WeaponName = 11, ProtectorName = 12, AccessoryName = 13, MagicName = 14, NpcName = 18, PlaceName = 19, GoodsInfo = 20, WeaponInfo = 21, ProtectorInfo = 22, AccessoryInfo = 23, GoodsCaption = 24, WeaponCaption = 25, ProtectorCaption = 26, AccessoryCaption = 27, MagicInfo = 28, MagicCaption = 29, GemName = 35, GemInfo = 36, GemCaption = 37, GoodsDialog = 41, ArtsName = 42, ArtsCaption = 43, WeaponEffect = 44, GemEffect = 45, GoodsInfo2 = 46, WeaponName_dlc01 = 310, WeaponInfo_dlc01 = 311, WeaponCaption_dlc01 = 312, ProtectorName_dlc01 = 313, ProtectorInfo_dlc01 = 314, ProtectorCaption_dlc01 = 315, AccessoryName_dlc01 = 316, AccessoryInfo_dlc01 = 317, AccessoryCaption_dlc01 = 318, GoodsName_dlc01 = 319, GoodsInfo_dlc01 = 320, GoodsCaption_dlc01 = 321, GemName_dlc01 = 322, GemInfo_dlc01 = 323, GemCaption_dlc01 = 324, MagicName_dlc01 = 325, MagicInfo_dlc01 = 326, MagicCaption_dlc01 = 327, NpcName_dlc01 = 328, PlaceName_dlc01 = 329, GoodsDialog_dlc01 = 330, ArtsName_dlc01 = 331, ArtsCaption_dlc01 = 332, WeaponEffect_dlc01 = 333, GemEffect_dlc01 = 334, GoodsInfo2_dlc01 = 335, WeaponName_dlc02 = 410, WeaponInfo_dlc02 = 411, WeaponCaption_dlc02 = 412, ProtectorName_dlc02 = 413, ProtectorInfo_dlc02 = 414, ProtectorCaption_dlc02 = 415, AccessoryName_dlc02 = 416, AccessoryInfo_dlc02 = 417, AccessoryCaption_dlc02 = 418, GoodsName_dlc02 = 419, GoodsInfo_dlc02 = 420, GoodsCaption_dlc02 = 421, GemName_dlc02 = 422, GemInfo_dlc02 = 423, GemCaption_dlc02 = 424, MagicName_dlc02 = 425, MagicInfo_dlc02 = 426, MagicCaption_dlc02 = 427, NpcName_dlc02 = 428, PlaceName_dlc02 = 429, GoodsDialog_dlc02 = 430, ArtsName_dlc02 = 431, ArtsCaption_dlc02 = 432, WeaponEffect_dlc02 = 433, GemEffect_dlc02 = 434, GoodsInfo2_dlc02 = 435
         }
 
-        private Dictionary<TextType, FMG> menu, item;
+        private Dictionary<TextType, FMG> menu, menuDlc, item;
 
         private int nextTopicId, nextNpcNameId, nextActionButtonId, nextLocationId, nextMenuId, nextTutorial, nextMapEventText, nextWeaponEffectId;
 
@@ -46,7 +46,8 @@ namespace JortPob
                 return fmgs;
             }
 
-            menu = LoadMsgBnd(Utility.ResourcePath(@"text\menu_dlc02.msgbnd.dcx"));
+            menu = LoadMsgBnd($"{Const.ELDEN_PATH}Game\\msg\\engus\\menu.msgbnd.dcx");
+            menuDlc = LoadMsgBnd(Utility.ResourcePath(@"text\menu_dlc02.msgbnd.dcx"));
             item = LoadMsgBnd(Utility.ResourcePath(@"text\item_dlc02.msgbnd.dcx"));
         }
 
@@ -61,20 +62,20 @@ namespace JortPob
 
         public void AddTalk(int id, string text)
         {
-            FMG fmg = menu[TextType.TalkMsg];
+            FMG fmg = menuDlc[TextType.TalkMsg];
             fmg.Entries.Add(new(id, text));
         }
 
         /* Check if this text already exists before adding it to avoid duplicates */
         public int AddChoice(string text)
         {
-            foreach(FMG.Entry entry in menu[TextType.EventTextForTalk].Entries)
+            foreach(FMG.Entry entry in menuDlc[TextType.EventTextForTalk].Entries)
             {
                 if (entry.Text == text) { return entry.ID; }
             }
 
             int id = nextTopicId++;
-            FMG fmg = menu[TextType.EventTextForTalk];
+            FMG fmg = menuDlc[TextType.EventTextForTalk];
             fmg.Entries.Add(new(id, text));
             return id;
         }
@@ -82,7 +83,7 @@ namespace JortPob
         public int AddTopic(string text)
         {
             int id = nextTopicId++;
-            FMG fmg = menu[TextType.EventTextForTalk];
+            FMG fmg = menuDlc[TextType.EventTextForTalk];
             fmg.Entries.Add(new(id, text));
             return id;
         }
@@ -90,7 +91,7 @@ namespace JortPob
         /* Find and return a topic, or create it and return that */
         public int GetTopic(string text)
         {
-            FMG fmg = menu[TextType.EventTextForTalk];
+            FMG fmg = menuDlc[TextType.EventTextForTalk];
             foreach (FMG.Entry entry in fmg.Entries)
             {
                 if(entry.Text == text) { return entry.ID; }
@@ -112,7 +113,7 @@ namespace JortPob
         public int AddActionButton(string text)
         {
             int id = nextActionButtonId++;
-            FMG fmg = menu[TextType.ActionButtonText];
+            FMG fmg = menuDlc[TextType.ActionButtonText];
             fmg.Entries.Add(new(id, text));
             return id;
         }
@@ -136,9 +137,9 @@ namespace JortPob
         public int AddMenuText(string text, string desc)
         {
             int id = nextMenuId++;
-            FMG fmg = menu[TextType.GR_MenuText];
+            FMG fmg = menuDlc[TextType.GR_MenuText];
             fmg.Entries.Add(new(id, text));
-            fmg = menu[TextType.GR_LineHelp];
+            fmg = menuDlc[TextType.GR_LineHelp];
             fmg.Entries.Add(new(id, desc));
             return id;
         }
@@ -146,8 +147,8 @@ namespace JortPob
         public int AddTutorial(string title, string text)
         {
             int id = nextTutorial++;
-            FMG fmgTitle = menu[TextType.TutorialTitle];
-            FMG fmgBody = menu[TextType.TutorialBody];
+            FMG fmgTitle = menuDlc[TextType.TutorialTitle];
+            FMG fmgBody = menuDlc[TextType.TutorialBody];
             fmgTitle.Entries.Add(new(id, title));
             fmgBody.Entries.Add(new(id, text));
             return id;
@@ -155,13 +156,13 @@ namespace JortPob
 
         public int AddMapEventText(string text)
         {
-            foreach (FMG.Entry entry in menu[TextType.EventTextForMap].Entries)
+            foreach (FMG.Entry entry in menuDlc[TextType.EventTextForMap].Entries)
             {
                 if (entry.Text == text) { return entry.ID; }
             }
 
             int id = nextMapEventText++;
-            FMG fmg = menu[TextType.EventTextForMap];
+            FMG fmg = menuDlc[TextType.EventTextForMap];
             fmg.Entries.Add(new(id, text));
             return id;
         }
@@ -305,14 +306,29 @@ namespace JortPob
 
         public void EditMenuText(int id, string text)
         {
-            FMG fmg = menu[TextType.GR_MenuText];
+            FMG fmg = menuDlc[TextType.GR_MenuText];
             FMG.Entry entry = GetEntry(fmg, id);
             entry.Text = text;
         }
 
+        public void ReplaceLoadingEntries(Dictionary<string, string> loadingMenuText)
+        {
+            var loadingTitleFmg = menu[TextType.LoadingTitle];
+            var loadingTextFmg = menu[TextType.LoadingText];
+
+            loadingTitleFmg.Entries.Clear();
+            loadingTextFmg.Entries.Clear();
+
+            int id = 0;
+            foreach (var element in loadingMenuText)
+            {
+                loadingTitleFmg.Entries.Add(new(id, element.Key));
+                loadingTextFmg.Entries.Add(new(id, element.Value));
+            }
+        }
+
         public void Write(string dir)
         {
-
             void WriteBnd(string fileName, Dictionary<TextType, FMG> fmgs)
             {
                 BND4 bnd = new();
@@ -325,7 +341,7 @@ namespace JortPob
                     FMG fmg = kvp.Value;
                     if (!Const.DEBUG_SKIP_FMG_PARAM_SORTING)
                     {
-                        Utility.SortFMG(fmg);  // it's too slow!!!!!! jesus fucking christ make a faster sort @TODO: !!
+                        Utility.SortFMG(fmg);
                     }
 
                     BinderFile file = new();
@@ -339,7 +355,8 @@ namespace JortPob
                 bnd.Write($"{dir}{fileName}");
             }
 
-            WriteBnd("menu_dlc02.msgbnd.dcx", menu);
+            WriteBnd("menu.msgbnd.dcx", menu);
+            WriteBnd("menu_dlc02.msgbnd.dcx", menuDlc);
             WriteBnd("item_dlc02.msgbnd.dcx", item);
         }
     }
