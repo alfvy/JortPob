@@ -61,7 +61,7 @@ namespace JortPob
             }
 
             /* Red Mountain has priority for skybox */
-            string redMountain = "Red Mountain Region".Trim().ToLower();
+            string redMountain = "red mountain region"; // Case sensitive
             if (regions.ContainsKey(redMountain))
             {
                 if (regions[redMountain] >= 3) { most = redMountain; }
@@ -150,7 +150,7 @@ namespace JortPob
 
         public int[] IdList()
         {
-            return new int[] { map, coordinate.x, coordinate.y, block };
+            return [map, coordinate.x, coordinate.y, block];
         }
 
         public bool IsEmpty()

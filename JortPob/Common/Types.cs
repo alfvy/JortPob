@@ -96,15 +96,6 @@ namespace JortPob.Common
         }
     }
 
-    public class Box
-    {
-        public int x1, y1, x2, y2;
-        public Box(int x1, int y1, int x2, int y2)
-        {
-            this.x1 = x1; this.y1 = y1;
-            this.x2 = x2; this.y2 = y2;
-        }
-    }
     public class Int2
     {
         public readonly int x, y;
@@ -194,18 +185,27 @@ namespace JortPob.Common
         public readonly byte x, y, z, w;
         public Byte4(byte a)
         {
-            x = a; y = a; z = a; w = a;
+            x = a;
+            y = a;
+            z = a;
+            w = a;
         }
 
         public Byte4(int x, int y, int z, int w)
         {
 
-            this.x = (byte)Math.Max(0, Math.Min(byte.MaxValue, x)); this.y = (byte)Math.Max(0, Math.Min(byte.MaxValue, y)); this.z = (byte)Math.Max(0, Math.Min(byte.MaxValue, z)); this.w = (byte)Math.Max(0, Math.Min(byte.MaxValue, w));
+            this.x = (byte)Math.Max(0, Math.Min(byte.MaxValue, x));
+            this.y = (byte)Math.Max(0, Math.Min(byte.MaxValue, y));
+            this.z = (byte)Math.Max(0, Math.Min(byte.MaxValue, z));
+            this.w = (byte)Math.Max(0, Math.Min(byte.MaxValue, w));
         }
 
         public Byte4(byte x, byte y, byte z, byte w)
         {
-            this.x = x; this.y = y; this.z = z; this.w = w;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.w = w;
         }
     }
 }

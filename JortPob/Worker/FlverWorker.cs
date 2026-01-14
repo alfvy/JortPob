@@ -41,6 +41,13 @@ namespace JortPob.Worker
             {
                 PreModel premodel = meshes[i];
 
+                if (string.IsNullOrEmpty(premodel.mesh))
+                {
+                    Lort.Log(" ## ERROR ## Premodel mesh name is invalid!", Lort.Type.Debug);
+                    Lort.TaskIterate();
+                    continue;
+                }
+
                 /* Generate the 100 scale version of the model. This is the baseline. After this we generate dynamics and baked scale versions from this */
                 string meshIn = $"{Const.MORROWIND_PATH}Data Files\\meshes\\{premodel.mesh.ToLower()/*.Replace(".nif", ".fbx")*/}";
                 string meshOut = $"{Const.CACHE_PATH}meshes\\{premodel.mesh.ToLower().Replace(".nif", ".flver").Replace(@"\", "_").Replace(" ", "")}";

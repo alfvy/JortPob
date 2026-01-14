@@ -104,7 +104,7 @@ namespace JortPob.Model
 
             for (int mIdx = 0; mIdx < collisions.Count; mIdx++)
             {
-                var mesh = collisions[mIdx];
+                TES3.Mesh mesh = collisions[mIdx];
                 ObjG g = new();
 
                 g.name = material.ToString();
@@ -121,7 +121,7 @@ namespace JortPob.Model
 
                 for (int tIdx = 0; tIdx < mesh.Triangles.Count; tIdx++)
                 {
-                    var tri = mesh.Triangles[tIdx];
+                    TES3.Triangle tri = mesh.Triangles[tIdx];
                     ObjV[] V = new ObjV[3];
 
                     for (int i = 0; i < 3; i++)
@@ -147,7 +147,7 @@ namespace JortPob.Model
                         Vector3 uvw;
                         if (mesh.UvSet0 != null && idx < mesh.UvSet0.Count)
                         {
-                            var uv = mesh.UvSet0[idx];
+                            TES3.Vec2 uv = mesh.UvSet0[idx];
                             uvw = new Vector3(uv.x, 1 - uv.y, 0);
                         }
                         else

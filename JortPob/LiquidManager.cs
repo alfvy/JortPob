@@ -702,12 +702,12 @@ namespace JortPob
 
         public static bool PointInCutout(Cutout.Type type, Vector3 position, bool includeShapedCutouts = false)
         {
-            var positionY = position.Y;
+            float positionY = position.Y;
 
             // Check regular cutouts of this type only
-            if (CUTOUTS_BY_TYPE.TryGetValue(type, out var regularCutouts))
+            if (CUTOUTS_BY_TYPE.TryGetValue(type, out List<Cutout> regularCutouts))
             {
-                foreach (var cutout in regularCutouts)
+                foreach (Cutout cutout in regularCutouts)
                 {
                     if (positionY <= cutout.height && cutout.IsInside(position, false))
                         return true;
@@ -715,9 +715,9 @@ namespace JortPob
             }
 
             // Check shaped cutouts of this type only
-            if (includeShapedCutouts && SHAPED_CUTOUTS_BY_TYPE.TryGetValue(type, out var shapedCutouts))
+            if (includeShapedCutouts && SHAPED_CUTOUTS_BY_TYPE.TryGetValue(type, out List<Cutout> shapedCutouts))
             {
-                foreach (var cutout in shapedCutouts)
+                foreach (Cutout cutout in shapedCutouts)
                 {
                     if (positionY <= cutout.height && cutout.IsInside(position, false))
                         return true;

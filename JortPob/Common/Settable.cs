@@ -16,7 +16,7 @@ namespace JortPob.Common
                 json = JsonNode.Parse(tempRawJson);
             }
 
-            return json[key].ToString();
+            return json[key]?.ToString() ?? throw new Exception($"Setting with key '{key}' does not exist in settings.json");
         }
 
         public static string[] GetArray(string key)
@@ -29,7 +29,7 @@ namespace JortPob.Common
 
             List<string> strings = new();
 
-            JsonArray array = json[key].AsArray();
+            JsonArray array = json[key]?.AsArray() ?? throw new Exception($"Setting with key '{key}' does not exist in settings.json");
             foreach(JsonNode jsonNode in array)
             {
                 strings.Add(jsonNode.GetValue<string>());

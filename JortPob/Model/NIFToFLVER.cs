@@ -3,16 +3,16 @@ using SoulsFormats;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text.Json.Nodes;
 using TES3;
+
+#nullable enable
 
 namespace JortPob.Model
 {
     public partial class ModelConverter
     {
-        public static ModelInfo NIFToFLVER(MaterialContext materialContext,
+        public static ModelInfo? NIFToFLVER(MaterialContext materialContext,
                     ModelInfo modelInfo,
                     bool forceCollision,
                     string modelPath,
@@ -26,7 +26,7 @@ namespace JortPob.Model
                 return null;
             }
 
-            var nif = loadResult.AsOk();
+            TES3.Scene nif = loadResult.AsOk();
 
             FLVER2 flver = new();
             flver.Header.Version = 131098; // Elden Ring FLVER Version Number
@@ -48,10 +48,10 @@ namespace JortPob.Model
 
             for (int meshIndex = 0; meshIndex < nif.VisualMeshes.Count; meshIndex++)
             {
-                var mesh = nif.VisualMeshes[meshIndex];
+                TES3.Mesh mesh = nif.VisualMeshes[meshIndex];
 
                 /* Setup Material */
-                var materialInfo = materialContext.GenerateMaterial(mesh.Texture.String, meshIndex);
+                MaterialContext.MaterialInfo materialInfo = materialContext.GenerateMaterial(mesh.Texture.String, meshIndex);
                 flver.Materials.Add(materialInfo.material);
                 flver.GXLists.Add(materialInfo.gx);
                 flver.BufferLayouts.Add(materialInfo.layout);
@@ -80,8 +80,8 @@ namespace JortPob.Model
 
                 for (int triangleIndex = 0; triangleIndex < mesh.Triangles.Count; triangleIndex++)
                 {
-                    var triangle = mesh.Triangles[triangleIndex];
-                    var indices = new int[] { triangle.v0, triangle.v1, triangle.v2 };
+                    Triangle triangle = mesh.Triangles[triangleIndex];
+                    int[] indices = new int[] { triangle.v0, triangle.v1, triangle.v2 };
                     foreach (int vertexIndex in indices)
                     {
                         FLVER.Vertex flverVertex = new();
@@ -118,7 +118,7 @@ namespace JortPob.Model
                         flverVertex.Normal = norm;
                         if (mesh.UvSet0.Count != 0)
                         {
-                            var uv = mesh.UvSet0[vertexIndex];
+                            TES3.Vec2 uv = mesh.UvSet0[vertexIndex];
                             flverVertex.UVs.Add(new Vector3(uv.x, uv.y, 0));
                         }
                         else
@@ -217,7 +217,7 @@ namespace JortPob.Model
 
                     for (int i = 0; i < nif.VisualMeshes.Count; i++)
                     {
-                        var tex = nif.VisualMeshes[i].Texture.String.ToLower();
+                        string tex = nif.VisualMeshes[i].Texture.String.ToLower();
                         foreach (string key in keys)
                         {
                             if (Utility.PathToFileName(modelInfo.name).ToLower().Contains(key)) { matguess = type; return; }
@@ -260,7 +260,7 @@ namespace JortPob.Model
     {
         public static Vec3 Multiply(this Vec3 vec, float value)
         {
-            var result = vec;
+            Vec3 result = vec;
             result.x = result.x * value;
             result.y = result.y * value;
             result.z = result.z * value;
@@ -311,7 +311,7 @@ namespace JortPob.Model
             min = obj.vs[0];
             max = obj.vs[0];
 
-            foreach (var v in obj.vs)
+            foreach (Vector3 v in obj.vs)
             {
                 if (v.X < min.X) min.X = v.X;
                 if (v.Y < min.Y) min.Y = v.Y;

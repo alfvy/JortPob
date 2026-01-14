@@ -35,10 +35,10 @@ namespace JortPob.Common
             FsParam.Row row = paramanager.CloneRow(param[sourceRow], name, destRow);
 
             /* List of named speff fields that should be resolved before applying */
-            List<string> equipSpeffFieldNames = new() {
+            List<string> equipSpeffFieldNames = [
                 "spEffectBehaviorId0", "spEffectBehaviorId1", "spEffectBehaviorId2",  // these 6 are used by weapon/armor/acc
                 "residentSpEffectId", "residentSpEffectId1", "residentSpEffectId2",
-            };
+            ];
             const string accSpeffFieldName = "refId";     // only accessorys use this
             const string goodFieldName = "refId_default";  // only goods use this (ex: potions)
 

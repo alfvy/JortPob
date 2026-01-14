@@ -1,16 +1,7 @@
-﻿using ESDLang.Script;
-using JortPob.Common;
+﻿using JortPob.Common;
 using SoulsFormats;
 using SoulsIds;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static HKLib.hk2018.hknpShape.MassConfig;
-using static JortPob.ItemManager;
-using static JortPob.NpcContent;
-using static JortPob.Papyrus;
 using static JortPob.Script;
 using static JortPob.Script.Flag;
 
@@ -47,15 +38,15 @@ namespace JortPob
 
         public ScriptCommon()
         {
-            AUTO = new(Utility.ResourcePath(@"script\\er-common.emedf.json"), true, true);
+            AUTO = new(Utility.ResourcePath(@"script\er-common.emedf.json"), true, true);
 
             emevd = EMEVD.Read(Utility.ResourcePath(@"script\common.emevd.dcx"));
             func = EMEVD.Read(Utility.ResourcePath(@"script\common_func.emevd.dcx"));
             init = emevd.Events[0];
 
             // Bytes here are raw string data that points to the filenames of common_func and common_macro
-            emevd.StringData = new byte[] { 78, 0, 58, 0, 92, 0, 71, 0, 82, 0, 92, 0, 100, 0, 97, 0, 116, 0, 97, 0, 92, 0, 80, 0, 97, 0, 114, 0, 97, 0, 109, 0, 92, 0, 101, 0, 118, 0, 101, 0, 110, 0, 116, 0, 92, 0, 99, 0, 111, 0, 109, 0, 109, 0, 111, 0, 110, 0, 95, 0, 102, 0, 117, 0, 110, 0, 99, 0, 46, 0, 101, 0, 109, 0, 101, 0, 118, 0, 100, 0, 0, 0, 78, 0, 58, 0, 92, 0, 71, 0, 82, 0, 92, 0, 100, 0, 97, 0, 116, 0, 97, 0, 92, 0, 80, 0, 97, 0, 114, 0, 97, 0, 109, 0, 92, 0, 101, 0, 118, 0, 101, 0, 110, 0, 116, 0, 92, 0, 99, 0, 111, 0, 109, 0, 109, 0, 111, 0, 110, 0, 95, 0, 109, 0, 97, 0, 99, 0, 114, 0, 111, 0, 46, 0, 101, 0, 109, 0, 101, 0, 118, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-            emevd.LinkedFileOffsets = new() { 0, 82 };
+            emevd.StringData = [78, 0, 58, 0, 92, 0, 71, 0, 82, 0, 92, 0, 100, 0, 97, 0, 116, 0, 97, 0, 92, 0, 80, 0, 97, 0, 114, 0, 97, 0, 109, 0, 92, 0, 101, 0, 118, 0, 101, 0, 110, 0, 116, 0, 92, 0, 99, 0, 111, 0, 109, 0, 109, 0, 111, 0, 110, 0, 95, 0, 102, 0, 117, 0, 110, 0, 99, 0, 46, 0, 101, 0, 109, 0, 101, 0, 118, 0, 100, 0, 0, 0, 78, 0, 58, 0, 92, 0, 71, 0, 82, 0, 92, 0, 100, 0, 97, 0, 116, 0, 97, 0, 92, 0, 80, 0, 97, 0, 114, 0, 97, 0, 109, 0, 92, 0, 101, 0, 118, 0, 101, 0, 110, 0, 116, 0, 92, 0, 99, 0, 111, 0, 109, 0, 109, 0, 111, 0, 110, 0, 95, 0, 109, 0, 97, 0, 99, 0, 114, 0, 111, 0, 46, 0, 101, 0, 109, 0, 101, 0, 118, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            emevd.LinkedFileOffsets = [0, 82];
 
             messages = new();
 
@@ -467,7 +458,7 @@ namespace JortPob
 
         public Script.Flag GetFlag(Designation designation, string name)
         {
-            var lookupKey = Script.FormatFlagLookupKey(designation, name.ToLower());
+            ScriptFlagLookupKey lookupKey = Script.FormatFlagLookupKey(designation, name.ToLower());
 
             return FindFlagByLookupKey(lookupKey);
         }

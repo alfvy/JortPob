@@ -142,9 +142,9 @@ namespace JortPob
             foreach (IconInfo icon in icons)
             {
                 byte[] ddsBytes = System.IO.File.ReadAllBytes($"{Const.MORROWIND_PATH}Data Files\\icons\\{icon.path}");
-                Bitmap bitmap = Common.DDS.DDStoBitmap(ddsBytes);
-                bitmap = Common.Utility.XbrzUpscale(bitmap, 5);
-                bitmaps.Add((icon, bitmap));
+                using Bitmap bitmap = Common.DDS.DDStoBitmap(ddsBytes);
+                Bitmap scaledBitmap = Common.Utility.XbrzUpscale(bitmap, 5);
+                bitmaps.Add((icon, scaledBitmap));
             }
 
             /* Make sheets */
@@ -395,7 +395,7 @@ namespace JortPob
                 output += $"</TextureAtlas>";
 
                 byte[] bytes;
-                using (var ms = new MemoryStream())
+                using (MemoryStream ms = new())
                 {
                     using (TextWriter tw = new StreamWriter(ms))
                     {

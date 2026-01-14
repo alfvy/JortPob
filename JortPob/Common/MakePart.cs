@@ -1,8 +1,10 @@
 ﻿using SoulsFormats;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Numerics;
 using static SoulsIds.Events;
+using System.Threading;
 
 namespace JortPob.Common
 {
@@ -11,12 +13,12 @@ namespace JortPob.Common
     /* The reason I made this it's own class is because generating parts is very bulky in Elden Ring and this is cleaner than doing it inline */
     public class MakePart
     {
-        public static Dictionary<ModelInfo, int> AssetInstances = new(); // counts instances of assets
-        public static Dictionary<PickableInfo, int> PickableInstances = new(); // counts instances of pickables
-        public static Dictionary<EmitterInfo, int> EmitterInstances = new(); // counts instances of emitter assets
-        public static Dictionary<string, int> EnemyInstances = new();      // counts instances of enemies
-        public static Dictionary<LiquidInfo, int> WaterInstances = new();
-        public static Dictionary<string, int> VanillaAssetInstances = new();
+        public static ConcurrentDictionary<ModelInfo, int> AssetInstances { get; } = new(); // counts instances of assets
+        public static ConcurrentDictionary<PickableInfo, int> PickableInstances { get; } = new(); // counts instances of pickables
+        public static ConcurrentDictionary<EmitterInfo, int> EmitterInstances { get; } = new(); // counts instances of emitter assets
+        public static ConcurrentDictionary<string, int> EnemyInstances { get; } = new();      // counts instances of enemies
+        public static ConcurrentDictionary<LiquidInfo, int> WaterInstances { get; } = new();
+        public static ConcurrentDictionary<string, int> VanillaAssetInstances { get; } = new();
         public static int PlayerInstances = 9000;
 
         /* Makes simple collideable asset */
@@ -26,9 +28,7 @@ namespace JortPob.Common
             MSBE.Part.Asset asset = new();
 
             /* Instance */
-            int inst;
-            if(AssetInstances.ContainsKey(modelInfo)) { inst = ++AssetInstances[modelInfo]; }
-            else { inst = 0; AssetInstances.Add(modelInfo, inst); }
+            int inst = AssetInstances.AddOrUpdate(modelInfo, 0, (_, oldVal) => oldVal + 1);
             asset.InstanceID = inst;
 
             /* Model Stuff */
@@ -116,9 +116,8 @@ namespace JortPob.Common
             MSBE.Part.Asset asset = Asset(pickableInfo.model);  // kind of lazy but it works guh
 
             /* Instance */
-            if (!PickableInstances.TryGetValue(pickableInfo, out var inst)) { inst = 0; }
+            int inst = PickableInstances.AddOrUpdate(pickableInfo, 0, (_, oldVal) => oldVal + 1);
             asset.InstanceID = inst;
-            PickableInstances[pickableInfo] = ++inst;
 
             /* Model Stuff */
             asset.Name = $"{pickableInfo.AssetName().ToUpper()}_{asset.InstanceID.ToString("D4")}";
@@ -139,11 +138,9 @@ namespace JortPob.Common
             MSBE.Part.Asset asset = new();
 
             /* Instance */
-            int inst;
-            if (EmitterInstances.ContainsKey(emitterInfo)) { inst = ++EmitterInstances[emitterInfo]; }
-            else { inst = 0; EmitterInstances.Add(emitterInfo, inst); }
+            int inst = EmitterInstances.AddOrUpdate(emitterInfo, 0, (_, oldVal) => oldVal + 1);
             asset.InstanceID = inst;
-
+            
             /* Model Stuff */
             asset.Name = $"{emitterInfo.AssetName().ToUpper()}_{inst.ToString("D4")}";
             asset.ModelName = emitterInfo.AssetName().ToUpper();
@@ -234,11 +231,9 @@ namespace JortPob.Common
             MSBE.Part.Asset asset = new();
 
             /* Instance */
-            int inst;
-            if (WaterInstances.ContainsKey(waterInfo)) { inst = ++WaterInstances[waterInfo]; }
-            else { inst = 0; WaterInstances.Add(waterInfo, inst); }
+            int inst = WaterInstances.AddOrUpdate(waterInfo, 0, (_, oldVal) => oldVal + 1);
             asset.InstanceID = inst;
-
+            
             /* Model Stuff */
             asset.Name = $"{waterInfo.AssetName().ToUpper()}_{inst.ToString("D4")}";
             asset.ModelName = waterInfo.AssetName().ToUpper();
@@ -429,9 +424,7 @@ namespace JortPob.Common
             MSBE.Part.Enemy enemy = new();
 
             /* Instance */
-            int inst;
-            if (EnemyInstances.ContainsKey("c0000")) { inst = ++EnemyInstances["c0000"]; }
-            else { inst = 0; EnemyInstances.Add("c0000", inst); }
+            int inst = EnemyInstances.AddOrUpdate("c0000", 0, (_, oldVal) => oldVal + 1);
             enemy.InstanceID = inst;
 
             /* Model and Enemy Stuff */
@@ -474,11 +467,9 @@ namespace JortPob.Common
             MSBE.Part.Enemy enemy = new();
 
             /* Instance */
-            int inst;
-            if (EnemyInstances.ContainsKey("c0000")) { inst = ++EnemyInstances["c0000"]; }
-            else { inst = 0; EnemyInstances.Add("c0000", inst); }
+            int inst = EnemyInstances.AddOrUpdate("c6060", 0, (_, oldVal) => oldVal + 1);
             enemy.InstanceID = inst;
-
+            
             /* Model and Enemy Stuff */
             enemy.Name = $"c6060_{inst.ToString("D4")}";
             enemy.ModelName = "c6060";
@@ -517,7 +508,7 @@ namespace JortPob.Common
         public static MSBE.Part.Player Player()
         {
             MSBE.Part.Player player = new();
-            int inst = PlayerInstances++;
+            int inst = Interlocked.Increment(ref PlayerInstances);
 
             player.Name = $"c0000_{inst.ToString("D4")}";
             player.ModelName = "c0000";
@@ -619,9 +610,7 @@ namespace JortPob.Common
             asset.ModelName = "AEG099_090";
 
             /* Instance */
-            int inst;
-            if (VanillaAssetInstances.ContainsKey(asset.ModelName)) { inst = ++VanillaAssetInstances[asset.ModelName]; }
-            else { inst = 0; VanillaAssetInstances.Add(asset.ModelName, inst); }
+            int inst = VanillaAssetInstances.AddOrUpdate(asset.ModelName, 0, (_, oldVal) => oldVal + 1);
             asset.Name = $"{asset.ModelName}_{inst.ToString("D4")}";
             asset.InstanceID = inst;
 

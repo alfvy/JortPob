@@ -54,7 +54,7 @@ namespace JortPob.Worker
                 .WithDegreeOfParallelism(Const.THREAD_COUNT)
                 .ForAll(data =>
                 {
-                    for (var i = 0; i < MAX_ATTEMPTS; i++)
+                    for (int i = 0; i < MAX_ATTEMPTS; i++)
                     {
                         try
                         {

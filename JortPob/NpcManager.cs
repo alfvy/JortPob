@@ -103,7 +103,7 @@ namespace JortPob
                         SoundBank.Sound snd = sound.FindSound(content, info.id + i); // look for a generated wem sound that matches the npc (race/sex) and dialog line (dialoginforecord id)
 
                         // Use an existing wem and talkparam we already generated because it's a match
-                        if (snd != null) { talkRows.Add(bankInfo.bank.AddSound(snd)); continue; } // and continue here
+                        if (snd != null) { talkRows.Add(bankInfo.Bank.AddSound(snd)); continue; } // and continue here
 
                         /* Debug voice acting using SAM */
                         string wemFile;
@@ -115,12 +115,12 @@ namespace JortPob
                         // If this is not the first line in a talkparam group we must generate with sequential ids!
                         if (baseRow >= 0)
                         {
-                            talkRows.Add(bankInfo.bank.AddSound(wemFile, info.id + i, line, (uint)(baseRow + i)));
+                            talkRows.Add(bankInfo.Bank.AddSound(wemFile, info.id + i, line, (uint)(baseRow + i)));
                         }
                         // Make a new sound and talkparam row because no suitable match was found!
                         else
                         {
-                            baseRow = bankInfo.bank.AddSound(wemFile, info.id + i, line);
+                            baseRow = bankInfo.Bank.AddSound(wemFile, info.id + i, line);
                             talkRows.Add(baseRow);
                         }
                     }
@@ -132,7 +132,7 @@ namespace JortPob
             }
             param.GenerateTalkParam(data);
 
-            int esdId = int.Parse($"{bankInfo.id.ToString("D3")}{bankInfo.uses++.ToString("D2")}{msbIdList[0]:D2}{(msbIdList[0]==60?0:msbIdList[1]):D2}");  // i know guh guhhhhh
+            int esdId = int.Parse($"{bankInfo.Id.ToString("D3")}{bankInfo.Uses++.ToString("D2")}{msbIdList[0]:D2}{(msbIdList[0]==60?0:msbIdList[1]):D2}");  // i know guh guhhhhh
 
             Script areaScript = scriptManager.GetScript(msbIdList[0], msbIdList[1], msbIdList[2], msbIdList[3]); // get area script for this npc
 

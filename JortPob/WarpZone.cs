@@ -4,6 +4,7 @@ using PortJob;
 using SoulsFormats;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -84,8 +85,7 @@ namespace JortPob
             }
 
             /* Create a mass flag reset button next to the warps */
-            List<Script.Flag> allFlags = new();
-            allFlags.AddRange(scriptManager.common.flags);
+            List<Script.Flag> allFlags = [.. scriptManager.common.flags];
             foreach (Script script in scriptManager.scripts)
             {
                 allFlags.AddRange(script.flags);
@@ -133,7 +133,7 @@ namespace JortPob
 
             debugScript.Write();
             AutoResource.Generate(18, 0, 0, 0, debugMSB);
-            debugMSB.Write($"{Const.OUTPUT_PATH}\\map\\mapstudio\\m18_00_00_00.msb.dcx");
+            debugMSB.Write(Path.Combine(Const.OUTPUT_PATH, @"map\mapstudio\m18_00_00_00.msb.dcx"));
             Lort.Log($"Created {debugCounty} debug warps...", Lort.Type.Main);
         }
     }

@@ -32,7 +32,7 @@ namespace JortPob
             // We avoid using any of these numbers as flag ids because it can cause collisions with base game common functions
             // This is technically a temporary measure @TODO: !! eventualy we will rewrite common.emevd and replace it with all custom code
             // That will be tough though and not a high priority task for dev.
-            string[] lines = System.IO.File.ReadAllLines(Utility.ResourcePath(@"script\common_event_used_values.txt"));            
+            string[] lines = File.ReadAllLines(Utility.ResourcePath(@"script\common_event_used_values.txt"));            
             foreach(string line in lines)
             {
                 DO_NOT_USE_FLAGS.Add(uint.Parse(line));
@@ -68,7 +68,7 @@ namespace JortPob
 
         public Script.Flag GetFlag(Designation designation, string name)
         {
-            var lookupKey = Script.FormatFlagLookupKey(designation, name.ToLower());
+            ScriptFlagLookupKey lookupKey = Script.FormatFlagLookupKey(designation, name.ToLower());
 
             Flag f = common.FindFlagByLookupKey(lookupKey);
             if (f != null) { return f; }
@@ -120,7 +120,7 @@ namespace JortPob
             // Crete the HKS file that will set the correct raceflag after character creation
             // We do this by setting an unused value during character creation based on race and then reading that value in hks. Then we set a flag from that value and donezo.
             // This is defo some shitcode and maybe later we can improve this system in some kind of meaningful way
-            string hksFile = System.IO.File.ReadAllText(Utility.ResourcePath(@"script\c0000.hks"));
+            string hksFile = File.ReadAllText(Utility.ResourcePath(@"script\c0000.hks"));
             string hksJankCall = "\t-- Jank auto-generated code: calls jank function above\r\n\tif not JankRaceInitDone then\r\n\t\tJankRaceInitDone = true\r\n\t\tJankRaceInit()\r\n\tend\r\n\t-- End of jank\r\n";
             string hksJankStart = "-- Jank auto-generated code: function to check burnscars value and set the correct race flag\r\nlocal JankRaceInitDone = false\r\nfunction JankRaceInit()\r\n\tlocal WritePointerChain = 10000\r\n\tlocal TraversePointerChain = 10000\r\n\tlocal SetEventFlag = 10003\r\n\tlocal CHR_INS_BASE = 1\r\n\tlocal PLAYER_GAME_DATA = 0x580\r\n    local BURN_SCAR = 0x876\r\n\tlocal UNSIGNED_BYTE = 0\r\n\tlocal DEBUG_PRINT = 10001\r\n\tlocal BURN_SCAR_VALUE = env(TraversePointerChain, CHR_INS_BASE, UNSIGNED_BYTE, PLAYER_GAME_DATA, BURN_SCAR)\r\n\tif BURN_SCAR_VALUE > 0 then\r\n";
             string hksJankEnd = "\t\tact(WritePointerChain, CHR_INS_BASE, UNSIGNED_BYTE, 0, PLAYER_GAME_DATA, BURN_SCAR)\r\n\tend\r\nend\r\n";
@@ -193,9 +193,9 @@ namespace JortPob
             hksFile = hksFile.Replace("-- $$ INJECT JANK UPDATE FUNCTION HERE $$ --", $"{hksJankStart}{hksJankGen}{hksJankEnd}{hksBitwiseShitCode}");
             hksFile = hksFile.Replace("-- $$ INJECT JANK UPDATE CALL HERE $$ --", $"{hksSneakShitcode}{hksSoulCounterShitCode}{hksJankCall}");
             string hksOutPath = $"{Const.OUTPUT_PATH}action\\script\\c0000.hks";
-            if (System.IO.File.Exists(hksOutPath)) { System.IO.File.Delete(hksOutPath); }
-            if (!System.IO.Directory.Exists(Path.GetDirectoryName(hksOutPath))) { System.IO.Directory.CreateDirectory(Path.GetDirectoryName(hksOutPath)); }
-            System.IO.File.WriteAllText(hksOutPath, hksFile);
+            if (File.Exists(hksOutPath)) { File.Delete(hksOutPath); }
+            System.IO.Directory.CreateDirectory(Path.GetDirectoryName(hksOutPath));
+            File.WriteAllText(hksOutPath, hksFile);
 
             // Max rep seems to be 120, may need to cap it incase you can somehow overflow that
             foreach (FactionInfo faction in esm.factions)
@@ -210,8 +210,7 @@ namespace JortPob
         /* This event is triggered when player goes to jail or pays fines to a guard. Resets all crime stuff like npc hostility and crime gold */
         public void GenerateGlobalCrimeAbsolvedEvent()
         {
-            List<Script.Flag> allFlags = new();
-            allFlags.AddRange(common.flags);
+            List<Script.Flag> allFlags = [.. common.flags];
             foreach (Script script in scripts)
             {
                 allFlags.AddRange(script.flags);
@@ -260,8 +259,7 @@ namespace JortPob
         public void Write()
         {
             /* Debuggy thing */
-            List<Flag> allFlags = new();
-            allFlags.AddRange(common.flags);
+            List<Flag> allFlags = [.. common.flags];
             foreach (Script script in scripts)
             {
                 allFlags.AddRange(script.flags);
@@ -281,7 +279,7 @@ namespace JortPob
                 /* Write */
                 flagInfo.Add($"{flag.category.ToString().PadRight(16)} {flag.type.ToString().PadRight(16)} {flag.designation.ToString().PadRight(24)} {flag.name.ToString().PadRight(48)} {flag.value.ToString().PadRight(6)} {flag.id.ToString().PadRight(18)} {(desc!=null?desc:"")}");
             }
-            System.IO.File.WriteAllLines($"{Const.OUTPUT_PATH}flag information.txt", flagInfo.ToArray());
+            File.WriteAllLines(Path.Combine(Const.OUTPUT_PATH, "flag information.txt"), flagInfo.ToArray());
 
             Lort.Log($"Writing {scripts.Count + 1} EMEVDs...", Lort.Type.Main);
             common.Write();

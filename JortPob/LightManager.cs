@@ -49,7 +49,7 @@ namespace JortPob
             erl.Name = mwl.id;
 
             erl.Type = BTL.LightType.Point;
-            erl.Position = mwl.relative + Const.TEST_OFFSET1 + Const.TEST_OFFSET2;
+            erl.Position = mwl.relative + Const.MSB_OFFSET;
             erl.Radius = mwl.radius;
             erl.Rotation = Vector3.Zero;
 

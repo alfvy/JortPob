@@ -12,7 +12,7 @@ namespace PortJob
             /* Player */
             MSBE.Model.Player playerRes = new();
             playerRes.Name = "c0000";
-            playerRes.SibPath = "N:\\FDP\\data\\Model\\chr\\c0000\\sib\\c0000.SIB";
+            playerRes.SibPath = @"N:\FDP\data\Model\chr\c0000\sib\c0000.SIB";
             msb.Models.Players.Add(playerRes);
 
             /* Assets */
@@ -27,7 +27,7 @@ namespace PortJob
 
                 MSBE.Model.Asset nures = new();
                 nures.Name = ass.ModelName;
-                nures.SibPath = $"N:\\GR\\data\\Asset\\Environment\\geometry\\{ass.ModelName.Substring(7)}\\{ass.ModelName}\\sib\\{ass.ModelName}.sib";
+                nures.SibPath = @$"N:\GR\data\Asset\Environment\geometry\{ass.ModelName.Substring(7)}\{ass.ModelName}\sib\{ass.ModelName}.sib";
                 msb.Models.Assets.Add(nures);
             }
 
@@ -43,7 +43,7 @@ namespace PortJob
 
                 MSBE.Model.MapPiece nures = new();
                 nures.Name = mp.ModelName;
-                nures.SibPath = $"N:\\FDP\\data\\Model\\map\\m{map:D2}_{x:D2}_{y:D2}_{block:D2}\\sib\\{mp.ModelName}.sib";
+                nures.SibPath = @$"N:\FDP\data\Model\map\m{map:D2}_{x:D2}_{y:D2}_{block:D2}\sib\{mp.ModelName}.sib";
                 msb.Models.MapPieces.Add(nures);
             }
 
@@ -59,7 +59,7 @@ namespace PortJob
 
                 MSBE.Model.Collision nures = new();
                 nures.Name = col.ModelName;
-                nures.SibPath = $"N:\\FDP\\data\\Model\\map\\m{map:D2}_{x:D2}_{y:D2}_{block:D2}\\hkt\\{col.ModelName}.hkt";
+                nures.SibPath = @$"N:\FDP\data\Model\map\m{map:D2}_{x:D2}_{y:D2}_{block:D2}\hkt\{col.ModelName}.hkt";
                 msb.Models.Collisions.Add(nures);
             }
 
@@ -75,7 +75,7 @@ namespace PortJob
 
                 MSBE.Model.Collision nures = new();
                 nures.Name = con.ModelName;
-                nures.SibPath = $"N:\\FDP\\data\\Model\\map\\m{map:D2}_{x:D2}_{y:D2}_{block:D2}\\hkt\\{con.ModelName}.hkt";
+                nures.SibPath = @$"N:\FDP\data\Model\map\m{map:D2}_{x:D2}_{y:D2}_{block:D2}\hkt\{con.ModelName}.hkt";
                 msb.Models.Collisions.Add(nures);
             }
 

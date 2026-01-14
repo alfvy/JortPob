@@ -209,7 +209,7 @@ namespace JortPob
 
         public FsParam.Row CloneRow(FsParam.Row row, string name, int newId)
         {
-            var clone = new FsParam.Row(row);
+            FsParam.Row clone = new FsParam.Row(row);
             clone.ID = newId;
             clone.Name = name;
             return clone;

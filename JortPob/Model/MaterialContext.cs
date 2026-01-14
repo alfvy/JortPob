@@ -195,10 +195,10 @@ namespace JortPob.Model
         {
             int index = 0;
             List<MaterialInfo> materialInfos = [];
-            foreach (var relpath in texturePaths)
+            foreach (string relpath in texturePaths)
             {
                 // Make the path absolute.
-                var abspath = relpath;
+                string abspath = relpath;
                 if (relpath == string.Empty) 
                 {
                     abspath = Utility.ResourcePath(@"textures\tx_missing.dds");
@@ -836,13 +836,13 @@ namespace JortPob.Model
             foreach (KeyValuePair<string, string> kvp in genTextures)
             {
                 /* Load dds */
-                var path = kvp.Key;
+                string path = kvp.Key;
                 if (Path.GetExtension(path) == string.Empty)
                 {
                     Lort.TaskIterate();
                     continue;
                 }
-                var lowerPath = path.ToLower();
+                string lowerPath = path.ToLower();
 
                 if (lowerPath.Contains(".tga"))
                 {
@@ -895,8 +895,8 @@ namespace JortPob.Model
                 }
                 else
                 {
-                    var errorData = File.ReadAllBytes(Utility.ResourcePath(@"textures\tx_missing.dds"));
-                    var errorDataLow = Common.DDS.Scale(errorData);
+                    byte[] errorData = File.ReadAllBytes(Utility.ResourcePath(@"textures\tx_missing.dds"));
+                    byte[] errorDataLow = Common.DDS.Scale(errorData);
 
                     /* Bind up the texture */
                     {

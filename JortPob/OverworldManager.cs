@@ -61,17 +61,17 @@ namespace JortPob
 
             /* Add water */
             MSBE.Part.Asset water = MakePart.Asset(cache.GetWater());
-            water.Position = center + Const.TEST_OFFSET1 + Const.TEST_OFFSET2;
+            water.Position = center + Const.MSB_OFFSET;
             msb.Parts.Assets.Add(water);
 
             /* Add swamp */
             MSBE.Part.Asset swamp = MakePart.Asset(cache.GetSwamp());
-            swamp.Position = center + Const.TEST_OFFSET1 + Const.TEST_OFFSET2;
+            swamp.Position = center + Const.MSB_OFFSET;
             msb.Parts.Assets.Add(swamp);
 
             /* Add lava */
             MSBE.Part.Asset lava = MakePart.Asset(cache.GetLava());
-            lava.Position = center + Const.TEST_OFFSET1 + Const.TEST_OFFSET2 + new Vector3(0f, Const.LAVA_VISUAL_OFFSET, 0f);
+            lava.Position = center + Const.MSB_OFFSET + new Vector3(0f, Const.LAVA_VISUAL_OFFSET, 0f);
             msb.Parts.Assets.Add(lava);
 
             /* Add terrain */
@@ -82,7 +82,7 @@ namespace JortPob
                 MSBE.Part.MapPiece map = MakePart.MapPiece();
                 map.Name = $"m{terrainInfo.id.ToString("D8")}_0000";
                 map.ModelName = $"m{terrainInfo.id.ToString("D8")}";
-                map.Position = position + Const.TEST_OFFSET1 + Const.TEST_OFFSET2;
+                map.Position = position + Const.MSB_OFFSET;
                 map.PartsDrawParamID = param.terrainDrawParamID;
 
                 msb.Parts.MapPieces.Add(map);

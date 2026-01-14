@@ -557,7 +557,7 @@ namespace JortPob
             {
                 if (vertices_indices.TryGetValue(vertex, out int existing_index))
                     return existing_index;
-                var index = vertices.Count;
+                int index = vertices.Count;
                 vertices_indices.Add(vertex, vertices.Count);
                 vertices.Add(vertex);
                 return index;

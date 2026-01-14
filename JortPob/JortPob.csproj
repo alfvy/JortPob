@@ -2,19 +2,19 @@
 
   <PropertyGroup>
     <OutputType>library</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net9.0-windows</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DirectXTexNet" Version="1.0.7" />
-    <PackageReference Include="gfoidl.Base64" Version="2.0.0" />
-    <PackageReference Include="SharpAssimp" Version="6.0.5" />
-    <PackageReference Include="System.Drawing.Common" Version="9.0.5" />
-    <PackageReference Include="System.Speech" Version="9.0.9" />
-    <PackageReference Include="TeximpNet" Version="1.4.3" />
-    <PackageReference Include="XbrzSharp" Version="1.1.0" />
+    <PackageReference Include="DirectXTexNet"/>
+    <PackageReference Include="gfoidl.Base64"/>
+    <PackageReference Include="SharpAssimp"/>
+    <PackageReference Include="System.Drawing.Common"/>
+    <PackageReference Include="System.Speech"/>
+    <PackageReference Include="TeximpNet"/>
+    <PackageReference Include="XbrzSharp"/>
   </ItemGroup>
 
   <ItemGroup>

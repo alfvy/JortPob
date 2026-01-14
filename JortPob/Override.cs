@@ -26,10 +26,10 @@ namespace JortPob
 
         private static List<PlayerClass> CHARACTER_CREATION_CLASS;
         private static List<PlayerRace> CHARACTER_CREATION_RACE;
-        private static List<ItemRemap> ITEM_REMAPS;
-        private static List<ItemDefinition> ITEM_DEFINITIONS;
-        private static List<SpeffDefinition> SPEFF_DEFINITIONS;
-        private static List<SpellRemap> SPELL_REMAPS;
+        private static Dictionary<string, ItemRemap> ITEM_REMAPS_BY_ID;
+        private static Dictionary<string, ItemDefinition> ITEM_DEFINITIONS_BY_ID;
+        private static Dictionary<string, SpeffDefinition> SPEFF_DEFINITIONS_BY_ID;
+        private static Dictionary<string, SpellRemap> SPELL_REMAPS_BY_ID;
         private static List<SkillInfo> SKILL_INFOS;
         private static List<AlchemyInfo> ALCHEMY_INFOS;
 
@@ -60,43 +60,27 @@ namespace JortPob
 
         public static ItemRemap GetItemRemap(string id)
         {
-            foreach (ItemRemap remap in ITEM_REMAPS)
-            {
-                if (remap.id == id) { return remap; }
-            }
-            return null;
+            return ITEM_REMAPS_BY_ID.TryGetValue(id, out ItemRemap remapped) ? remapped : null;
         }
 
         public static ItemDefinition GetItemDefinition(string id)
         {
-            foreach (ItemDefinition def in ITEM_DEFINITIONS)
-            {
-                if (def.id == id) { return def; }
-            }
-            return null;
+            return ITEM_DEFINITIONS_BY_ID.TryGetValue(id, out ItemDefinition definition) ? definition : null;
         }
 
         public static SpeffDefinition GetSpeffDefinition(string id)
         {
-            foreach (SpeffDefinition def in SPEFF_DEFINITIONS)
-            {
-                if (def.id == id) { return def; }
-            }
-            return null;
+            return SPEFF_DEFINITIONS_BY_ID.TryGetValue(id, out SpeffDefinition definition) ? definition : null;
         }
 
         public static List<SpeffDefinition> GetSpeffDefinitions()
         {
-            return SPEFF_DEFINITIONS;
+            return SPEFF_DEFINITIONS_BY_ID.Values.ToList();
         }
 
         public static SpellRemap GetSpellRemap(string id)
         {
-            foreach (SpellRemap remap in SPELL_REMAPS)
-            {
-                if (remap.id == id) { return remap; }
-            }
-            return null;
+            return SPELL_REMAPS_BY_ID.TryGetValue(id, out SpellRemap remap) ? remap : null;
         }
 
         public static List<SkillInfo> GetSkills()
@@ -161,17 +145,17 @@ namespace JortPob
             }
 
             /* Load spell remapping list */
-            SPELL_REMAPS = new();
+            SPELL_REMAPS_BY_ID = new();
             JsonNode jsonSpellRemap = JsonNode.Parse(File.ReadAllText(Utility.ResourcePath(@"overrides\spell_remap.json")));
             foreach (var property in jsonSpellRemap.AsObject())
             {
                 JsonNode jsonNode = property.Value;
                 SpellRemap sprmo = new(property.Key, jsonNode);
-                SPELL_REMAPS.Add(sprmo);
+                SPELL_REMAPS_BY_ID.Add(sprmo.id, sprmo);
             }
 
             /* Load item remapping list */
-            ITEM_REMAPS = new();
+            ITEM_REMAPS_BY_ID = new();
             string[] itemRemapFiles = Directory.GetFiles(Utility.ResourcePath(@"overrides\items\remap"));
             foreach (string itemRemapFile in itemRemapFiles)
             {
@@ -180,23 +164,26 @@ namespace JortPob
                 {
                     JsonNode jsonNode = property.Value;
                     ItemRemap itrmo = new(property.Key, jsonNode);
-                    ITEM_REMAPS.Add(itrmo);
+                    ITEM_REMAPS_BY_ID.Add(itrmo.id, itrmo);
                 }
             }
 
             /* Load all item definitinos from resources/override/items */
             string[] itemFiles = Directory.GetFiles(Utility.ResourcePath(@"overrides\items"));
-            ITEM_DEFINITIONS = new();
-            foreach (string itemFile in itemFiles) {
-                ITEM_DEFINITIONS.Add(new ItemDefinition(itemFile));
+            ITEM_DEFINITIONS_BY_ID = new();
+            foreach (string itemFile in itemFiles)
+            {
+                ItemDefinition definition = new(itemFile);
+                ITEM_DEFINITIONS_BY_ID.Add(definition.id, definition);
             }
 
             /* Load all speff definitinos from resources/override/speffs */
             string[] speffFiles = Directory.GetFiles(Utility.ResourcePath(@"overrides\speffs"));
-            SPEFF_DEFINITIONS = new();
+            SPEFF_DEFINITIONS_BY_ID = new();
             foreach (string speffFile in speffFiles)
             {
-                SPEFF_DEFINITIONS.Add(new SpeffDefinition(speffFile));
+                SpeffDefinition definition = new(speffFile);
+                SPEFF_DEFINITIONS_BY_ID.Add(definition.id, definition);
             }
         }
 

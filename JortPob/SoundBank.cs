@@ -97,16 +97,15 @@ namespace JortPob
                 objects.Add(soundStopEvent);
 
                 string wemSrcPath = sound.file;
-                string wemTgtPath = $"{dir}\\wem\\{sourceId.ToString("D9").Substring(0, 2)}\\{sourceId.ToString("D9")}.wem";
-                if (!Directory.Exists(Path.GetDirectoryName(wemTgtPath))) { Directory.CreateDirectory(Path.GetDirectoryName(wemTgtPath)); }
+                string wemTgtPath = Path.Combine(dir, @$"wem\{sourceId.ToString("D9").Substring(0, 2)}\{sourceId.ToString("D9")}.wem");
+                Directory.CreateDirectory(Path.GetDirectoryName(wemTgtPath));
                 if (File.Exists(wemTgtPath)) { File.Delete(wemTgtPath); }
-                System.IO.File.Copy(wemSrcPath, wemTgtPath);
+                File.Copy(wemSrcPath, wemTgtPath);
             }
 
-            string jsonData = json.ToJsonString();
-            string bnkPath = $"{dir}vc{id.ToString("D3")}.bnk";
-            if (!Directory.Exists(Path.GetDirectoryName(bnkPath))) { Directory.CreateDirectory(Path.GetDirectoryName(bnkPath)); }
-            System.IO.File.WriteAllText($"{bnkPath}json", jsonData);
+            string bnkPath = Path.Combine(dir, $"vc{id.ToString("D3")}.bnk");
+            Directory.CreateDirectory(Path.GetDirectoryName(bnkPath));
+            File.WriteAllText($"{bnkPath}json", json.ToJsonString());
 
             ProcessStartInfo startInfo = new(Utility.ResourcePath(@"tools\Bnk2Json\bnk2json.exe"), $"\"{bnkPath}json\"")
             {
@@ -114,11 +113,11 @@ namespace JortPob
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            using var process = Process.Start(startInfo);
+            using Process process = Process.Start(startInfo);
             process.WaitForExit();
 
             if (File.Exists(bnkPath)) { File.Delete(bnkPath); }
-            System.IO.File.Move($"{bnkPath}.rebuilt", bnkPath);
+            File.Move($"{bnkPath}.rebuilt", bnkPath);
         }
 
         public class Sound

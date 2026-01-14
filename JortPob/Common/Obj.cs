@@ -9,24 +9,17 @@ namespace JortPob.Common
 {
     public class Obj
     {
-        public List<Vector3> vs, vts, vns;
-        public List<ObjG> gs;
+        public List<Vector3> vs { get; } = new();
+        public List<Vector3> vts { get; } = new();
+        public List<Vector3> vns { get; } = new();
+        public List<ObjG> gs { get; } = new();
+
         public Obj()
-        {
-            vs = new();
-            vts = new();
-            vns = new();
-            gs = new();
-        }
+        { }
 
         public Obj(string path)
         {
-            vs = new();
-            vts = new();
-            vns = new();
-            gs = new();
-
-            ObjG last = null;
+            ObjG? last = null;
             string[] data = File.ReadAllLines(path);
             foreach (string line in data)
             {

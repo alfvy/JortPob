@@ -317,7 +317,7 @@ namespace JortPob
                 return null;
             }
 
-            var landscape = new Landscape(this, coordinate, matchingRecord);
+            Landscape landscape = new(this, coordinate, matchingRecord);
             landscapesByCoordinate[coordinate] = landscape;
             return landscape;
         }

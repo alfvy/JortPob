@@ -4,17 +4,19 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Threading;
 
 namespace JortPob.Common
 {
     public class Lort
     {
-        public static ConcurrentBag<string> mainOutput;
-        public static ConcurrentBag<string> debugOutput;
-        public static string progressOutput;
-        public static int total, current;
-        public static bool update;
-        public static string logFilePath;
+        public static ConcurrentBag<string> mainOutput { get; private set; }
+        public static ConcurrentBag<string> debugOutput { get; private set; }
+        public static string progressOutput { get; private set; }
+        public static int total { get; private set; }
+        public static int current { get; private set; }
+        public static bool update { get; set; }
+        public static string logFilePath { get; private set; }
 
         public static void Initialize()
         {
@@ -25,12 +27,12 @@ namespace JortPob.Common
             current = 0;
             update = false;
 
-            if (!Directory.Exists(Const.OUTPUT_PATH + "\\logs"))
+            if (!Directory.Exists(Path.Combine(Const.OUTPUT_PATH, "logs")))
             {
-                Directory.CreateDirectory(Const.OUTPUT_PATH + "\\logs");
+                Directory.CreateDirectory(Path.Combine(Const.OUTPUT_PATH, "logs"));
             }
 
-            logFilePath = Const.OUTPUT_PATH + $"logs\\jortpob-log-{DateTime.UtcNow.ToLongTimeString().Replace(":", "").Replace(" PM", "")}.txt";
+            logFilePath = Path.Combine(Const.OUTPUT_PATH, @$"logs\jortpob-log-{DateTime.UtcNow.ToLongTimeString().Replace(":", "").Replace(" PM", "")}.txt");
             File.WriteAllText(logFilePath, "");
         }
 
