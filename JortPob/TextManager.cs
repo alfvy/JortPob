@@ -313,13 +313,13 @@ namespace JortPob
 
         public void ReplaceLoadingEntries(Dictionary<string, string> loadingMenuText)
         {
-            var loadingTitleFmg = menu[TextType.LoadingTitle];
-            var loadingTextFmg = menu[TextType.LoadingText];
+            var loadingTitleFmg = menuDlc[TextType.LoadingTitle];
+            var loadingTextFmg = menuDlc[TextType.LoadingText];
 
             loadingTitleFmg.Entries.Clear();
             loadingTextFmg.Entries.Clear();
 
-            int id = 0;
+            int id = 1;
             foreach (var element in loadingMenuText)
             {
                 loadingTitleFmg.Entries.Add(new(id, element.Key));

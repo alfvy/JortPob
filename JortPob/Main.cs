@@ -34,8 +34,7 @@ namespace JortPob
             ESM esm = new ESM(scriptManager);                                               // Morrowind ESM parse and partial serialization
             Cache cache = Cache.Load(esm);                                                  // Load existing cache (FAST!) or generate a new one (SLOW!)
             TextManager text = new();                                                           // Manages FMG text files
-            //IconManager icon = new(esm);                                                       // Manages the creation and assignment of item icons
-            MenuTexManager texManager = new(esm);
+            MenuTextureManager texManager = new(esm);
             Paramanager param = new(text);                                                        // Class for managing PARAM files
             SpeffManager speff = new(esm, param, texManager.icon, text);                                             // Manages speff params, primarily for magic effects like potions and enchanted gear. NOT SPELLS!
             ItemManager item = new(esm, param, scriptManager, speff, texManager.icon, text);                         // Handles generation and reampping of items
@@ -54,10 +53,7 @@ namespace JortPob
             for (int i = 0; i <= 100; i++) { text.AddTopic($"Disposition: {i}"); }
 
             // Write custom map
-            if (!Const.DEBUG_SKIP_CUSTOM_MAP)
-            {
-                MapWorker.Go();
-            }
+            MapWorker.Go();
 
             /* Generate exterior msbs from layout */
             List<ResourcePool> msbs = new();
@@ -770,8 +766,6 @@ namespace JortPob
                     envPoint.UnkMapID = new byte[] { (byte)group.map, (byte)group.area, (byte)group.unk, (byte)group.block };
                     msb.Regions.EnvironmentMapPoints.Add(envPoint);
                 }
-
-
 
                 /* Auto resource */
                 AutoResource.Generate(group.map, group.area, group.unk, group.block, msb);

@@ -1132,8 +1132,14 @@ namespace JortPob
             }
         }
 
-        internal void GenerateLoadingMenuRows(TextManager text)
+        public void GenerateLoadingMenuRows(TextManager text)
         {
+            // all custom loading menu items are stored in "resources/msg/loadingMenuItems.json"
+            // quantity testing hasn't been done yet, but there can be more loading titles than the base game
+            // just don't go crazy without telling one of the mods
+
+            if (Const.DEBUG_SKIP_CUSTOM_LOADING_TEXT) return;
+
             const string dpNT = "disableParam_NT";
             const string ufID = "unlockFlagId";
             const string idID = "invalidFlagId";
@@ -1147,7 +1153,7 @@ namespace JortPob
 
             loadingMenuParam.ClearRows();
 
-            int id = 0;
+            int id = 1;
             foreach (var element in loadingMenuText)
             {
                 var newRow = new FsParam.Row(id, element.Key, loadingMenuParam);
