@@ -69,7 +69,7 @@ namespace JortPob
         /* Check if this text already exists before adding it to avoid duplicates */
         public int AddChoice(string text)
         {
-            foreach(FMG.Entry entry in menuDlc[TextType.EventTextForTalk].Entries)
+            foreach (FMG.Entry entry in menuDlc[TextType.EventTextForTalk].Entries)
             {
                 if (entry.Text == text) { return entry.ID; }
             }
@@ -92,7 +92,7 @@ namespace JortPob
             FMG fmg = menuDlc[TextType.EventTextForTalk];
             foreach (FMG.Entry entry in fmg.Entries)
             {
-                if(entry.Text == text) { return entry.ID; }
+                if (entry.Text == text) { return entry.ID; }
             }
 
             int id = nextTopicId++;
@@ -168,7 +168,7 @@ namespace JortPob
         {
             string InfusionName(ItemManager.Infusion inf, string name)
             {
-                switch(inf)
+                switch (inf)
                 {
                     case ItemManager.Infusion.FlameArt: return $"Flame Art {name}";
                     case ItemManager.Infusion.None: return name;
@@ -269,6 +269,22 @@ namespace JortPob
         }
 
         public void ReplaceLoadingEntries(Dictionary<string, string> loadingMenuText)
+        {
+            var loadingTitleFmg = menuDlc[TextType.LoadingTitle];
+            var loadingTextFmg = menuDlc[TextType.LoadingText];
+
+            loadingTitleFmg.Entries.Clear();
+            loadingTextFmg.Entries.Clear();
+
+            int id = 1;
+            foreach (var element in loadingMenuText)
+            {
+                loadingTitleFmg.Entries.Add(new(id, element.Key));
+                loadingTextFmg.Entries.Add(new(id, element.Value));
+            }
+        }
+
+        public void Write(string dir)
         {
             void WriteBnd(string fileName, Dictionary<TextType, FMG> fmgs)
             {

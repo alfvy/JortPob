@@ -16,7 +16,7 @@ namespace JortPob
     public class LoadingImagesManager
     {
         // there are 34 loading menu images, so that's the limit
-        // its technically to bypass this limit
+        // its technically possible to bypass this limit
         // but until then just add images in the format 'customLoad##`
         // its recommended that the image be 4096 x 2048
         // but having smaller images is tollerable
@@ -28,54 +28,62 @@ namespace JortPob
             Lort.NewTask("Binding Loading Menu Images", 2);
             Lort.Log("Writting Loading Menu Images...", Lort.Type.Main);
 
-            var hiFiles = hiBxf.Files
-                .Where(f => f.Name.ToLower().Contains("menu_load") && !f.Name.ToLower().Contains("ps5"))
-                .ToList();
-
+            // Load default DDS
             byte[] defaultDDS;
-            using (var defaultImage =
-                Bitmap.FromFile(Utility.ResourcePath("menu\\loading images\\customLoadDeafult.png")) as Bitmap)
+            using (var defaultImage = Bitmap.FromFile(Utility.ResourcePath(@"menu\loading images\customLoadDeafult.png")) as Bitmap)
             {
-                defaultDDS = Common.DDS.BitmapToDDS(
-                    defaultImage, DirectXTexNet.DXGI_FORMAT.BC1_UNORM);
+                defaultDDS = Common.DDS.BitmapToDDS(defaultImage, DirectXTexNet.DXGI_FORMAT.BC1_UNORM);
             }
 
-            // DDS bytes indexed by number
+            // Load custom images indexed by number
+            var customImages = LoadCustomImages();
+
+            // Process both hi and low files
+            ProcessFiles(hiBxf.Files, customImages, defaultDDS);
+            Lort.TaskIterate();
+
+            ProcessFiles(lowBxf.Files, customImages, defaultDDS);
+            Lort.TaskIterate();
+
+            // Sort files by ID
+            hiBxf.Files = hiBxf.Files.OrderBy(file => file.ID).ToList();
+            lowBxf.Files = lowBxf.Files.OrderBy(file => file.ID).ToList();
+
+            return (hiBxf, lowBxf);
+        }
+
+        private Dictionary<int, byte[]> LoadCustomImages()
+        {
             var customImages = new Dictionary<int, byte[]>();
 
-            foreach (var customImageFile in Directory.EnumerateFiles(
-                        Utility.ResourcePath("menu\\loading images\\")))
+            foreach (var customImageFile in Directory.EnumerateFiles(Utility.ResourcePath(@"menu\loading images\")))
             {
                 if (!customImageFile.ToLower().Contains("customload"))
                     continue;
 
-                var digits = new string(
-                    Path.GetFileNameWithoutExtension(customImageFile)
-                        .Where(char.IsDigit)
-                        .ToArray());
-
+                var digits = new string(Path.GetFileNameWithoutExtension(customImageFile).Where(char.IsDigit).ToArray());
                 if (!int.TryParse(digits, out var index))
                     continue;
 
                 using var image = Bitmap.FromFile(customImageFile) as Bitmap;
-                var dds = Common.DDS.BitmapToDDS(
-                    image, DirectXTexNet.DXGI_FORMAT.BC1_UNORM);
-
+                var dds = Common.DDS.BitmapToDDS(image, DirectXTexNet.DXGI_FORMAT.BC1_UNORM);
                 customImages[index] = dds;
             }
 
-            foreach (var file in hiFiles)
+            return customImages;
+        }
+
+        private void ProcessFiles(List<BinderFile> files, Dictionary<int, byte[]> customImages, byte[] defaultDDS)
+        {
+            var targetFiles = files.Where(f => f.Name.ToLower().Contains("menu_load") && !f.Name.ToLower().Contains("ps5")).ToList();
+
+            foreach (var file in targetFiles)
             {
                 var tpf = new TPF();
                 var texture = new TPF.Texture();
-
                 var fileName = file.Name.Split('.')[0].Split('\\')[1];
 
-                var digits = new string(
-                    Path.GetFileNameWithoutExtension(fileName)
-                        .Where(char.IsDigit)
-                        .ToArray());
-
+                var digits = new string(Path.GetFileNameWithoutExtension(fileName).Where(char.IsDigit).ToArray());
                 if (!int.TryParse(digits, out var index))
                     continue;
 
@@ -84,47 +92,12 @@ namespace JortPob
                 texture.Name = fileName;
                 texture.Bytes = ddsBytes;
                 texture.Format = (byte)Common.DDS.GetTpfFormatFromDdsBytes(ddsBytes);
+
                 tpf.Compression = DCX.Type.DCX_KRAK;
                 tpf.Textures.Add(texture);
+
                 file.Bytes = tpf.Write();
             }
-
-            Lort.TaskIterate();
-
-            var lowFiles = lowBxf.Files
-                .Where(f => f.Name.ToLower().Contains("menu_load") && !f.Name.ToLower().Contains("ps5"))
-                .ToList();
-
-            foreach (var file in lowFiles)
-            {
-                var tpf = new TPF();
-                var texture = new TPF.Texture();
-
-                var fileName = file.Name.Split('.')[0].Split('\\')[1];
-
-                var digits = new string(
-                    Path.GetFileNameWithoutExtension(fileName)
-                        .Where(char.IsDigit)
-                        .ToArray());
-
-                if (!int.TryParse(digits, out var index))
-                    continue;
-
-                var ddsBytes = customImages.ContainsKey(index) ? customImages[index] : defaultDDS;
-
-                texture.Name = fileName;
-                texture.Bytes = ddsBytes;
-                texture.Format = (byte)Common.DDS.GetTpfFormatFromDdsBytes(ddsBytes);
-                tpf.Compression = DCX.Type.DCX_KRAK;
-                tpf.Textures.Add(texture);
-                file.Bytes = tpf.Write();
-            }
-
-            hiBxf.Files = hiBxf.Files.OrderBy(file => file.ID).ToList();
-            lowBxf.Files = lowBxf.Files.OrderBy(file => file.ID).ToList();
-
-            Lort.TaskIterate();
-            return (hiBxf, lowBxf);
         }
     }
 }
