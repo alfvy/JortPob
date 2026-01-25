@@ -6,13 +6,13 @@ using System.Text;
 using System.Threading.Tasks;
 using WitchyFormats;
 using static IronPython.Modules._ast;
-using static JortPob.NpcContent.Stats;
+using static JortPob.CharacterContent.Stats;
 
 namespace JortPob
 {
     public class RecipeManager
     {
-        private Dictionary<NpcContent.Stats.Tier, RecipeBookInfo> books;
+        private Dictionary<CharacterContent.Stats.Tier, RecipeBookInfo> books;
 
         private int nextGoodsId, nextShopId;
 
@@ -26,16 +26,16 @@ namespace JortPob
 
             /* Create recipe books for each tier of alchemy recipes */
             books = new();
-            List<(NpcContent.Stats.Tier tier, int value)> tiers = new()
+            List<(CharacterContent.Stats.Tier tier, int value)> tiers = new()
             {
-                (NpcContent.Stats.Tier.Novice, 35),
-                (NpcContent.Stats.Tier.Apprentice, 155),
-                (NpcContent.Stats.Tier.Journeyman, 475),
-                (NpcContent.Stats.Tier.Expert, 1975),
-                (NpcContent.Stats.Tier.Master, 87235)
+                (CharacterContent.Stats.Tier.Novice, 35),
+                (CharacterContent.Stats.Tier.Apprentice, 155),
+                (CharacterContent.Stats.Tier.Journeyman, 475),
+                (CharacterContent.Stats.Tier.Expert, 1975),
+                (CharacterContent.Stats.Tier.Master, 87235)
             };
 
-            foreach((NpcContent.Stats.Tier tier, int value) tuple in tiers)
+            foreach((CharacterContent.Stats.Tier tier, int value) tuple in tiers)
             {
                 FsParam goodsParam = paramanager.param[Paramanager.ParamType.EquipParamGoods];
                 FsParam.Row row = paramanager.CloneRow(goodsParam[8859], $"Alchemy Cookbook [{tuple.tier.ToString()}]", nextGoodsId); // 9384 is the perfumers cookbook 1
@@ -133,7 +133,7 @@ namespace JortPob
         }
 
         /* Get book */
-        public RecipeBookInfo GetBook(NpcContent.Stats.Tier tier) {
+        public RecipeBookInfo GetBook(CharacterContent.Stats.Tier tier) {
             return books[tier];
         }
 
@@ -147,12 +147,12 @@ namespace JortPob
         public class RecipeBookInfo
         {
             public readonly int row;
-            public readonly NpcContent.Stats.Tier tier;
+            public readonly CharacterContent.Stats.Tier tier;
             public readonly Script.Flag visible, purchased;
 
             public readonly int value; // when buying from a shop
 
-            public RecipeBookInfo(ScriptManager scriptManager, int row, NpcContent.Stats.Tier tier, int value)
+            public RecipeBookInfo(ScriptManager scriptManager, int row, CharacterContent.Stats.Tier tier, int value)
             {
                 this.row = row;
                 this.tier = tier;

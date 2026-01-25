@@ -31,7 +31,7 @@ namespace JortPob
         public readonly EMEVD emevd;
         public readonly EMEVD.Event init;
 
-        public readonly List<NpcContent> npcs; // list of npcs that are registered in this areascript, used to do some script generation
+        public readonly List<CharacterContent> npcs; // list of npcs that are registered in this areascript, used to do some script generation
         public readonly List<Content> ownedContent; // list of all items/containers that have an npc owner. this is used to generate a thievery script after main gen finishes
 
         public readonly Dictionary<uint, string> entityIdMapping; // used for debuggin, just records a string (usually a record id) as a description for created entity ids
@@ -109,7 +109,7 @@ namespace JortPob
 
         public void RegisterItemAsset(ItemContent item)
         {
-            NpcContent owner;
+            CharacterContent owner;
             if(item.ownerNpc != null) { owner = GetAreaNpcById(item.ownerNpc); }
             else { owner = null; }
 
@@ -147,7 +147,7 @@ namespace JortPob
 
         public void RegisterContainerAsset(ContainerContent container)
         {
-            NpcContent owner;
+            CharacterContent owner;
             if (container.ownerNpc != null) { owner = GetAreaNpcById(container.ownerNpc); }
             else { owner = null; }
 
@@ -175,7 +175,7 @@ namespace JortPob
             }
         }
 
-        public void RegisterNpcHostility(NpcContent npc)
+        public void RegisterNpcHostility(CharacterContent npc)
         {
             CreateFlag(Flag.Category.Temporary, Flag.Type.Nibble, Flag.Designation.FriendHitCounter, npc.entity.ToString()); // setup friendly hit counter
             Flag hostileFlag = CreateFlag(Flag.Category.Saved, Flag.Type.Bit, Flag.Designation.Hostile, npc.entity.ToString());
@@ -185,7 +185,7 @@ namespace JortPob
             npcs.Add(npc);
         }
 
-        public void RegisterNpcHello(NpcContent npc)
+        public void RegisterNpcHello(CharacterContent npc)
         {
             /* Hello event: npc turns to player when player enters a certain radius and the esd sets a flag and says a hello line */
             Flag helloFlag = CreateFlag(Script.Flag.Category.Temporary, Script.Flag.Type.Bit, Script.Flag.Designation.Hello, npc.entity.ToString());
@@ -224,7 +224,7 @@ namespace JortPob
         /* Additionally if this event is triggered we also set all guards hostile and mark guards to force greet the player */
         public void GenerateCrimeEvents()
         {
-            foreach(NpcContent npc in npcs)
+            foreach(CharacterContent npc in npcs)
             {
                 Flag eventFlag = CreateFlag(Flag.Category.Event, Flag.Type.Bit, Flag.Designation.Event, npc.entity.ToString());
                 EMEVD.Event crimeEvent = new EMEVD.Event();
@@ -237,7 +237,7 @@ namespace JortPob
 
                 // Look for nearby npcs and see if any of them are nearby, if they are they will also turn hostile if their alarm value is high enough
                 // @TODO: minor concern but this only searches by distance within this msb. in the overworld if an npc was near a border it would not look for nearby npcs in the next tile over. very minor issue but noting it here anyways
-                foreach (NpcContent other in npcs)
+                foreach (CharacterContent other in npcs)
                 {
                     if (!other.IsGuard()) // if you are a guard, go full aggro, otherwise its conditional
                     {
@@ -282,9 +282,9 @@ namespace JortPob
             init.Instructions.Add(AUTO.ParseAdd($"InitializeEvent(0, {thieveryEventFlag.id}, 0);"));
         }
 
-        private NpcContent GetAreaNpcById(string id)
+        private CharacterContent GetAreaNpcById(string id)
         {
-            foreach(NpcContent npc in npcs)
+            foreach(CharacterContent npc in npcs)
             {
                 if (npc.id == id) { return npc; }
             }

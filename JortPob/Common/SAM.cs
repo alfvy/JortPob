@@ -16,7 +16,14 @@ namespace JortPob.Common
         public static string Generate(Dialog.DialogRecord dialog, Dialog.DialogInfoRecord info, string line, string hashName, NpcContent npc)
         {
             // Get the exact location this file will be in
-            string lineDir = Path.Combine(Const.CACHE_PATH, @$"dialog\{npc.race}\{npc.sex}\{dialog.id}\{hashName}\");
+            bool useCustom = Override.CheckCustomVoice(npc.id);
+            bool isCreature = npc.race == CharacterContent.Race.Creature;
+
+            string lineDir;
+            if (useCustom) { lineDir = Path.Combine(Const.CACHE_PATH, "dialog", CharacterContent.Race.Custom.ToString(), npc.id, dialog.id.ToString(), hashName); }
+            else if (isCreature) { lineDir = Path.Combine(Const.CACHE_PATH, "dialog", CharacterContent.Race.Creature.ToString(), npc.id, dialog.id.ToString(), hashName); }
+            else { lineDir = Path.Combine(Const.CACHE_PATH, "dialog", npc.race.ToString(), npc.sex.ToString(), dialog.id.ToString(), hashName); }
+
             string wavPath = $"{lineDir}{hashName}.wav";
             string wemPath = $"{lineDir}{hashName}.wem";
 
@@ -30,7 +37,7 @@ namespace JortPob.Common
                         // Check if this audio file exists in the cache already // @TODO: ideally we generate a voice cache later but guh w/e filesystem check for now
                         if (System.IO.File.Exists(wemPath)) { return wemPath; }
 
-                        if (npc.sex == NpcContent.Sex.Female) { synthesizer.SelectVoice("Microsoft Zira Desktop"); }
+                        if (npc.sex == CharacterContent.Sex.Female) { synthesizer.SelectVoice("Microsoft Zira Desktop"); }
                         else { synthesizer.SelectVoice("Microsoft David Desktop"); }
 
                         // Make folder if doesn't exist (this is so ugly lmao)
@@ -82,7 +89,7 @@ namespace JortPob.Common
                             CreateNoWindow = true
                         };
                         startInfo.ArgumentList.AddRange(["convert-external-source", $"\"{projectPath}\"", "--source-file", xmlRelative, "--output", "Windows", $"\"{lineDir}\""]);
-                        using var Process = Process.Start(startInfo);
+                        using Process process = Process.Start(startInfo);
                         process.WaitForExit();
                     }
                 }
@@ -104,13 +111,24 @@ namespace JortPob.Common
         }
 
 
-        public static string GenerateAlt(Dialog.DialogRecord dialog, Dialog.DialogInfoRecord info, string line, string hashName, NpcContent npc)
+        public static string GenerateAlt(Dialog.DialogRecord dialog, Dialog.DialogInfoRecord info, string line, string hashName, CharacterContent npc)
         {
             // Define paths
-            string lineDir = Path.Combine(Const.CACHE_PATH, "dialog", npc.race.ToString(), npc.sex.ToString(), dialog.id.ToString(), hashName);
+            bool useCustom = Override.CheckCustomVoice(npc.id);
+            bool isCreature = npc.race == CharacterContent.Race.Creature;
+
+            string lineDir;
+            if (useCustom) { lineDir = Path.Combine(Const.CACHE_PATH, "dialog", CharacterContent.Race.Custom.ToString(), npc.id, dialog.id.ToString(), hashName); }
+            else if(isCreature) { lineDir = Path.Combine(Const.CACHE_PATH, "dialog", CharacterContent.Race.Creature.ToString(), npc.id, dialog.id.ToString(), hashName); }
+            else { lineDir = Path.Combine(Const.CACHE_PATH, "dialog", npc.race.ToString(), npc.sex.ToString(), dialog.id.ToString(), hashName); }
+
             string wavPath = Path.Combine(lineDir, $"{hashName}.wav");
             string wemPath = Path.Combine(lineDir, $"{hashName}.wem");
             string flitePath = Path.Combine(Environment.CurrentDirectory, "Resources", "tts", "flite.exe");
+
+            string safeText;
+            if (useCustom || isCreature) { safeText = MakeSafe($"{npc.id} says {line}"); }
+            else { safeText = MakeSafe($"{npc.race.ToString()} says {line}"); }
 
             // Use a loop to handle retries
             for (int retry = 0; retry < Const.SAM_MAX_RETRY; retry++)
@@ -131,8 +149,8 @@ namespace JortPob.Common
 
                     // 2. Generate WAV (Text-to-Speech)
                     // string ssmlLine = $"<speak>{line}<break time='500ms'/></speak>";
-                    string voice = npc.sex == NpcContent.Sex.Female ? "slt" : "rms";
-                    string args = $"-t \"{MakeSafe(line)}\" -voice {voice} \"{wavPath}\"";
+                    string voice = npc.sex == CharacterContent.Sex.Female ? "slt" : "rms";
+                    string args = $"-t \"{safeText}\" -voice {voice} \"{wavPath}\"";
 
                     ProcessStartInfo fliteStartInfo = new(flitePath)
                     {
@@ -187,7 +205,11 @@ namespace JortPob.Common
                         UseShellExecute = false,
                         CreateNoWindow = true
                     };
-                    string xmlRelative = Path.Combine("..", "dialog", npc.race.ToString(), npc.sex.ToString(), dialog.id.ToString(), hashName, xmlName);
+
+                    string xmlRelative;
+                    if (useCustom) { xmlRelative = Path.Combine("..", "dialog", CharacterContent.Race.Custom.ToString(), npc.id, dialog.id.ToString(), hashName, xmlName); }
+                    else if (isCreature) { xmlRelative = Path.Combine("..", "dialog", CharacterContent.Race.Creature.ToString(), npc.id, dialog.id.ToString(), hashName, xmlName); }
+                    else { xmlRelative = Path.Combine("..", "dialog", npc.race.ToString(), npc.sex.ToString(), dialog.id.ToString(), hashName, xmlName); }
                     convertInfo.ArgumentList.AddRange(["convert-external-source", $"\"{projectPath}\"", "--source-file", xmlRelative, "--output", "Windows", $"\"{lineDir}\""]);
                     ExecuteProcess(convertInfo);
 
@@ -202,16 +224,16 @@ namespace JortPob.Common
                 }
                 catch (Exception ex)
                 {
-                    // Log the detailed exception and retry
-                    Lort.Log($"## ERROR ## Failed to generate dialog {wavPath} on attempt {retry + 1}. Error: {ex.Message}", Lort.Type.Debug);
-                    // The loop continues to the next retry attempt
+                    // Keep retrying. Don't spam log after every failed generation as it's bloat.
+                    // If we fail up to MAX_RETRY then we throw an exception and print log.
                 }
             }
 
             // Final check after all retries
             if (!File.Exists(wemPath))
             {
-                throw new Exception($"Failed to generated line {wemPath} despite {Const.SAM_MAX_RETRY} retry attempts.");
+                Lort.Log($"Failed to generate line {wemPath}. With text <{safeText}> -- despite {Const.SAM_MAX_RETRY} retry attempts.", Lort.Type.Debug);
+                throw new($"Failed to generate line {wemPath}. With text <{safeText}> -- despite {Const.SAM_MAX_RETRY} retry attempts.");
             }
 
             // Should be unreachable if the File.Exists check above is correct, but included for completeness.
@@ -220,7 +242,7 @@ namespace JortPob.Common
 
         private static void ExecuteProcess(ProcessStartInfo startInfo)
         {
-            using var Process = Process.Start(startInfo);
+            using Process process = Process.Start(startInfo);
             if (process == null)
             {
                 throw new InvalidOperationException($"Failed to start process: {startInfo.FileName}");
@@ -268,7 +290,7 @@ namespace JortPob.Common
         {
             if (string.IsNullOrEmpty(input))
             {
-                return input;
+                return "empty string";
             }
 
             // 1. Strip ANSI/VT100 Escape Sequences (Always applied)
@@ -325,9 +347,13 @@ namespace JortPob.Common
                 .Replace("..\\", "") // Windows
                 .Replace("../", "")  // Unix/Linux
                 .Replace("./", "")   // Current directory (optional cleanup)
-                .Replace(".\\", ""); 
+                .Replace(".\\", "");
 
-            return sanitized.Trim();
+
+            sanitized = sanitized.Trim();
+            while (sanitized.Contains("  ")) { sanitized = sanitized.Replace("  ", " "); }
+
+            return sanitized;
         }
     }
 }

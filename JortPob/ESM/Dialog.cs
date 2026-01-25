@@ -51,8 +51,8 @@ namespace JortPob
             // static requirements for a dialog to be added
             public readonly string speaker, job, faction, cell;
             public readonly int rank;
-            public readonly NpcContent.Race race;
-            public readonly NpcContent.Sex sex;
+            public readonly CharacterContent.Race race;
+            public readonly CharacterContent.Sex sex;
 
             // non-static requirements
             public readonly string playerFaction;
@@ -76,7 +76,7 @@ namespace JortPob
 
                 speaker = NullEmpty(json["speaker_id"].ToString());
                 string raceStr = NullEmpty(json["speaker_race"].ToString());
-                race = raceStr != null ? (NpcContent.Race)System.Enum.Parse(typeof(NpcContent.Race), raceStr.Replace(" ", "")) : NpcContent.Race.Any;
+                race = raceStr != null ? Enum.Parse<CharacterContent.Race>(raceStr.Replace(" ", "")) : CharacterContent.Race.Any;
                 job = NullEmpty(json["speaker_class"].ToString());
                 faction = NullEmpty(json["speaker_faction"].ToString());
                 cell = NullEmpty(json["speaker_cell"].ToString());
@@ -111,15 +111,15 @@ namespace JortPob
             // Good examples of statically determined filters are things like NotRace or NotLocal. Or if a character has no faction then any faction related filters.
             // It is important to be careful here though, we don't want to accidentally discard dialog lines that could resolve true at some point
             private static uint DISCARD_COUNT = 0; // some tracking to see how effective the filter discards are
-            public bool IsUnreachableFor(ScriptManager scriptManager, NpcContent npc)
+            public bool IsUnreachableFor(ScriptManager scriptManager, CharacterContent npc)
             {
                 if (speaker != null && speaker != npc.id) { return true; }
-                if (race != NpcContent.Race.Any && race != npc.race) { return true; }
+                if (race != CharacterContent.Race.Any && race != npc.race) { return true; }
                 if (job != null && job != npc.job) { return true; }
                 if (faction != null && faction != npc.faction) { return true; }
                 if (rank > npc.rank || (rank >= 0 && npc.faction == null)) { return true; }  // unsure if this is correct, i *think* it is but haven't verified
                 if ((cell != null && npc.cell.name == null) || (cell != null && npc.cell.name != null && !npc.cell.name.ToLower().StartsWith(cell.ToLower()))) { return true; }
-                if (sex != NpcContent.Sex.Any && sex != npc.sex) { return true; }
+                if (sex != CharacterContent.Sex.Any && sex != npc.sex) { return true; }
 
                 DISCARD_COUNT++;
                 foreach (DialogFilter filter in filters)
@@ -268,7 +268,7 @@ namespace JortPob
 
             /* Generates an ESD condition for this line using the data from its filters */ // used by DialogESD.cs
             private static List<String> debugUnsupportedFiltersLogging = new();
-            public string GenerateCondition(ItemManager itemManager, ScriptManager scriptManager, NpcContent npcContent)
+            public string GenerateCondition(ItemManager itemManager, ScriptManager scriptManager, CharacterContent npcContent)
             {
                 List<string> conditions = new();
 
@@ -329,7 +329,7 @@ namespace JortPob
                                         }
                                     case DialogFilter.Function.SameSex:
                                         {
-                                            int sexVal = npcContent.sex == NpcContent.Sex.Male ? 1 : 0; // elden ring values are :: male = 1, female = 0 
+                                            int sexVal = npcContent.sex == CharacterContent.Sex.Male ? 1 : 0; // elden ring values are :: male = 1, female = 0 
                                             return $"ComparePlayerStat(PlayerStat.Gender, CompareType.Equal, {sexVal}) == {filter.value}";
                                         }
                                     case DialogFilter.Function.TalkedToPc:
@@ -367,7 +367,7 @@ namespace JortPob
                                         }
                                     case DialogFilter.Function.Level:
                                         {
-                                            // npcs level can't change so static comparison is fine  @TODO: could uhhh resolve this to just true or false but i'm lazy
+                                            // npcs level can't change so static comparison is fine
                                             return $"{npcContent.level} {filter.OperatorSymbol()} {filter.value}";
                                         }
                                     case DialogFilter.Function.HealthPercent:
@@ -600,7 +600,7 @@ namespace JortPob
 
             /* Creates code for a dialog esd to execute when the dialoginfo that this dialogpapyrus is owned by gets played */
             private static List<String> debugUnsupportedPapyrusCallLogging = new();
-            public string GenerateEsdSnippet(Paramanager paramanager, ItemManager itemManager, ScriptManager scriptManager, NpcContent npcContent, uint esdId, int indent)
+            public string GenerateEsdSnippet(Paramanager paramanager, ItemManager itemManager, ScriptManager scriptManager, CharacterContent npcContent, uint esdId, int indent)
             {
                 // Takes any mixed numeric parameter and converts it to an esd friendly format. for example  "1 + 2 + crimeGold + 7" or "crimeGold - valueValue" or just "5"
                 string ParseParameters(string[] parameters, int startIndex)
@@ -614,7 +614,7 @@ namespace JortPob
                         else  // its (probably) a variable
                         {
                             Flag pvar = GetFlagByVariable(p); // get variable flag
-                            if (pvar == null) { parsed += "0"; } // @TODO: discarding function calls rn, should suppor them properly (like in papyrusemevd.cs)
+                            if (pvar == null) { parsed += "0"; } // @TODO: discarding function calls rn, should support them properly (like in papyrusemevd.cs)
                             else { parsed += $"GetEventFlagValue({pvar.id}, {(int)pvar.type})"; }
                         }
                         if (i < parameters.Length - 1) { parsed += " "; }

@@ -14,7 +14,7 @@ namespace JortPob.Common
 {
     // most credit goes to https://github.com/Pear0533/ERMapGenerator
     // its where most of my understanding (and this code) comes from
-    public class MapGenerator
+    public class MapGenerator : IDisposable
     {
         // image size constants for each zoom level
         private const int L0_SIZE = 10496;
@@ -35,16 +35,16 @@ namespace JortPob.Common
         private const int TILE_SIZE = 256;
 
         // grid sizes for each zoom level
-        private static readonly Dictionary<string, int> ZoomLevelGridSizes = new()
+        private static readonly Dictionary<ZoomLevel, int> ZoomLevelGridSizes = new()
         {
-            { "L0", 41 },
-            { "L1", 31 },
-            { "L2", 11 }
+            { ZoomLevel.L0, 41 },
+            { ZoomLevel.L1, 31 },
+            { ZoomLevel.L2, 11 }
         };
 
         private BND4 mapTileMaskBnd;
-        private BXF4 mapTileTpfBhd;
-        private BXF4 mapTileBhd;
+        private BXF4 mapTileTpfBxf;
+        private BXF4 mapTileBxf;
         private MapTileMatrix tileFlags;
         private XmlNode mapTileMaskRoot;
 
@@ -60,14 +60,14 @@ namespace JortPob.Common
         public static (byte[] bhdBytes, byte[] bdtBytes) ReplaceMapTiles(
             Bitmap sourceImage,
             string[] groundLevels,
-            string[] zoomLevels,
+            ZoomLevel[] zoomLevels,
             string mapTileMaskBndPath,
             string mapTileTpfBhdPath,
             string mapTileTpfBtdPath,
             Action progressCallback = null,
             CancellationToken cancellationToken = default)
         {
-            var replacer = new MapGenerator();
+            using var replacer = new MapGenerator();
             return replacer.ReplaceMapTilesInternal(
                 sourceImage,
                 groundLevels,
@@ -81,14 +81,14 @@ namespace JortPob.Common
 
         private MapGenerator()
         {
-            mapTileBhd = new BXF4();
+            mapTileBxf = new BXF4();
             tileFlags = new MapTileMatrix();
         }
 
         private (byte[] bhdBytes, byte[] bdtBytes) ReplaceMapTilesInternal(
             Bitmap sourceImage,
             string[] groundLevels,
-            string[] zoomLevels,
+            ZoomLevel[] zoomLevels,
             string mapTileMaskBndPath,
             string mapTileTpfBhdPath,
             string mapTileTpfBtdPath,
@@ -98,26 +98,26 @@ namespace JortPob.Common
             this.progressCallback = progressCallback;
 
             mapTileMaskBnd = BND4.Read(mapTileMaskBndPath);
-            mapTileTpfBhd = BXF4.Read(mapTileTpfBhdPath, mapTileTpfBtdPath);
+            mapTileTpfBxf = BXF4.Read(mapTileTpfBhdPath, mapTileTpfBtdPath);
 
             LoadBlankTilesFromGameFiles();
 
             // scale the map to L1 and L2
-            if (zoomLevels.Contains("L1"))
+            if (zoomLevels.Contains(ZoomLevel.L0))
             {
                 scaledL1Image?.Dispose();
-                scaledL1Image = GetScaledMapForZoomLevel(sourceImage, "L1");
+                scaledL1Image = GetScaledMapForZoomLevel(sourceImage, ZoomLevel.L1);
             }
-            if (zoomLevels.Contains("L2"))
+            if (zoomLevels.Contains(ZoomLevel.L1))
             {
                 scaledL2Image?.Dispose();
-                scaledL2Image = GetScaledMapForZoomLevel(sourceImage, "L2");
+                scaledL2Image = GetScaledMapForZoomLevel(sourceImage, ZoomLevel.L1);
             }
 
             // export tiles for each ground level and zoom level
             foreach (string groundLevel in groundLevels)
             {
-                foreach (string zoomLevel in zoomLevels)
+                foreach (var zoomLevel in zoomLevels)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     ExportTilesForLevel(sourceImage, groundLevel, zoomLevel, cancellationToken);
@@ -138,11 +138,11 @@ namespace JortPob.Common
         {
             try
             {
-                if (mapTileTpfBhd == null || mapTileTpfBhd.Files.Count == 0) return;
+                if (mapTileTpfBxf == null || mapTileTpfBxf.Files.Count == 0) throw new FileNotFoundException("Map files weren't loaded correctly");
 
-                BinderFile? l0File = mapTileTpfBhd.Files.FirstOrDefault(f => f.Name.Contains("MENU_MapTile_M00_L0_00_00_00000000"));
-                BinderFile? l1File = mapTileTpfBhd.Files.FirstOrDefault(f => f.Name.Contains("MENU_MapTile_M00_L1_00_00_00000000"));
-                BinderFile? l2File = mapTileTpfBhd.Files.FirstOrDefault(f => f.Name.Contains("MENU_MapTile_M00_L2_00_00_00000000"));
+                BinderFile? l0File = mapTileTpfBxf.Files.FirstOrDefault(f => f.Name.Contains("MENU_MapTile_M00_L0_00_00_00000000"));
+                BinderFile? l1File = mapTileTpfBxf.Files.FirstOrDefault(f => f.Name.Contains("MENU_MapTile_M00_L1_00_00_00000000"));
+                BinderFile? l2File = mapTileTpfBxf.Files.FirstOrDefault(f => f.Name.Contains("MENU_MapTile_M00_L2_00_00_00000000"));
 
                 if (l0File != null)
                 {
@@ -168,34 +168,30 @@ namespace JortPob.Common
             }
         }
 
-        private Bitmap GetScaledMapForZoomLevel(Bitmap sourceImage, string zoomLevel)
+        private Bitmap GetScaledMapForZoomLevel(Bitmap sourceImage, ZoomLevel zoomLevel)
         {
             int targetSize = zoomLevel switch
             {
-                "L0" => L0_SIZE,
-                "L1" => L1_SIZE,
-                "L2" => L2_SIZE,
+                ZoomLevel.L0 => L0_SIZE,
+                ZoomLevel.L1 => L1_SIZE,
+                ZoomLevel.L2 => L2_SIZE,
                 _ => L0_SIZE
             };
 
-            if (zoomLevel == "L0" && sourceImage.Width == L0_SIZE && sourceImage.Height == L0_SIZE)
+            switch (zoomLevel)
             {
-                return new Bitmap(sourceImage);
-            }
-
-            if (zoomLevel == "L1" && scaledL1Image != null)
-            {
-                return new Bitmap(scaledL1Image);
-            }
-            if (zoomLevel == "L2" && scaledL2Image != null)
-            {
-                return new Bitmap(scaledL2Image);
+                case ZoomLevel.L0 when sourceImage.Width == L0_SIZE && sourceImage.Height == L0_SIZE:
+                    return new Bitmap(sourceImage);
+                case ZoomLevel.L1:
+                    return new Bitmap(scaledL1Image);
+                case ZoomLevel.L2:
+                    return new Bitmap(scaledL2Image);
             }
 
             Bitmap workingImage = new Bitmap(sourceImage);
 
             // only level 0 has a cleared chunk
-            if (zoomLevel != "L0")
+            if (zoomLevel != ZoomLevel.L0)
             {
                 using (Graphics g = Graphics.FromImage(workingImage))
                 {
@@ -216,12 +212,12 @@ namespace JortPob.Common
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                 g.CompositingQuality = CompositingQuality.HighQuality;
 
-                if (zoomLevel == "L1")
+                if (zoomLevel == ZoomLevel.L1)
                 {
                     int scaledSize = targetSize - L1_SCALE_SUBTRACT;
                     g.DrawImage(workingImage, L1_OFFSET_X, L1_OFFSET_Y, scaledSize, scaledSize);
                 }
-                else if (zoomLevel == "L2")
+                else if (zoomLevel == ZoomLevel.L2)
                 {
                     int scaledSize = targetSize - L2_SCALE_SUBTRACT;
                     g.DrawImage(workingImage, L2_OFFSET_X, L2_OFFSET_Y, scaledSize, scaledSize);
@@ -233,9 +229,9 @@ namespace JortPob.Common
 
                 Bitmap? blankTile = zoomLevel switch
                 {
-                    "L0" => blankTileL0,
-                    "L1" => blankTileL1,
-                    "L2" => blankTileL2,
+                    ZoomLevel.L0 => blankTileL0,
+                    ZoomLevel.L1 => blankTileL1,
+                    ZoomLevel.L2 => blankTileL2,
                     _ => null
                 };
 
@@ -248,12 +244,12 @@ namespace JortPob.Common
             workingImage.Dispose();
 
             // cache the scaled images
-            if (zoomLevel == "L1")
+            if (zoomLevel == ZoomLevel.L1)
             {
                 scaledL1Image?.Dispose();
                 scaledL1Image = new Bitmap(scaledImage);
             }
-            else if (zoomLevel == "L2")
+            else if (zoomLevel == ZoomLevel.L2)
             {
                 scaledL2Image?.Dispose();
                 scaledL2Image = new Bitmap(scaledImage);
@@ -262,7 +258,7 @@ namespace JortPob.Common
             return scaledImage;
         }
 
-        private void ExportTilesForLevel(Bitmap sourceImage, string groundLevel, string zoomLevel, CancellationToken cancellationToken)
+        private void ExportTilesForLevel(Bitmap sourceImage, string groundLevel, ZoomLevel zoomLevel, CancellationToken cancellationToken)
         {
             int gridSize = ZoomLevelGridSizes.GetValueOrDefault(zoomLevel);
             using Bitmap mapImage = GetScaledMapForZoomLevel(sourceImage, zoomLevel);
@@ -297,7 +293,7 @@ namespace JortPob.Common
                     string tileXPos = x.ToString("D2");
                     string tileYPos = (gridSize - y - 1).ToString("D2");
                     string tileName = $"MENU_MapTile_{groundLevel}_{zoomLevel}_{tileXPos}_{tileYPos}";
-                    string bitFlags = tileFlags[int.Parse(zoomLevel[1..]), x, gridSize - y - 1].ToString("X8");
+                    string bitFlags = tileFlags[(int)zoomLevel, x, gridSize - y - 1].ToString("X8");
 
                     progressCallback?.Invoke();
                     // all praise the map tile mask
@@ -336,7 +332,7 @@ namespace JortPob.Common
 
             for (int i = 0; i < mapTileMaskRoot.ChildNodes.Count; ++i)
             {
-                XmlNode node = mapTileMaskRoot.ChildNodes[i];
+                XmlNode node =  mapTileMaskRoot.ChildNodes[i];
                 if (node == null) continue;
                 if (node.Attributes == null || node.Attributes.Count < 2) continue;
 
@@ -370,30 +366,52 @@ namespace JortPob.Common
                 Bytes = tpfBytes
             };
 
-            mapTileBhd.Files.Add(file);
+            mapTileBxf.Files.Add(file);
         }
 
         private (byte[] bhdBytes, byte[] bdtBytes) GetBinderBytes()
         {
             // remove old tiles that are being replaced
-            IEnumerable<int> files = mapTileBhd.Files.Select(file =>
-                mapTileTpfBhd.Files.FindIndex(i =>
+            IEnumerable<int> files = mapTileBxf.Files.Select(file =>
+                mapTileTpfBxf.Files.FindIndex(i =>
                     string.Equals(i.Name, file.Name, StringComparison.OrdinalIgnoreCase)));
 
             foreach (int i in files.Where(index => index != -1))
-                mapTileTpfBhd.Files.RemoveAt(i);
+                mapTileTpfBxf.Files.RemoveAt(i);
 
             // add new tiles
-            mapTileTpfBhd.Files.AddRange(mapTileBhd.Files);
+            mapTileTpfBxf.Files.AddRange(mapTileBxf.Files);
 
             // sort and re-index
-            mapTileTpfBhd.Files = mapTileTpfBhd.Files.OrderBy(i => i.Name).ToList();
-            for (int i = 0; i < mapTileTpfBhd.Files.Count; i++)
-                mapTileTpfBhd.Files[i].ID = i;
+            mapTileTpfBxf.Files = mapTileTpfBxf.Files.OrderBy(i => i.Name).ToList();
+            for (int i = 0; i < mapTileTpfBxf.Files.Count; i++)
+                mapTileTpfBxf.Files[i].ID = i;
 
-            mapTileTpfBhd.Write(out var bhdBytes, out var bdtBytes);
+            mapTileTpfBxf.Write(out var bhdBytes, out var bdtBytes);
 
             return (bhdBytes, bdtBytes);
+        }
+
+        public void Dispose()
+        {
+            blankTileL0?.Dispose();
+            blankTileL1?.Dispose();
+            blankTileL2?.Dispose();
+            scaledL1Image?.Dispose();
+            scaledL2Image?.Dispose();
+
+            // hacky but works
+            foreach (var file in mapTileMaskBnd.Files)
+            {
+                file.Bytes = null;
+            }
+            mapTileTpfBxf.Files.Clear();
+
+            foreach (var file in mapTileTpfBxf.Files)
+            {
+                file.Bytes = null;
+            }
+            mapTileTpfBxf.Files.Clear();
         }
 
         private class MapTileMatrix
@@ -405,7 +423,7 @@ namespace JortPob.Common
                 get
                 {
                     string key = GetKey(zoomLevel, x, y);
-                    return Data.ContainsKey(key) ? Data[key] : -1;
+                    return Data.TryGetValue(key, out var value) ? value : -1;
                 }
                 set
                 {
@@ -419,5 +437,11 @@ namespace JortPob.Common
                 return string.Join(",", new[] { zoomLevel, x, y });
             }
         }
+
+        public enum ZoomLevel
+        {
+            L0 = 0, L1 = 1, L2 = 2
+        }
     }
+
 }

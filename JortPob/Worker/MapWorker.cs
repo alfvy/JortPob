@@ -23,12 +23,17 @@ namespace JortPob.Worker
             try
             {
                 Lort.Log("Loading UI map resources... ", Lort.Type.Main);
-
                 Bitmap image = new Bitmap(Utility.ResourcePath("menu\\map\\map_v1.png"));
                 Bitmap map = Utility.LinearToSRGBAlt(image);
 
+                // direct refrence to the naming convention used in the game
                 string[] groundLevels = new[] { "M00" };
-                string[] zoomLevels = new[] { "L0", "L1", "L2" };
+                MapGenerator.ZoomLevel[] zoomLevels = new[] 
+                { 
+                    MapGenerator.ZoomLevel.L0,
+                    MapGenerator.ZoomLevel.L1,
+                    MapGenerator.ZoomLevel.L2
+                };
 
                 string maskPath = Path.Combine(Const.ELDEN_PATH, "Game\\menu\\71_maptile.mtmskbnd.dcx");
                 string bhdPath = Path.Combine(Const.ELDEN_PATH, "Game\\menu\\71_maptile.tpfbhd");
@@ -54,9 +59,9 @@ namespace JortPob.Worker
                 );
 
                 Lort.Log("Writing map files... ", Lort.Type.Main);
+                File.Copy(maskPath, Path.Combine(Const.OUTPUT_PATH, "menu\\71_maptile.mtmskbnd.dcx"));
                 File.WriteAllBytes(Path.Combine(Const.OUTPUT_PATH, "menu\\71_maptile.tpfbhd"), result.bhdBytes);
                 File.WriteAllBytes(Path.Combine(Const.OUTPUT_PATH, "menu\\71_maptile.tpfbdt"), result.bdtBytes);
-                File.Copy(maskPath, Path.Combine(Const.OUTPUT_PATH, "menu\\71_maptile.mtmskbnd.dcx"), true);
             } catch (Exception ex) 
             {
                 Lort.Log($"Failed to generate UI map: {ex.Message}", Lort.Type.Debug);

@@ -863,6 +863,11 @@ namespace JortPob
             return ResolveInventory(npc.inventory);
         }
 
+        public List<(ItemInfo item, int quantity)> ResolveInventory(CreatureContent creature)
+        {
+            return ResolveInventory(creature.inventory);
+        }
+
         public List<(ItemInfo item, int quantity)> ResolveInventory(ContainerContent container)
         {
             return ResolveInventory(container.inventory);
@@ -1052,18 +1057,18 @@ namespace JortPob
         }
 
         /* Creates params for an enchant shop, parameter determines the max quality of enchantments provided */
-        public int CreateShop(NpcContent.Stats.Tier tier)
+        public int CreateShop(CharacterContent.Stats.Tier tier)
         {
             /* Randomly select skills to provide based on tier */
             List<Override.SkillInfo> skillPool = Override.GetSkills(tier); // this method creates a new list so we can modify it without issue
             int numItems;
             switch(tier)
             {
-                case NpcContent.Stats.Tier.Novice: numItems = Utility.RandomRange(1, 2); break;
-                case NpcContent.Stats.Tier.Apprentice: numItems = Utility.RandomRange(3, 4); break;
-                case NpcContent.Stats.Tier.Journeyman: numItems = Utility.RandomRange(5, 7); break;
-                case NpcContent.Stats.Tier.Expert: numItems = Utility.RandomRange(8, 11); break;
-                case NpcContent.Stats.Tier.Master: numItems = Utility.RandomRange(13, 18); break;
+                case CharacterContent.Stats.Tier.Novice: numItems = Utility.RandomRange(1, 2); break;
+                case CharacterContent.Stats.Tier.Apprentice: numItems = Utility.RandomRange(3, 4); break;
+                case CharacterContent.Stats.Tier.Journeyman: numItems = Utility.RandomRange(5, 7); break;
+                case CharacterContent.Stats.Tier.Expert: numItems = Utility.RandomRange(8, 11); break;
+                case CharacterContent.Stats.Tier.Master: numItems = Utility.RandomRange(13, 18); break;
                 default: throw new Exception($"Invalid skill tier: {tier}"); // can't happen
             }
 

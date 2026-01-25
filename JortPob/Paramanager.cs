@@ -118,10 +118,10 @@ namespace JortPob
                 Lort.TaskIterate();
                 try
                 {
-                    ParamDefType ty = (ParamDefType)System.Enum.Parse(typeof(ParamDefType), p.ParamType);
+                    ParamDefType ty = Enum.Parse<ParamDefType>(p.ParamType);
                     paramdefs.Add(ty, p);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     Lort.Log($"Skipped unknown paramdef: {p.ParamType}", Lort.Type.Debug);
                     continue;
@@ -693,7 +693,7 @@ namespace JortPob
             else { rowToCopy = 523010000; }          // white mask varre
 
             FsParam npcParam = param[ParamType.NpcParam];
-            FsParam.Row row = CloneRow(npcParam[rowToCopy], npc.name, id); // 523010000 is white mask varre
+            FsParam.Row row = CloneRow(npcParam[rowToCopy], npc.id, id); // 523010000 is white mask varre
 
             int itemLotRow;
             List<(ItemManager.ItemInfo item, int quantity)> inventory = itemManager.ResolveInventory(npc);
@@ -708,6 +708,49 @@ namespace JortPob
             row["itemLotId_enemy"].Value.SetValue(itemLotRow);
 
              AddRow(npcParam, row);
+        }
+
+        public void GenerateNpcParam(ItemManager itemManager, Script script, CreatureContent creature, int id, Override.EnemyRemap remap)
+        {
+            // It seems like special poses are tied to npcparam in some way so i need to copy lanya to get the 'dead body' pose
+            int rowToCopy = remap.npc.row;
+
+            FsParam npcParam = param[ParamType.NpcParam];
+            FsParam.Row row = CloneRow(npcParam[rowToCopy], creature.id, id);
+
+            int itemLotRow;
+            List<(ItemManager.ItemInfo item, int quantity)> inventory = itemManager.ResolveInventory(creature);
+            if (inventory.Count() > 0) { itemLotRow = GenerateInventoryItemLot(script, creature, inventory); }    // @TODO: rework item lot generation for creatures to be non-fixed
+            else { itemLotRow = -1; }
+
+            int textId = textManager.AddNpcName(creature.name);
+            row.Cells[5].SetValue(textId); // nameId
+            row.Cells[105].SetValue((byte)(creature.hostile ? 27 : 26)); // team type (hostile=27, friendly=26)
+            row["itemLotId_enemy"].Value.SetValue(itemLotRow);
+
+            // @TODO: apply data from json remap to param!
+
+            AddRow(npcParam, row);
+        }
+
+        public void GenerateThinkParam(ItemManager itemManager, Script script, NpcContent npc, int id)
+        {
+            FsParam thinkParam = param[ParamType.NpcThinkParam];
+            FsParam.Row row = CloneRow(thinkParam[523010000], npc.id, id); // 523010000 is white mask varre
+
+            // STUB:: do stuff to this param lol
+
+            AddRow(thinkParam, row);
+        }
+
+        public void GenerateThinkParam(ItemManager itemManager, Script script, CreatureContent creature, int id, Override.EnemyRemap remap)
+        {
+            FsParam thinkParam = param[ParamType.NpcThinkParam];
+            FsParam.Row row = CloneRow(thinkParam[remap.think.row], creature.id, id);
+
+            // STUB:: do stuff to this param lol
+
+            AddRow(thinkParam, row);
         }
 
         public int GenerateActionButtonItemParam(string text)
@@ -1082,7 +1125,7 @@ namespace JortPob
         }
 
         /* Generates an enemy item lot from the inventory of an npccontent with no flag. This is for LIVING npcs when the player kills them */
-        public int GenerateInventoryItemLot(Script script, NpcContent npc, List<(ItemManager.ItemInfo item, int quantity)> inventory)
+        public int GenerateInventoryItemLot(Script script, Content content, List<(ItemManager.ItemInfo item, int quantity)> inventory)
         {
             FsParam itemLotParam = param[Paramanager.ParamType.ItemLotParam_enemy];
             if (inventory.Count() <= 0) { return -1; } // skip empty inv
@@ -1092,7 +1135,7 @@ namespace JortPob
             int baseRow = nextEnemyItemLotId;
             foreach ((ItemManager.ItemInfo item, int quantity) entry in inventory)
             {
-                FsParam.Row row = CloneRow(itemLotParam[584000500], $"npc inventory, repeatable, {npc.id}:{i}:{entry.item.id}", baseRow + i); // 584000500 is a blankish one i found that looked good as a base
+                FsParam.Row row = CloneRow(itemLotParam[584000500], $"npc inventory, repeatable, {content.id}:{i}:{entry.item.id}", baseRow + i); // 584000500 is a blankish one i found that looked good as a base
                 
                 row["getItemFlagId"].Value.SetValue((uint)0);
                 row[$"lotItemCategory01"].Value.SetValue(entry.item.ItemLotCategory());

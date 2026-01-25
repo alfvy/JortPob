@@ -409,7 +409,7 @@ namespace JortPob
         }
 
         /* Create an event for travel npcs to warp the player to a specific location. Returns the flag that when set to ON will trigger this event */
-        public Flag GetOrRegisterTravelWarp(NpcContent.Travel travel)
+        public Flag GetOrRegisterTravelWarp(CharacterContent.Travel travel)
         {
             string flagName = $"{travel.name}:{(int)travel.position.X},{(int)travel.position.X}";
             Flag warpToFlag = GetFlag(Designation.TravelWarp, flagName);

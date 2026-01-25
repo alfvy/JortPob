@@ -97,7 +97,7 @@ namespace JortPob
                 objects.Add(soundStopEvent);
 
                 string wemSrcPath = sound.file;
-                string wemTgtPath = Path.Combine(dir, @$"wem\{sourceId.ToString("D9").Substring(0, 2)}\{sourceId.ToString("D9")}.wem");
+                string wemTgtPath = Path.Combine(dir, @$"wem\{sourceId.ToString("D9").Substring(0, 2)}\{sourceId:D9}.wem");
                 Directory.CreateDirectory(Path.GetDirectoryName(wemTgtPath));
                 if (File.Exists(wemTgtPath)) { File.Delete(wemTgtPath); }
                 File.Copy(wemSrcPath, wemTgtPath);

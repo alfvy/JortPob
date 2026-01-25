@@ -17,16 +17,16 @@ namespace JortPob
         private readonly List<SoundBankInfo> banks;
         private readonly SoundBankGlobals globals;
 
-        private readonly SAM sam;
         private readonly List<SAMData> samQueue;
+
         public class SAMData
         {
             public readonly Dialog.DialogRecord dialog;
             public readonly Dialog.DialogInfoRecord info;
             public readonly string line;
             public readonly string hashName;
-            public readonly NpcContent npc;
-            public SAMData(Dialog.DialogRecord dialog, Dialog.DialogInfoRecord info, string line, string hashName, NpcContent npc)
+            public readonly CharacterContent npc;
+            public SAMData(Dialog.DialogRecord dialog, Dialog.DialogInfoRecord info, string line, string hashName, CharacterContent npc)
             {
                 this.dialog = dialog;
                 this.info = info;
@@ -45,40 +45,71 @@ namespace JortPob
         }
 
         /* Either returns an existing bank meeting the requirements, or makes a new one */
-        public SoundBankInfo GetBank(NpcContent npc)
+        public SoundBankInfo GetBank(CharacterContent npc)
         {
+            bool useCustom = Override.CheckCustomVoice(npc.id);
+            bool isCreature = npc.race == CharacterContent.Race.Creature;
+
             foreach (SoundBankInfo bankInfo in banks)
             {
-                if (bankInfo.Race == npc.race && bankInfo.Sex == npc.sex && bankInfo.Uses <= Const.MAX_ESD_PER_VCBNK)
+                if(useCustom && bankInfo.race == CharacterContent.Race.Custom && bankInfo.custom == npc.id && bankInfo.uses <= Const.MAX_ESD_PER_VCBNK)
+                {
+                    return bankInfo;
+                }
+                else if (isCreature && bankInfo.race == CharacterContent.Race.Creature && bankInfo.custom == npc.id && bankInfo.uses <= Const.MAX_ESD_PER_VCBNK)
+                {
+                    return bankInfo;
+                }
+                else if (bankInfo.race == npc.race && bankInfo.sex == npc.sex && bankInfo.uses <= Const.MAX_ESD_PER_VCBNK)
                 {
                     return bankInfo;
                 }
             }
-
-            SoundBankInfo bnk = new(nextBankId++, npc.race, npc.sex, new SoundBank(globals));
+            SoundBankInfo bnk;
+            if (useCustom) { bnk = new(nextBankId++, CharacterContent.Race.Custom, npc.sex, new SoundBank(globals), npc.id); }
+            else if(isCreature) { bnk = new(nextBankId++, CharacterContent.Race.Creature, npc.sex, new SoundBank(globals), npc.id); }
+            else { bnk = new(nextBankId++, npc.race, npc.sex, new SoundBank(globals)); }
             banks.Add(bnk);
             return bnk;
         }
 
-        public SoundBank.Sound FindSound(NpcContent npc, int dialogInfo)
+        public SoundBank.Sound FindSound(CharacterContent npc, int dialogInfo)
         {
-            foreach (SoundBankInfo bankInfo in banks)
+            bool useCustom = Override.CheckCustomVoice(npc.id);
+            bool isCreature = npc.race == CharacterContent.Race.Creature;
+
+            if (useCustom)
             {
-                if (bankInfo.Race != npc.race || bankInfo.Sex != npc.sex) { continue; } // not a match
-                foreach (SoundBank.Sound snd in bankInfo.Bank.sounds)
-                {
-                    if (snd.dialogInfo == dialogInfo) { return snd; }
-                }
+                return banks.Where(b => b.race == CharacterContent.Race.Custom && b.custom == npc.id)
+                            .SelectMany(b => b.bank.sounds)
+                            .FirstOrDefault(s => s.dialogInfo == dialogInfo, null);
             }
-            return null; // no match found
+            else if (isCreature)
+            {
+                return banks.Where(b => b.race == CharacterContent.Race.Creature && b.custom == npc.id)
+                            .SelectMany(b => b.bank.sounds)
+                            .FirstOrDefault(s => s.dialogInfo == dialogInfo, null);
+            }
+            else
+            {
+                return banks.Where(b => b.race == npc.race && b.sex == npc.sex)
+                    .SelectMany(b => b.bank.sounds)
+                    .FirstOrDefault(s => s.dialogInfo == dialogInfo, null);
+            }
         }
 
         /* Adds lines to a queue so we can do multithreaded tts gen on them */
-        public string GenerateLine(DialogRecord dialog, DialogInfoRecord info, string line, string hashName, NpcContent npc)
+        public string GenerateLine(DialogRecord dialog, DialogInfoRecord info, string line, string hashName, CharacterContent npc)
         {
+            bool useCustom = Override.CheckCustomVoice(npc.id);
+            bool isCreature = npc.race == CharacterContent.Race.Creature;
+
             SAMData dat = new(dialog, info, line, hashName, npc);
             samQueue.Add(dat);
-            return Path.Combine(Const.CACHE_PATH, @$"dialog\{npc.race}\{npc.sex}\{dialog.id}\{hashName}\{hashName}.wem");
+
+            if (useCustom) { return Path.Combine(Const.CACHE_PATH, @$"dialog\{CharacterContent.Race.Custom}\{npc.id}\{dialog.id}\{hashName}\{hashName}.wem"); }
+            else if(isCreature) { return Path.Combine(Const.CACHE_PATH, @$"dialog\{CharacterContent.Race.Creature}\{npc.id}\{dialog.id}\{hashName}\{hashName}.wem"); }
+            else { return Path.Combine(Const.CACHE_PATH, @$"dialog\{npc.race}\{npc.sex}\{dialog.id}\{hashName}\{hashName}.wem"); }
         }
 
         /* Writes all soundbanks to given dir */
@@ -91,7 +122,7 @@ namespace JortPob
 
             foreach (SoundBankInfo bankInfo in banks)
             {
-                bankInfo.Bank.Write(dir, bankInfo.Id);
+                bankInfo.bank.Write(dir, bankInfo.id);
                 Lort.TaskIterate();
             }
         }
@@ -194,10 +225,16 @@ namespace JortPob
             }
         }
 
-        public record SoundBankInfo(int Id /*vc###.bnk id*/, NpcContent.Race Race /*race of npcs that use this bank*/, NpcContent.Sex Sex, SoundBank Bank)
+        public record SoundBankInfo
+        (
+            int id,               // vc###.bnk id
+            NpcContent.Race race, // race of npcs that use this bank
+            NpcContent.Sex sex,
+            SoundBank bank,
+            string custom = null  // (usually null)!  If we use the Race enum 'Creature' or 'Custom' then this string is the id of the custom voice role used here
+        )
         {
-            // how many esds use this same bank, the max amount per bank is 100.
-            public int Uses { get; set; }
+            public int uses { get; set; }
         }
     }
 }

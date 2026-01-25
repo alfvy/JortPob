@@ -264,8 +264,10 @@ namespace JortPob
                         //PapyrusESD esdScript = new PapyrusESD(esm, scriptManager, param, text, script, npc, papyrusScript, 99999);
                     }
 
-                    enemy.TalkID = character.GetESD(tile.IdList(), npc); // creates and returns a character esd
-                    enemy.NPCParamID = character.GetParam(item, script, npc); // creates and returns an npcparam
+                    (int npc, int think) paramRows = character.GetParams(item, script, npc); // creates/gets and returns both an NpcParam and NpcThinkParam
+                    enemy.TalkID = character.GetESD(tile, npc); // creates and returns a character esd
+                    enemy.NPCParamID = paramRows.npc;
+                    enemy.ThinkParamID = paramRows.think;
                     enemy.EntityID = npc.entity;
 
                     msb.Parts.Enemies.Add(enemy);
@@ -372,12 +374,26 @@ namespace JortPob
                     msb.Parts.Assets.Add(asset);
                 }
 
-                /* TEST Creatures */ // make some goats where enemies would spawn just as a test
+                /* Creatures */
                 foreach (CreatureContent creature in tile.creatures)
                 {
-                    MSBE.Part.Enemy enemy = MakePart.Creature();
+                    Override.EnemyRemap remap = Override.GetEnemyRemap(creature.id);
+
+                    MSBE.Part.Enemy enemy = MakePart.Creature(remap.character);
                     enemy.Position = creature.relative + Const.MSB_OFFSET;
                     enemy.Rotation = creature.rotation;
+
+                    // Doing this BEFORE talkesd so that all nesscary local vars are created beforehand!
+                    if (creature.papyrus != null)
+                    {
+                        Papyrus papyrusScript = esm.GetPapyrus(creature.papyrus);
+                        if (papyrusScript != null) { PapyrusEMEVD.Compile(scriptManager, param, item, script, papyrusScript, creature); } // this != null check only exists because bugs. @TODO: remove when we get 100% papyrus support
+                    }
+
+                    (int npc, int think) paramRows = character.GetParams(item, script, creature, remap); // creates/gets and returns both an NpcParam and NpcThinkParam
+                    enemy.TalkID = character.GetESD(tile, creature); // creates and returns a character esd
+                    enemy.NPCParamID = paramRows.npc;
+                    enemy.ThinkParamID = paramRows.think;
                     enemy.EntityID = creature.entity;
 
                     msb.Parts.Enemies.Add(enemy);
@@ -612,8 +628,10 @@ namespace JortPob
                                                                                                                                          //PapyrusESD esdScript = new PapyrusESD(esm, scriptManager, param, text, script, npc, papyrusScript, 99999);
                         }
 
-                        enemy.TalkID = character.GetESD(group.IdList(), npc); // creates and returns a character esd
-                        enemy.NPCParamID = character.GetParam(item, script, npc); // creates and returns an npcparam
+                        (int npc, int think) paramRows = character.GetParams(item, script, npc); // creates/gets and returns both an NpcParam and NpcThinkParam
+                        enemy.TalkID = character.GetESD(group, npc); // creates and returns a character esd
+                        enemy.NPCParamID = paramRows.npc;
+                        enemy.ThinkParamID = paramRows.think;
                         enemy.EntityID = npc.entity;
 
                         enemy.Unk1.DisplayGroups[0] = 0;
@@ -714,15 +732,29 @@ namespace JortPob
                         msb.Parts.Assets.Add(asset);
                     }
 
-                    /* TEST Creatures */ // make some goats where enemies would spawn just as a test
+                    /* Creatures */
                     foreach (CreatureContent creature in chunk.creatures)
                     {
-                        MSBE.Part.Enemy enemy = MakePart.Creature();
+                        Override.EnemyRemap remap = Override.GetEnemyRemap(creature.id);
+
+                        MSBE.Part.Enemy enemy = MakePart.Creature(remap.character);
                         enemy.Position = creature.relative + Const.MSB_OFFSET;
                         enemy.Rotation = creature.rotation;
 
                         enemy.Unk1.DisplayGroups[0] = 0;
                         enemy.CollisionPartName = rootCollision.Name;
+
+                        // Doing this BEFORE talkesd so that all nesscary local vars are created beforehand!
+                        if (creature.papyrus != null)
+                        {
+                            Papyrus papyrusScript = esm.GetPapyrus(creature.papyrus);
+                            if (papyrusScript != null) { PapyrusEMEVD.Compile(scriptManager, param, item, script, papyrusScript, creature); } // this != null check only exists because bugs. @TODO: remove when we get 100% papyrus support
+                        }
+
+                        (int npc, int think) paramRows = character.GetParams(item, script, creature, remap); // creates/gets and returns both an NpcParam and NpcThinkParam
+                        enemy.TalkID = character.GetESD(group, creature); // creates and returns a character esd
+                        enemy.NPCParamID = paramRows.npc;
+                        enemy.ThinkParamID = paramRows.think;
                         enemy.EntityID = creature.entity;
 
                         msb.Parts.Enemies.Add(enemy);

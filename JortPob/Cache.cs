@@ -117,7 +117,7 @@ namespace JortPob
             }
 
             /* If it doesn't exist we look for the asset model of it and then create a pickable from that */
-            ModelInfo modelInfo = GetModel(content.mesh);
+            var modelInfo = GetModel(content.mesh);
             if (modelInfo == null)
                 return null;
             PickableInfo p = new(content, modelInfo);
@@ -132,8 +132,11 @@ namespace JortPob
          * Returns "false" if we've never seen the model before, otherwise
          * returns its actual `HasCollision` result after caching it.
          */
-        private bool AssetHasCollision(string name)
+        private bool AssetHasCollision(string? name)
         {
+            if (string.IsNullOrEmpty(name))
+                return false;
+
             InitializeLookups();
             lock (assetCollisionByName)
             {
@@ -146,8 +149,11 @@ namespace JortPob
             return false;
         }
 
-        private List<ModelInfo> GetAssetsByName(string name)
+        private List<ModelInfo> GetAssetsByName(string? name)
         {
+            if (string.IsNullOrEmpty(name))
+                return [];
+
             InitializeLookups();
             lock (assetsByName)
             {
@@ -163,14 +169,7 @@ namespace JortPob
 
         public ModelInfo? GetModel(string? name, int scale)
         {
-            if (name == null)
-                return null;
-
-            /* If the model doesn't have collision it's static scaleable so we return scale 100 as that's the only version of it */
-            if(!ModelHasCollision(name))
-            {
-                return assets.FirstOrDefault(x => x.name == name);
-            }
+            var matchingAssets = GetAssetsByName(name);
 
             // If we have nothing for the asset, return early
             if (matchingAssets.Count == 0)
@@ -213,7 +212,7 @@ namespace JortPob
 
         public void AddConvertedEmitter(EmitterContent emitterContent)
         {
-            ModelInfo modelInfo = GetModel(emitterContent.mesh);
+            var modelInfo = GetModel(emitterContent.mesh);
             if (modelInfo == null)
                 return;
 
@@ -288,7 +287,7 @@ namespace JortPob
                             {
                                 if(content.mesh == null) { continue; }  // skip content with no mesh
                                 if (addCutouts) { LiquidManager.AddCutout(content); } // check if this is a lava or swamp mesh and add it to cutouts if it is
-                                ModelInfo model = GetMesh(content);
+                                var model = GetMesh(content);
                                 if (model == null)
                                 {
                                     Lort.Log($" ## WARNING ## Content with id {content.id} does not have an associated model, skipping.", Lort.Type.Debug);
@@ -449,7 +448,7 @@ namespace JortPob
 
             /* Load cache manifest */
             string tempRawJson = File.ReadAllText(manifestPath);
-            Cache cache = JsonSerializer.Deserialize<Cache>(tempRawJson, new JsonSerializerOptions { IncludeFields = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals });
+            Cache cache = JsonSerializer.Deserialize<Cache>(tempRawJson, new JsonSerializerOptions { IncludeFields = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals })!;
             return cache!;
         }
     }

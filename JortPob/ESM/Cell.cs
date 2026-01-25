@@ -93,8 +93,11 @@ namespace JortPob
                         npcs.Add(new NpcContent(esm, this, reference, record));
                         break;
                     case ESM.Type.Creature:
+                        creatures.Add(new CreatureContent(esm, this, reference, record));
+                        break;
                     case ESM.Type.LeveledCreature:
-                        creatures.Add(new CreatureContent(this, reference, record));
+                        Record resolvedRecord = esm.ResolveLeveledCreature(id);
+                        creatures.Add(new CreatureContent(esm, this, reference, resolvedRecord));
                         break;
                     case ESM.Type.Container:
                         if (id.ToLower().StartsWith("flora_") && id.ToLower() != "flora_treestump_unique") // this specific id is a weird outlier so just adding it as a condition here
