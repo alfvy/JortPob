@@ -281,6 +281,7 @@ namespace JortPob
             {
                 loadingTitleFmg.Entries.Add(new(id, element.Key));
                 loadingTextFmg.Entries.Add(new(id, element.Value));
+                id++;
             }
         }
 
