@@ -48,12 +48,12 @@ namespace JortPob.Common
         /* values are [0] = size of the asset model (calculated by radius and stored in modelinfo) [1] = distance it's visible via partsdrawparam. [2] = fade out range */
         public static readonly List<float[]> ASSET_LOD_VALUES = new()
         {
-            new float[] {1f, 32f, 4f},
-            new float[] {3f, 64f, 8f},
-            new float[] {7f, 128f, 16f},
-            new float[] {14f, 256f, 32f},
-            new float[] {22f, 512f, 64f},
-            new float[] {99999f, 99999f, 0f},
+            new float[] {1f, 5f, 7f},
+            new float[] {3f, 7f, 9},
+            new float[] {7f, 9f, 10f},
+            new float[] {14f, 18f, 22f},
+            new float[] {22f, 25f, 30f},
+            new float[] {35f, 40f, 45f},
         };
 
         /* Calculated... ESM lowest cell is [-20,-20]~ on the grid. MSB lowest value is [+33,+40]~. Offset so they overlap */

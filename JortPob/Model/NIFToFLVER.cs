@@ -145,6 +145,7 @@ namespace JortPob.Model
 
                 }
 
+                FLVERDecimator.AddLODsToMesh(flverMesh);
                 flver.Meshes.Add(flverMesh);
             }
 
@@ -256,7 +257,7 @@ namespace JortPob.Model
             return modelInfo;
         }
     }
-        public static class Tes3Extensions
+    public static class Tes3Extensions
     {
         public static Vec3 Multiply(this Vec3 vec, float value)
         {

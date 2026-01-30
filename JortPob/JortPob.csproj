@@ -8,13 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DirectXTexNet"/>
-    <PackageReference Include="gfoidl.Base64"/>
-    <PackageReference Include="SharpAssimp"/>
-    <PackageReference Include="System.Drawing.Common"/>
-    <PackageReference Include="System.Speech"/>
-    <PackageReference Include="TeximpNet"/>
-    <PackageReference Include="XbrzSharp"/>
+    <PackageReference Include="DirectXTexNet" />
+    <PackageReference Include="geometry3Sharp" />
+    <PackageReference Include="gfoidl.Base64" />
+    <PackageReference Include="SharpAssimp" />
+    <PackageReference Include="System.Drawing.Common" />
+    <PackageReference Include="System.Speech" />
+    <PackageReference Include="TeximpNet" />
+    <PackageReference Include="XbrzSharp" />
   </ItemGroup>
 
   <ItemGroup>
