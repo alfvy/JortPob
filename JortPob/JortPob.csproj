@@ -11,6 +11,7 @@
     <PackageReference Include="DirectXTexNet" />
     <PackageReference Include="geometry3Sharp" />
     <PackageReference Include="gfoidl.Base64" />
+    <PackageReference Include="MeshDecimator.RahimovIR" />
     <PackageReference Include="SharpAssimp" />
     <PackageReference Include="System.Drawing.Common" />
     <PackageReference Include="System.Speech" />

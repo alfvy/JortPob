@@ -1,4 +1,5 @@
-﻿using JortPob.Common;
+﻿using g3;
+using JortPob.Common;
 using SoulsFormats;
 using System;
 using System.Collections.Generic;
@@ -143,9 +144,18 @@ namespace JortPob.Model
                         flverFaces.Indices.Add(flverMesh.Vertices.Count - 1);
                     }
 
+
                 }
 
-                FLVERDecimator.AddLODsToMesh(flverMesh);
+                var lod1 = MeshSimplifier.Decimate(flverMesh, flverFaces, 0.10f);
+                lod1.Flags = FLVER2.FaceSet.FSFlags.LodLevel1;
+
+                var lod2 = MeshSimplifier.Decimate(flverMesh, flverFaces, 0.25f);
+                lod2.Flags = FLVER2.FaceSet.FSFlags.LodLevel2;
+
+                flverMesh.FaceSets.Add(lod1);
+                flverMesh.FaceSets.Add(lod2);
+
                 flver.Meshes.Add(flverMesh);
             }
 
@@ -168,6 +178,7 @@ namespace JortPob.Model
             List<Tuple<string, Vector3>> nodes = [
                 new("root", Vector3.Zero), // always add a dummy at root for potential use by fxr later
             ];
+
             foreach (Tuple<string, Vector3> tuple in nodes)
             {
                 string name = tuple.Item1;
