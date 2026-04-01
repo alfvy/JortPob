@@ -88,7 +88,7 @@ namespace JortPob.Model
 
                     // Inherit attributes from the closest original vertex
                     // For now, we use a simple approach: take attributes from the first original vertex.
-                    var originalVertex = mesh.Vertices[uniqueIndices[0]];
+                    var originalVertex = FindClosestVertex(mesh, uniqueIndices, newVertex.Position);;
                     newVertex.Normal = originalVertex.Normal;
                     newVertex.UVs = new List<Vector3>(originalVertex.UVs);
                     newVertex.Tangents = new List<Vector4>(originalVertex.Tangents);
@@ -102,6 +102,25 @@ namespace JortPob.Model
             }
 
             return decimatedFaceSet;
+        }
+
+        private static FLVER.Vertex FindClosestVertex(FLVER2.Mesh mesh, List<int> candidateIndices, Vector3 position)
+        {
+            FLVER.Vertex best = mesh.Vertices[candidateIndices[0]];
+            float bestDistSq = Vector3.DistanceSquared(best.Position, position);
+
+            for (int i = 1; i < candidateIndices.Count; i++)
+            {
+                FLVER.Vertex v = mesh.Vertices[candidateIndices[i]];
+                float distSq = Vector3.DistanceSquared(v.Position, position);
+                if (distSq < bestDistSq)
+                {
+                    bestDistSq = distSq;
+                    best = v;
+                }
+            }
+
+            return best;
         }
     }
 }
