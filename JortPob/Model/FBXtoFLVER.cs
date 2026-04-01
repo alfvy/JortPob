@@ -368,9 +368,9 @@ namespace JortPob.Model
                     {
                         foreach (string key in keys)
                         {
-                            if (Utility.PathToFileName(modelInfo.name).ToLower().Contains(key)) { matguess = type; return; }
+                            if (Path.GetFileNameWithoutExtension(modelInfo.name).ToLower().Contains(key)) { matguess = type; return; }
                             if (mat.Name.ToLower().Contains(key)) { matguess = type; return; }
-                            if (mat.TextureDiffuse.FilePath != null && Utility.PathToFileName(mat.TextureDiffuse.FilePath).ToLower().Contains(key)) { matguess = type; return; }
+                            if (mat.TextureDiffuse.FilePath != null && Path.GetFileNameWithoutExtension(mat.TextureDiffuse.FilePath).ToLower().Contains(key)) { matguess = type; return; }
                         }
                     }
                     return;
@@ -395,7 +395,7 @@ namespace JortPob.Model
 
                 /* Make obj file for collision. These will be converted to HKX later */
                 string objPath = outputFilename.Replace(".flver", ".obj");
-                CollisionInfo collisionInfo = new(modelInfo.name, $"meshes\\{Utility.PathToFileName(objPath)}.obj");
+                CollisionInfo collisionInfo = new(modelInfo.name, $"meshes\\{Path.GetFileNameWithoutExtension(objPath)}.obj");
                 modelInfo.collision = collisionInfo;
 
                 obj = obj.optimize();

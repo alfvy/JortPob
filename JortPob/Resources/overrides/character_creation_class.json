@@ -1,42 +1,152 @@
 ﻿[
   {
     "name": "Warrior",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   },
   {
     "name": "Archer",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   },
   {
     "name": "Sorcerer",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   },
   {
     "name": "Monk",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   },
   {
     "name": "Thief",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   },
   {
     "name": "Barbarian",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   },
   {
     "name": "Knight",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   },
   {
     "name": "Spellsword",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   },
   {
     "name": "Bard",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   },
   {
     "name": "Pilgrim",
-    "description": "Descriptions describe things!"
+    "description": "Descriptions describe things!",
+    "data": {
+      "soulLv": 1,
+      "baseVit": 10,
+      "baseWil": 10,
+      "baseEnd": 10,
+      "baseStr": 10,
+      "baseDex": 10,
+      "baseMag": 10,
+      "baseFai": 10,
+      "baseLuc": 10
+    }
   }
 ]

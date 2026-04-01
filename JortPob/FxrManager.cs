@@ -18,7 +18,7 @@ namespace JortPob
         // campfire from church of elleh = 7000
         // single candle from round table, no dynamic light = 800401
 
-        public static List<FXR> FXRS = new List<FXR>()
+        public static List<FXR> FXRS = new List<FXR>() // @TODO: this could probably be a json file
         {
             new FXR(Const.FXR_START_ID, "candleflame emitter"),
             new FXR(Const.FXR_START_ID+1, "fire emitter"),
@@ -93,7 +93,7 @@ namespace JortPob
         public static void Write(Layout layout)
         {
             BND4 ffxbnd = new();
-            ffxbnd.Compression = SoulsFormats.DCX.Type.DCX_KRAK;
+            ffxbnd.Compression = Compression.KRAK();
             ffxbnd.Version = "25I10A23";
 
             int fxrid = -1; int texid = 99999;
@@ -110,7 +110,6 @@ namespace JortPob
                 {
                     BinderFile file = new();
                     file.Bytes = File.ReadAllBytes(Utility.ResourcePath($"fxr\\{fxr.fxr}"));
-                    file.CompressionType = SoulsFormats.DCX.Type.Zlib;
                     file.ID = fxrid;
                     file.Name = $"N:\\GR\\data\\INTERROOT_win64\\sfx\\effect\\f{fxr.id}.fxr";
                     ffxbnd.Files.Add(file);
@@ -119,7 +118,6 @@ namespace JortPob
                 {
                     BinderFile file = new();
                     file.Bytes = File.ReadAllBytes(Utility.ResourcePath($"fxr\\{fxr.res}"));
-                    file.CompressionType = SoulsFormats.DCX.Type.Zlib;
                     file.ID = 400000 + fxrid++;
                     file.Name = $"N:\\GR\\data\\INTERROOT_win64\\sfx\\ResourceList\\f{fxr.id}.ffxreslist";
                     ffxbnd.Files.Add(file);
@@ -129,9 +127,8 @@ namespace JortPob
                 {
                     BinderFile file = new();
                     file.Bytes = File.ReadAllBytes(Utility.ResourcePath($"fxr\\{tpf}"));
-                    file.CompressionType = SoulsFormats.DCX.Type.Zlib;
                     file.ID = texid++;
-                    file.Name = $"N:\\GR\\data\\INTERROOT_win64\\sfx\\tex\\{Utility.PathToFileName(tpf)}.tpf";
+                    file.Name = $"N:\\GR\\data\\INTERROOT_win64\\sfx\\tex\\{Path.GetFileNameWithoutExtension(tpf)}.tpf";
                     ffxbnd.Files.Add(file);
                 }
             }
@@ -143,7 +140,6 @@ namespace JortPob
                 {
                     BinderFile file = new();
                     file.Bytes = fxr.GetBytes();
-                    file.CompressionType = SoulsFormats.DCX.Type.Zlib;
                     file.ID = fxrid;
                     file.Name = $"N:\\GR\\data\\INTERROOT_win64\\sfx\\effect\\f{fxr.id}.fxr";
                     ffxbnd.Files.Add(file);
@@ -153,7 +149,6 @@ namespace JortPob
                 {
                     BinderFile file = new();
                     file.Bytes = new byte[0]; // lol, lmao even
-                    file.CompressionType = SoulsFormats.DCX.Type.Zlib;
                     file.ID = 400000 + fxrid++;
                     file.Name = $"N:\\GR\\data\\INTERROOT_win64\\sfx\\ResourceList\\f{fxr.id}.ffxreslist";
                     ffxbnd.Files.Add(file);
@@ -163,8 +158,10 @@ namespace JortPob
             // for some reason bnds have to be sorted by ID
             Utility.SortBND4(ffxbnd);
 
-            List<int> maps = new();
-            maps.Add(60); // for the overworld
+            List<int> maps =
+            [
+                60, // for the overworld
+            ];
             foreach(InteriorGroup group in layout.interiors)
             {
                 if (group.IsEmpty()) { continue; }
@@ -176,7 +173,7 @@ namespace JortPob
             Lort.NewTask($"Writing {maps.Count} FFX Binder files... ", maps.Count);
             foreach (int map in maps)
             {
-                ffxbnd.Write($"{Const.OUTPUT_PATH}sfx\\sfxbnd_m{map.ToString("D2")}.ffxbnd.dcx");
+                ffxbnd.Write(Path.Combine(Const.OUTPUT_PATH, $@"sfx\sfxbnd_m{map:D2}.ffxbnd.dcx"));
                 Lort.TaskIterate();
             }
         }

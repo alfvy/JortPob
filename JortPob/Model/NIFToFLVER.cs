@@ -1,10 +1,10 @@
-﻿using g3;
-using JortPob.Common;
+﻿using JortPob.Common;
 using SoulsFormats;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using System.Reflection.Metadata.Ecma335;
 using TES3;
 
 #nullable enable
@@ -159,38 +159,81 @@ namespace JortPob.Model
                 flver.Meshes.Add(flverMesh);
             }
 
-            Vector3 center = Vector3.Lerp(flver.Nodes[0].BoundingBoxMin, flver.Nodes[0].BoundingBoxMax, .5f);
+            /* Calculate bounding boxes */
+            BoundingBoxSolver.FLVER(flver);
+
+            /* Add Dummy Polys */
+            void AddDmy(Vector3 position, short id)
             {
                 FLVER.Dummy dmy = new();
-                dmy.Position = center;
+                dmy.Position = position;
                 dmy.Forward = new(0, 0, 1);
                 dmy.Upward = new(0, 1, 0);
                 dmy.Color = System.Drawing.Color.White;
-                dmy.ReferenceID = 90;
+                dmy.ReferenceID = id;
                 dmy.ParentBoneIndex = 0;
                 dmy.AttachBoneIndex = 0;
                 dmy.UseUpwardVector = true;
                 flver.Dummies.Add(dmy);
             }
 
-            /* Add Dummy Polys */
-            short nextRef = 500; // idk why we start at 500, i'm copying old code from DS3 portjob here
-            List<Tuple<string, Vector3>> nodes = [
-                new("root", Vector3.Zero), // always add a dummy at root for potential use by fxr later
-            ];
+            /* Add some generic dmys based on orientations */
+            Vector3 root = Vector3.Zero;
+            Vector3 center = Vector3.Lerp(flver.Nodes[0].BoundingBoxMin, flver.Nodes[0].BoundingBoxMax, .5f);
+            Vector3 bottom = new Vector3(center.X, flver.Nodes[0].BoundingBoxMin.Y, center.Z);
+            Vector3 top = new Vector3(center.X, flver.Nodes[0].BoundingBoxMax.Y, center.Z);
 
-            foreach (Tuple<string, Vector3> tuple in nodes)
+            AddDmy(root, Const.FLVER_DMY_ROOT);
+            AddDmy(center, Const.FLVER_DMY_CENTER);
+            AddDmy(bottom, Const.FLVER_DMY_BOTTOM);
+            AddDmy(top, Const.FLVER_DMY_TOP);
+
+            /* Now add dmys from the emitters and nodes in the model */
+            short nextRef = 500; // idk why we start at 500, i'm copying old code from DS3 portjob here
+            List<(string name, Vector3 position)> nodes = new();
+
+            Vector3 CollapseTransform(Transform transform)
             {
-                string name = tuple.Item1;
-                Vector3 position = tuple.Item2;
+                /* Correct position of emitter dmy based on the vertex orientation code above */
+                Matrix4x4 mt = Matrix4x4.CreateTranslation(transform.Translation.ToVector3());
+                Matrix4x4 mr = Matrix4x4.CreateFromQuaternion(transform.Rotation.ToQuaternion());
+                Matrix4x4 ms = Matrix4x4.CreateScale(transform.Scale);
+
+                Vector3 position = new();
+                position = Vector3.Transform(position, ms * mr * mt);
+                position *= Const.GLOBAL_SCALE;
+                position.X *= -1f;
+                position = Vector3.Transform(position, desiredRotation);
+                return position;
+            }
+
+            for(int i=0;i<nif.Nodes.Count;i++)
+            {
+                TES3.Node node = nif.Nodes[i];
+
+                string name = node.Name.String.ToLower();
+                if (!(name.Contains("attach") && name.Contains("light"))) { continue; }  // skip any nodes that are not light attachment points
+                Vector3 position = CollapseTransform(node.Transform);
+
+                nodes.Add((name, position));
+            }
+
+            for (int i = 0; i < nif.Emitters.Count; i++)
+            {
+                TES3.Emitter emitter = nif.Emitters[i];
+
+                string name = emitter.Name.String.ToLower();
+                Vector3 position = CollapseTransform(emitter.Transform);
+
+                nodes.Add((name, position));
+            }
+
+            foreach ((string name, Vector3 position) node in nodes)
+            {
+                string name = node.name;
+                Vector3 position = node.position;
 
                 short refid = modelInfo.dummies.ContainsKey(name) ? modelInfo.dummies[name] : nextRef++;
-
-                // correct position using same math as we use for vertices above
-                //position = position * Const.GLOBAL_SCALE;
-                position.X *= -1f;
-                Matrix4x4 rotateY180Matrix = Matrix4x4.CreateRotationY((float)Math.PI);
-                position = Vector3.Transform(position, rotateY180Matrix);
 
                 FLVER.Dummy dmy = new();
                 dmy.Position = position;
@@ -204,9 +247,6 @@ namespace JortPob.Model
                 flver.Dummies.Add(dmy);
                 if (!modelInfo.dummies.ContainsKey(name)) { modelInfo.dummies.Add(name, refid); }
             }
-
-            /* Calculate bounding boxes */
-            BoundingBoxSolver.FLVER(flver);
 
             /* Optimize flver */
             flver = FLVERUtil.Optimize(flver);
@@ -232,9 +272,9 @@ namespace JortPob.Model
                         string tex = nif.VisualMeshes[i].Texture.String.ToLower();
                         foreach (string key in keys)
                         {
-                            if (Utility.PathToFileName(modelInfo.name).ToLower().Contains(key)) { matguess = type; return; }
+                            if (Path.GetFileNameWithoutExtension(modelInfo.name).ToLower().Contains(key)) { matguess = type; return; }
                             if (tex.Contains(key)) { matguess = type; return; }
-                            if (Utility.PathToFileName(tex).ToLower().Contains(key)) { matguess = type; return; }
+                            if (Path.GetFileNameWithoutExtension(tex).ToLower().Contains(key)) { matguess = type; return; }
                         }
                     }
                     return;
@@ -259,7 +299,7 @@ namespace JortPob.Model
 
                 /* Make obj file for collision. These will be converted to HKX later */
                 string objPath = outputPath.Replace(".flver", ".obj");
-                CollisionInfo collisionInfo = new(modelInfo.name, $"meshes\\{Utility.PathToFileName(objPath)}.obj");
+                CollisionInfo collisionInfo = new(modelInfo.name, $"meshes\\{Path.GetFileNameWithoutExtension(objPath)}.obj");
                 modelInfo.collision = collisionInfo;
 
                 obj = obj.optimize();

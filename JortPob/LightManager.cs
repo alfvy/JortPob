@@ -2,6 +2,7 @@
 using SoulsFormats;
 using System.Linq;
 using System.Numerics;
+using System.IO;
 
 
 /* Quite literally copy pasted class from the DS3 portjob project. Adapating as I go but uhh blame DS3 if bugs */
@@ -21,13 +22,7 @@ namespace JortPob
             this.block = block;
             btl = new();
             btl.Version = 6;
-            btl.Compression = SoulsFormats.DCX.Type.DCX_DFLT_10000_44_9;
-
-            /*btab = new();
-            btab.Entries = new();
-            btab.BigEndian = false;
-            btab.LongFormat = true;
-            btab.Compression = SoulsFormats.DCX.Type.DCX_DFLT_10000_44_9;*/
+            btl.Compression = Compression.KRAK();
         }
 
         public LightManager(int map, Int2 coordinate, int block) : this(map, coordinate.x, coordinate.y, block) { }
@@ -104,9 +99,8 @@ namespace JortPob
 
         public void Write()
         {
-            string path = $"{Const.OUTPUT_PATH}map\\m{map:D2}\\m{map:D2}_{x:D2}_{y:D2}_{block:D2}\\m{map:D2}_{x:D2}_{y:D2}_{block:D2}_0000.btl.dcx";
-            btl.Write(path, DCX.Type.DCX_DFLT_10000_44_9);
-            //btab.Write($"{path}.btab.dcx", DCX.Type.DCX_DFLT_10000_44_9);
+            string path = Path.Combine(Const.OUTPUT_PATH, $@"map\m{map:D2}\m{map:D2}_{x:D2}_{y:D2}_{block:D2}\m{map:D2}_{x:D2}_{y:D2}_{block:D2}_0000.btl.dcx");
+            btl.Write(path);
         }
     }
 }

@@ -27,10 +27,7 @@ namespace JortPob.Common
             current = 0;
             update = false;
 
-            if (!Directory.Exists(Path.Combine(Const.OUTPUT_PATH, "logs")))
-            {
-                Directory.CreateDirectory(Path.Combine(Const.OUTPUT_PATH, "logs"));
-            }
+            Directory.CreateDirectory(Path.Combine(Const.OUTPUT_PATH, "logs"));
 
             logFilePath = Path.Combine(Const.OUTPUT_PATH, @$"logs\jortpob-log-{DateTime.UtcNow.ToLongTimeString().Replace(":", "").Replace(" PM", "")}.txt");
             File.WriteAllText(logFilePath, "");

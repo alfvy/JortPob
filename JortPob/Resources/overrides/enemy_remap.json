@@ -1,0 +1,118 @@
+{
+  "Rat": {
+    "character": "c4080",
+    "npc": {
+      "row": 40800010,
+      "data": {}
+    },
+    "think": {
+      "row": 40800000,
+      "data": {}
+    },
+    "comment": "Regular size normal rat"
+  },
+
+  "mudcrab": {
+    "character": "c2271",
+    "npc": {
+      "row": 22710010,
+      "data": {}
+    },
+    "think": {
+      "row": 22710000,
+      "data": {}
+    },
+    "comment": "Small crab"
+  },
+
+  "scrib": {
+    "character": "c5490",
+    "npc": {
+      "row": 54900080,
+      "data": {}
+    },
+    "think": {
+      "row": 54900000,
+      "data": {}
+    },
+    "comment": "Springhare"
+  },
+
+  "kwama forager": {
+    "character": "c4040",
+    "npc": {
+      "row": 40400031,
+      "data": {}
+    },
+    "think": {
+      "row": 40400000,
+      "data": {}
+    },
+    "comment": "Regular slug enemy"
+  },
+
+  "cliff racer": {
+    "character": "c4210",
+    "npc": {
+      "row": 42100000,
+      "data": {}
+    },
+    "think": {
+      "row": 42100000,
+      "data": {}
+    },
+    "comment": "Warhawk"
+  },
+
+  "netch_bull": {
+    "character": "c4180",
+    "npc": {
+      "row": 41800010,
+      "data": {}
+    },
+    "think": {
+      "row": 41800000,
+      "data": {}
+    },
+    "comment": "Spirit Jellyfish"
+  },
+
+  "slaughterfish": {
+    "character": "c4440",
+    "npc": {
+      "row": 44400010,
+      "data": {}
+    },
+    "think": {
+      "row": 44000000,
+      "data": {}
+    },
+    "comment": "Spirit Jellyfish"
+  },
+
+  "scamp_creeper": {
+    "character": "c4100",
+    "npc": {
+      "row": 41002010,
+      "data": {}
+    },
+    "think": {
+      "row": 41002000,
+      "data": {}
+    },
+    "comment": "Basic Demi-human with Club"
+  },
+
+  "vivec_god": {
+    "character": "c5130",
+    "npc": {
+      "row": 51301099,
+      "data": {}
+    },
+    "think": {
+      "row": 51300000,
+      "data": {}
+    },
+    "comment": "Messmer"
+  }
+}

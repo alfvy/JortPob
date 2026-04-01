@@ -1,142 +1,620 @@
 ﻿{
   "sections": [
     {
-      "BKHD": {
-        "version": 135,
-        "bank_id": 0,
-        "language_fnv_hash": 157497788,
-        "wem_alignment": 16,
-        "project_id": 1906
+      "magic": [
+        66,
+        75,
+        72,
+        68
+      ],
+      "size": 32,
+      "body": {
+        "BKHD": {
+          "version": 135,
+          "bank_id": 2698919290,
+          "language_fnv_hash": 157497788,
+          "wem_alignment": 16,
+          "project_id": 1906,
+          "padding": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
       }
     },
     {
-      "HIRC": {
-        "objects": [
-          {
-            "id": 0,
-            "object": {
-              "Event": {
-                "actions": [
-                  1
-                ]
-              }
-            }
-          },
-          {
-            "id": 1,
-            "object": {
-              "Action": {
-                "action_type": "Play",
-                "initial_values": {
-                  "external_id": 2,
-                  "data": "AAAABBw63p4"
+      "magic": [
+        72,
+        73,
+        82,
+        67
+      ],
+      "size": 8017,
+      "body": {
+        "HIRC": {
+          "object_count": 5,
+          "objects": [
+            {
+              "body_type": 4,
+              "size": 9,
+              "id": {
+                "String": "Play_v200004020"
+              },
+              "body": {
+                "Event": {
+                  "action_count": 1,
+                  "actions": [
+                    975371130
+                  ]
                 }
               }
-            }
-          },
-          {
-            "id": 10,
-            "object": {
-              "Event": {
-                "actions": [
-                  11
-                ]
-              }
-            }
-          },
-          {
-            "id": 11,
-            "object": {
-              "Action": {
-                "action_type": "Stop_E_O",
-                "initial_values": {
-                  "external_id": 2,
-                  "data": "AAEQZAAAAAAEBgA"
-                }
-              }
-            }
-          },
-          {
-            "id": 2,
-            "object": {
-              "Sound": {
-                "bank_source_data": {
-                  "plugin": "WwiseCodecVorbis",
-                  "source_type": "Streaming",
-                  "media_information": {
-                    "source_id": 3,
-                    "in_memory_media_size": 2205,
-                    "is_language_specific": true,
-                    "prefetch": false,
-                    "non_cachable": false,
-                    "has_source": false
+            },
+            {
+              "body_type": 3,
+              "size": 18,
+              "id": {
+                "Hash": 975371130
+              },
+              "body": {
+                "Action": {
+                  "action_type": 1027,
+                  "external_id": 62518702,
+                  "is_bus": 0,
+                  "prop_bundle": [],
+                  "ranged_modifiers": {
+                    "count": 0,
+                    "entries": []
                   },
-                  "size": 0
-                },
-                "node_base_params": {
-                  "node_initial_fx_parameters": {
-                    "is_override_parent_fx": 0,
-                    "fx_bypass_bits": 0,
-                    "fx_chunks": []
-                  },
-                  "override_attachment_params": 0,
-                  "override_bus_id": 0,
-                  "direct_parent_id": 236158107,
-                  "unknown_flags": 0,
-                  "node_initial_params": {
-                    "prop_initial_values": {
-                      "values": []
-                    },
-                    "prop_range_modifiers": {
-                      "values": []
+                  "params": {
+                    "Play": {
+                      "fade_curve": 4,
+                      "bank_id": 2698919290
                     }
+                  }
+                }
+              }
+            },
+            {
+              "body_type": 4,
+              "size": 9,
+              "id": {
+                "String": "Stop_v200004020"
+              },
+              "body": {
+                "Event": {
+                  "action_count": 1,
+                  "actions": [
+                    264319035
+                  ]
+                }
+              }
+            },
+            {
+              "body_type": 3,
+              "size": 21,
+              "id": {
+                "Hash": 264319035
+              },
+              "body": {
+                "Action": {
+                  "action_type": 259,
+                  "external_id": 62518702,
+                  "is_bus": 0,
+                  "prop_bundle": [
+                    {
+                      "TransitionTime": 100
+                    }
+                  ],
+                  "ranged_modifiers": {
+                    "count": 0,
+                    "entries": []
                   },
-                  "positioning_params": {
-                    "override_parent": false,
-                    "listener_relative_routing": false,
-                    "speaker_panning_type": "DirectSpeakerAssignment",
-                    "three_dimensional_position_type": "Emitter",
-                    "three_dimensional_spatialization_mode": "None",
-                    "enable_attenuation": false,
-                    "hold_emitter_position_and_orientation": false,
-                    "hold_listener_orientation": false,
-                    "enable_diffraction": false,
-                    "path_mode": "StepSequence",
-                    "transition_time": 0,
-                    "vertices": [],
-                    "path_list_item_offsets": [],
-                    "three_dimensional_automation_params": []
+                  "params": {
+                    "StopEO": {
+                      "stop": {
+                        "flags1": 4,
+                        "flags2": 6
+                      },
+                      "except": {
+                        "count": 0,
+                        "exceptions": []
+                      }
+                    }
+                  }
+                }
+              }
+            },
+			{
+              "body_type": 2,
+              "size": 48,
+              "id": {
+                "Hash": 34663038
+              },
+              "body": {
+                "Sound": {
+                  "bank_source_data": {
+                    "plugin": "VORBIS",
+                    "source_type": "Streaming",
+                    "media_information": {
+                      "source_id": 174659986,
+                      "in_memory_media_size": 3561,
+                      "source_flags": 1
+                    },
+                    "params_size": 0,
+                    "params": ""
                   },
-                  "aux_params": {
-                    "unk": 0,
-                    "override_user_aux_sends": false,
-                    "has_aux": false,
-                    "override_reflections_aux_bus": false,
-                    "aux1": 0,
-                    "aux2": 0,
-                    "aux3": 0,
-                    "aux4": 0,
-                    "reflections_aux_bus": 0
+                  "node_base_params": {
+                    "node_initial_fx_parameters": {
+                      "is_override_parent_fx": 0,
+                      "fx_chunk_count": 0,
+                      "fx_bypass_bits": 0,
+                      "fx_chunks": []
+                    },
+                    "override_attachment_params": 0,
+                    "override_bus_id": 0,
+                    "direct_parent_id": 585601879,
+                    "unknown_flags": 0,
+                    "node_initial_params": {
+                      "prop_initial_values": [],
+                      "prop_ranged_modifiers": {
+                        "count": 0,
+                        "entries": []
+                      }
+                    },
+                    "positioning_params": {
+                      "unk1": false,
+                      "three_dimensional_position_type": "Emitter",
+                      "speaker_panning_type": "DirectSpeakerAssignment",
+                      "listener_relative_routing": false,
+                      "override_parent": false,
+                      "unk2": false,
+                      "enable_diffraction": false,
+                      "hold_listener_orientation": false,
+                      "hold_emitter_position_and_orientation": false,
+                      "enable_attenuation": false,
+                      "three_dimensional_spatialization_mode": "None",
+                      "path_mode": "StepSequence",
+                      "transition_time": 0,
+                      "vertex_count": 0,
+                      "vertices": [],
+                      "path_list_item_count": 0,
+                      "path_list_item_offsets": [],
+                      "three_dimensional_automation_params": []
+                    },
+                    "aux_params": {
+                      "unk1": false,
+                      "unk2": false,
+                      "unk3": false,
+                      "override_reflections_aux_bus": false,
+                      "has_aux": false,
+                      "override_user_aux_sends": false,
+                      "unk4": 0,
+                      "aux1": 0,
+                      "aux2": 0,
+                      "aux3": 0,
+                      "aux4": 0,
+                      "reflections_aux_bus": 0
+                    },
+                    "adv_settings_params": {
+                      "unk1": false,
+                      "unk2": false,
+                      "unk3": false,
+                      "is_virtual_voices_opt_override_parent": false,
+                      "ignore_parent_maximum_instances": false,
+                      "unk4": false,
+                      "use_virtual_behavior": false,
+                      "kill_newest": false,
+                      "virtual_queue_behavior": "PlayFromElapsedTime",
+                      "max_instance_count": 0,
+                      "below_threshold_behavior": "ContinueToPlay",
+                      "unk5": false,
+                      "unk6": false,
+                      "unk7": false,
+                      "unk8": false,
+                      "enable_envelope": false,
+                      "normalize_loudness": false,
+                      "override_analysis": false,
+                      "override_hdr_envelope": false
+                    },
+                    "state_chunk": {
+                      "state_property_count": 0,
+                      "state_property_info": [],
+                      "state_group_count": 0,
+                      "state_group_chunks": []
+                    },
+                    "initial_rtpc": {
+                      "count": 0,
+                      "rtpcs": []
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "body_type": 14,
+              "size": 246,
+              "id": {
+                "Hash": 321981612
+              },
+              "body": {
+                "Attenuation": {
+                  "is_cone_enabled": 0,
+                  "cone_params": {
+                    "inside_degrees": 0.0,
+                    "outside_degrees": 0.0,
+                    "outside_volume": 0.0,
+                    "low_pass": 0.0,
+                    "high_pass": 0.0
                   },
-                  "adv_settings_params": {
-                    "flags1": 0,
-                    "virtual_queue_behavior": "PlayFromElapsedTime",
-                    "max_instance_count": 0,
-                    "below_threshold_behavior": "ContinueToPlay",
-                    "flags2": 0
-                  },
-                  "state_chunk": {
-                    "state_property_info": [],
-                    "state_group_chunks": []
-                  },
+                  "curves_to_use": [
+                    0,
+                    1,
+                    0,
+                    2,
+                    3,
+                    4,
+                    -1
+                  ],
+                  "curve_count": 5,
+                  "curves": [
+                    {
+                      "curve_scaling": "DB",
+                      "point_count": 5,
+                      "points": [
+                        {
+                          "from": 0.0,
+                          "to": -0.2501058,
+                          "interpolation": "Linear"
+                        },
+                        {
+                          "from": 3.0,
+                          "to": -0.43765867,
+                          "interpolation": "Exp3"
+                        },
+                        {
+                          "from": 20.0,
+                          "to": -0.6018928,
+                          "interpolation": "SineRecip"
+                        },
+                        {
+                          "from": 44.68254,
+                          "to": -1.0,
+                          "interpolation": "Constant"
+                        },
+                        {
+                          "from": 50.0,
+                          "to": -1.0,
+                          "interpolation": "Linear"
+                        }
+                      ]
+                    },
+                    {
+                      "curve_scaling": "DB",
+                      "point_count": 3,
+                      "points": [
+                        {
+                          "from": 0.0,
+                          "to": 0.0,
+                          "interpolation": "Linear"
+                        },
+                        {
+                          "from": 20.0,
+                          "to": -0.33201993,
+                          "interpolation": "Exp3"
+                        },
+                        {
+                          "from": 50.0,
+                          "to": -1.0,
+                          "interpolation": "Linear"
+                        }
+                      ]
+                    },
+                    {
+                      "curve_scaling": "None",
+                      "point_count": 4,
+                      "points": [
+                        {
+                          "from": 0.0,
+                          "to": 0.0,
+                          "interpolation": "SineRecip"
+                        },
+                        {
+                          "from": 5.0,
+                          "to": 20.0,
+                          "interpolation": "Linear"
+                        },
+                        {
+                          "from": 20.0,
+                          "to": 35.0,
+                          "interpolation": "Linear"
+                        },
+                        {
+                          "from": 50.0,
+                          "to": 40.0,
+                          "interpolation": "Linear"
+                        }
+                      ]
+                    },
+                    {
+                      "curve_scaling": "None",
+                      "point_count": 3,
+                      "points": [
+                        {
+                          "from": 0.0,
+                          "to": 10.0,
+                          "interpolation": "Log3"
+                        },
+                        {
+                          "from": 3.0,
+                          "to": 23.0,
+                          "interpolation": "Linear"
+                        },
+                        {
+                          "from": 50.0,
+                          "to": 25.0,
+                          "interpolation": "Linear"
+                        }
+                      ]
+                    },
+                    {
+                      "curve_scaling": "None",
+                      "point_count": 3,
+                      "points": [
+                        {
+                          "from": 0.0,
+                          "to": 40.0,
+                          "interpolation": "Linear"
+                        },
+                        {
+                          "from": 3.0,
+                          "to": 12.59375,
+                          "interpolation": "Linear"
+                        },
+                        {
+                          "from": 50.0,
+                          "to": 8.0,
+                          "interpolation": "Linear"
+                        }
+                      ]
+                    }
+                  ],
                   "initial_rtpc": {
+                    "count": 0,
                     "rtpcs": []
                   }
                 }
               }
+            },
+            {
+              "body_type": 7,
+              "size": 544,
+              "id": {
+                "Hash": 585601879
+              },
+              "body": {
+                "ActorMixer": {
+                  "node_base_params": {
+                    "node_initial_fx_parameters": {
+                      "is_override_parent_fx": 0,
+                      "fx_chunk_count": 0,
+                      "fx_bypass_bits": 0,
+                      "fx_chunks": []
+                    },
+                    "override_attachment_params": 0,
+                    "override_bus_id": 1862294529,
+                    "direct_parent_id": 358758978,
+                    "unknown_flags": 0,
+                    "node_initial_params": {
+                      "prop_initial_values": [
+                        {
+                          "Priority": 80.0
+                        },
+                        {
+                          "GameAuxSendVolume": -6.0
+                        }
+                      ],
+                      "prop_ranged_modifiers": {
+                        "count": 0,
+                        "entries": []
+                      }
+                    },
+                    "positioning_params": {
+                      "unk1": false,
+                      "three_dimensional_position_type": "Emitter",
+                      "speaker_panning_type": "DirectSpeakerAssignment",
+                      "listener_relative_routing": false,
+                      "override_parent": false,
+                      "unk2": false,
+                      "enable_diffraction": false,
+                      "hold_listener_orientation": false,
+                      "hold_emitter_position_and_orientation": false,
+                      "enable_attenuation": false,
+                      "three_dimensional_spatialization_mode": "None",
+                      "path_mode": "StepSequence",
+                      "transition_time": 0,
+                      "vertex_count": 0,
+                      "vertices": [],
+                      "path_list_item_count": 0,
+                      "path_list_item_offsets": [],
+                      "three_dimensional_automation_params": []
+                    },
+                    "aux_params": {
+                      "unk1": false,
+                      "unk2": false,
+                      "unk3": false,
+                      "override_reflections_aux_bus": false,
+                      "has_aux": false,
+                      "override_user_aux_sends": false,
+                      "unk4": 2,
+                      "aux1": 0,
+                      "aux2": 0,
+                      "aux3": 0,
+                      "aux4": 0,
+                      "reflections_aux_bus": 0
+                    },
+                    "adv_settings_params": {
+                      "unk1": false,
+                      "unk2": false,
+                      "unk3": false,
+                      "is_virtual_voices_opt_override_parent": false,
+                      "ignore_parent_maximum_instances": false,
+                      "unk4": false,
+                      "use_virtual_behavior": false,
+                      "kill_newest": false,
+                      "virtual_queue_behavior": "PlayFromElapsedTime",
+                      "max_instance_count": 0,
+                      "below_threshold_behavior": "ContinueToPlay",
+                      "unk5": false,
+                      "unk6": false,
+                      "unk7": false,
+                      "unk8": false,
+                      "enable_envelope": false,
+                      "normalize_loudness": false,
+                      "override_analysis": false,
+                      "override_hdr_envelope": false
+                    },
+                    "state_chunk": {
+                      "state_property_count": 0,
+                      "state_property_info": [],
+                      "state_group_count": 0,
+                      "state_group_chunks": []
+                    },
+                    "initial_rtpc": {
+                      "count": 0,
+                      "rtpcs": []
+                    }
+                  },
+                  "children": {
+                    "count": 124,
+                    "items": []
+                  }
+                }
+              }
+            },
+            {
+              "body_type": 7,
+              "size": 63,
+              "id": {
+                "Hash": 358758978
+              },
+              "body": {
+                "ActorMixer": {
+                  "node_base_params": {
+                    "node_initial_fx_parameters": {
+                      "is_override_parent_fx": 0,
+                      "fx_chunk_count": 0,
+                      "fx_bypass_bits": 0,
+                      "fx_chunks": []
+                    },
+                    "override_attachment_params": 0,
+                    "override_bus_id": 3170124113,
+                    "direct_parent_id": 0,
+                    "unknown_flags": 0,
+                    "node_initial_params": {
+                      "prop_initial_values": [
+                        {
+                          "Priority": 80.0
+                        },
+                        {
+                          "CenterPCT": 50.0
+                        },
+                        {
+                          "GameAuxSendVolume": -12.0
+                        },
+                        {
+                          "AttenuationID": 321981612
+                        }
+                      ],
+                      "prop_ranged_modifiers": {
+                        "count": 0,
+                        "entries": []
+                      }
+                    },
+                    "positioning_params": {
+                      "unk1": false,
+                      "three_dimensional_position_type": "Emitter",
+                      "speaker_panning_type": "DirectSpeakerAssignment",
+                      "listener_relative_routing": true,
+                      "override_parent": true,
+                      "unk2": false,
+                      "enable_diffraction": false,
+                      "hold_listener_orientation": false,
+                      "hold_emitter_position_and_orientation": false,
+                      "enable_attenuation": true,
+                      "three_dimensional_spatialization_mode": "PositionAndOrientation",
+                      "path_mode": "StepSequence",
+                      "transition_time": 0,
+                      "vertex_count": 0,
+                      "vertices": [],
+                      "path_list_item_count": 0,
+                      "path_list_item_offsets": [],
+                      "three_dimensional_automation_params": []
+                    },
+                    "aux_params": {
+                      "unk1": false,
+                      "unk2": false,
+                      "unk3": false,
+                      "override_reflections_aux_bus": false,
+                      "has_aux": false,
+                      "override_user_aux_sends": false,
+                      "unk4": 2,
+                      "aux1": 0,
+                      "aux2": 0,
+                      "aux3": 0,
+                      "aux4": 0,
+                      "reflections_aux_bus": 0
+                    },
+                    "adv_settings_params": {
+                      "unk1": false,
+                      "unk2": false,
+                      "unk3": false,
+                      "is_virtual_voices_opt_override_parent": false,
+                      "ignore_parent_maximum_instances": false,
+                      "unk4": true,
+                      "use_virtual_behavior": false,
+                      "kill_newest": false,
+                      "virtual_queue_behavior": "PlayFromElapsedTime",
+                      "max_instance_count": 50,
+                      "below_threshold_behavior": "ContinueToPlay",
+                      "unk5": false,
+                      "unk6": false,
+                      "unk7": false,
+                      "unk8": false,
+                      "enable_envelope": false,
+                      "normalize_loudness": false,
+                      "override_analysis": false,
+                      "override_hdr_envelope": false
+                    },
+                    "state_chunk": {
+                      "state_property_count": 0,
+                      "state_property_info": [],
+                      "state_group_count": 0,
+                      "state_group_chunks": []
+                    },
+                    "initial_rtpc": {
+                      "count": 0,
+                      "rtpcs": []
+                    }
+                  },
+                  "children": {
+                    "count": 1,
+                    "items": []
+                  }
+                }
+              }
             }
-          }
-        ]
+          ]
+        }
       }
     }
   ]

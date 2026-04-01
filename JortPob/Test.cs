@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Threading;
+using System.IO;
 using static JortPob.LiquidManager;
 
 namespace JortPob
@@ -90,13 +91,13 @@ namespace JortPob
 
                 TerrainInfo terrainInfo = cache.GetTerrain(coord);
                 Landscape landscape = esm.GetLandscape(coord);
-                ModelConverter.LANDSCAPEtoFLVER(materialContext, terrainInfo, landscape, $"{Const.CACHE_PATH}{terrainInfo.path}");
+                ModelConverter.LANDSCAPEtoFLVER(materialContext, terrainInfo, landscape, Path.Combine(Const.CACHE_PATH, terrainInfo.path));
                 OUTPUT.Add(new(terrainInfo, id));
             }
 
             materialContext.WriteAll(); // while we dont need to regenerate textures, the matbins are needed so guh
             materialContext = null; // dispose
-            Bind.BindMaterials($"{Const.OUTPUT_PATH}material\\allmaterial.matbinbnd.dcx");
+            Bind.BindMaterials(Path.Combine(Const.OUTPUT_PATH, "material", "allmaterial.matbinbnd.dcx"));
 
             // all our terrain map pieces are now in the super overworld so this is easier lol
             string map = "60";
@@ -106,21 +107,19 @@ namespace JortPob
                 TerrainInfo terrainInfo = values.Item1;
                 int mpid = values.Item2;
 
-                FLVER2 flver = FLVER2.Read($"{Const.CACHE_PATH}{terrainInfo.path}");
+                FLVER2 flver = FLVER2.Read(Path.Combine(Const.CACHE_PATH, terrainInfo.path));
 
                 BND4 bnd = new();
-                bnd.Compression = SoulsFormats.DCX.Type.DCX_KRAK;
+                bnd.Compression = Compression.KRAK();
                 bnd.Version = "07D7R6";
 
                 BinderFile file = new();
-                file.CompressionType = SoulsFormats.DCX.Type.Zlib;
-                file.Flags = SoulsFormats.Binder.FileFlags.Flag1;
                 file.ID = 200;
                 file.Name = $"N:\\GR\\data\\INTERROOT_win64\\map\\m{name}\\m{name}_{mpid.ToString("D8")}\\Model\\m{name}_{mpid.ToString("D8")}.flver";
                 file.Bytes = flver.Write();
                 bnd.Files.Add(file);
 
-                bnd.Write($"{Const.OUTPUT_PATH}map\\m60\\m{name}\\m{name}_{mpid.ToString("D8")}.mapbnd.dcx");
+                bnd.Write(Path.Combine(Const.OUTPUT_PATH, $@"map\m60\m{name}\m{name}_{mpid.ToString("D8")}.mapbnd.dcx"));
             }
             
 
@@ -164,7 +163,7 @@ namespace JortPob
 
             Lort.NewTask("Binding map pieces...", pools.Count);
             TestWorker.Go(pools);
-            Bind.BindMaterials($"{Const.OUTPUT_PATH}material\\allmaterial.matbinbnd.dcx");
+            Bind.BindMaterials(Path.Combine(Const.OUTPUT_PATH, @"material\allmaterial.matbinbnd.dcx"));
             Lort.Log("## DEBUG ## Done! Exit now via breakpoint pls~", Lort.Type.Main);
         }
         
@@ -193,8 +192,8 @@ namespace JortPob
             WetMesh hotmesh = new WetMesh(LiquidManager.GetCutoutType(LiquidManager.Cutout.Type.Lava, true), LiquidManager.Cutout.Type.Lava);
             hotmesh.ToDebugObj().write(@"I:\SteamLibrary\steamapps\common\ELDEN RING\Game\mod\lavadebug.obj");
             FLVER2 lavaFlver = LiquidManager.GenerateLavaFlver(hotmesh, materialContext);
-            lavaFlver.Write($"{Const.CACHE_PATH}{lavaInfo.path}");
-            Bind.BindAsset(lavaInfo, $"{Const.OUTPUT_PATH}asset\\aeg\\{lavaInfo.AssetPath()}.geombnd.dcx");
+            lavaFlver.Write(Path.Combine(Const.CACHE_PATH, lavaInfo.path));
+            Bind.BindAsset(lavaInfo, Path.Combine(Const.OUTPUT_PATH, $@"asset\aeg\{lavaInfo.AssetPath()}.geombnd.dcx"));
         }
 
         /* Just rebuilds the swamp visual mesh. Used for rapid testing changes to swamp material params */
@@ -222,12 +221,12 @@ namespace JortPob
             WetMesh swampMesh = new WetMesh(LiquidManager.GetCutoutType(LiquidManager.Cutout.Type.Swamp, true), LiquidManager.Cutout.Type.Swamp);
             swampMesh.ToDebugObj().write(@"I:\SteamLibrary\steamapps\common\ELDEN RING\Game\mod\swampdebug.obj");
             FLVER2 swampFlver = LiquidManager.GenerateSwampFlver(swampMesh, materialContext);
-            swampFlver.Write($"{Const.CACHE_PATH}{swampInfo.path}");
-            Bind.BindAsset(swampInfo, $"{Const.OUTPUT_PATH}asset\\aeg\\{swampInfo.AssetPath()}.geombnd.dcx");
+            swampFlver.Write(Path.Combine(Const.CACHE_PATH, swampInfo.path));
+            Bind.BindAsset(swampInfo, Path.Combine(Const.OUTPUT_PATH, $@"asset\aeg\{swampInfo.AssetPath()}.geombnd.dcx"));
 
             materialContext.WriteAll(); // while we dont need to regenerate textures, the matbins are needed so guh
             materialContext = null; // dispose
-            Bind.BindMaterials($"{Const.OUTPUT_PATH}material\\allmaterial.matbinbnd.dcx");
+            Bind.BindMaterials(Path.Combine(Const.OUTPUT_PATH, @"material\allmaterial.matbinbnd.dcx"));
         }
 
         private class TestWorker : Worker.Worker
@@ -254,21 +253,19 @@ namespace JortPob
                     int mpid = mp.Item1;
                     string mppath = mp.Item2;
 
-                    FLVER2 flver = FLVER2.Read($"{Const.CACHE_PATH}{mppath}");
+                    FLVER2 flver = FLVER2.Read(Path.Combine(Const.CACHE_PATH, mppath));
 
                     BND4 bnd = new();
-                    bnd.Compression = SoulsFormats.DCX.Type.DCX_KRAK;
+                    bnd.Compression = Compression.KRAK();
                     bnd.Version = "07D7R6";
 
                     BinderFile file = new();
-                    file.CompressionType = SoulsFormats.DCX.Type.Zlib;
-                    file.Flags = SoulsFormats.Binder.FileFlags.Flag1;
                     file.ID = 200;
                     file.Name = $"N:\\GR\\data\\INTERROOT_win64\\map\\m{name}\\m{name}_{mpid.ToString("D8")}\\Model\\m{name}_{mpid.ToString("D8")}.flver";
                     file.Bytes = flver.Write();
                     bnd.Files.Add(file);
 
-                    bnd.Write($"{Const.OUTPUT_PATH}map\\m60\\m{name}\\m{name}_{mpid.ToString("D8")}.mapbnd.dcx");
+                    bnd.Write(Path.Combine(Const.OUTPUT_PATH, $@"map\m60\m{name}\m{name}_{mpid.ToString("D8")}.mapbnd.dcx"));
                 }
                 Lort.TaskIterate(); // Progress bar update
 

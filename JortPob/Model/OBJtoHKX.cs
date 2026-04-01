@@ -21,34 +21,19 @@ namespace JortPob.Model
 
         public static void OBJtoHKX(string objPath, string hkxPath)
         {
-            string tempDir = $"{AppDomain.CurrentDomain.BaseDirectory}Resources\\tools\\ER_OBJ2HKX\\";
+            string toolsDir = $"{AppDomain.CurrentDomain.BaseDirectory}Resources\\tools\\ER_OBJ2HKX\\";
+            DirectoryInfo tempDir = CreateTempDirectory(toolsDir); // directory for all the intermediate files
 
             /* Convert obj to hkx */
-            byte[] hkx = ObjToHkx(tempDir, objPath);
-            hkx = UpgradeHKX(tempDir, hkx, objPath);
+            byte[] hkx = ObjToHkx(toolsDir, tempDir.FullName, objPath);
+            hkx = UpgradeHKX(toolsDir, hkx, objPath);
             File.WriteAllBytes(hkxPath, hkx);
-
-            /* Delete temp files */   // Dropoffs method of deleting temp files just blanket yeeted all files of a given format. For multithreading i need it to be precise
-            string fileName = Utility.PathToFileName(objPath);
-            string[] tempFiles =
-            {
-                $"{tempDir}{fileName}.1",
-                $"{tempDir}{fileName}.obj.o2f",
-                $"{tempDir}{fileName}.obj",
-                $"{tempDir}{fileName}.mtl",
-                $"{tempDir}{fileName}.hkx",
-                $"{tempDir}{fileName}.1.hkx"
-            };
-            foreach (string file in tempFiles)
-            {
-                if (File.Exists(file))
-                {
-                    File.Delete(file);
-                }
-            }
+            
+            /* Delete temp files */
+            tempDir.Delete(true);
         }
 
-        private static byte[] ObjToHkx(string tempDir, string objPath)
+        private static byte[] ObjToHkx(string toolsDir, string tempDir, string objPath)
         {
             string fName = Path.GetFileNameWithoutExtension(objPath);
 
@@ -57,43 +42,43 @@ namespace JortPob.Model
             string srcDir = Path.GetDirectoryName(objPath);
             File.Copy(Utility.ResourcePath("misc\\havok.mtl"), @$"{tempDir}\{fName}.mtl", true);
 
-            ProcessStartInfo startInfo = new(@$"{tempDir}\obj2fsnp.exe", @$"{tempDir}\{fName}.obj")
+            ProcessStartInfo startInfo = new(@$"{toolsDir}\obj2fsnp.exe", $"\"{tempDir}\\{fName}.obj\"")
             {
                 WorkingDirectory = @$"{tempDir}\",
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                RedirectStandardError = true,
             };
-            using (Process process = Process.Start(startInfo))
-                process.WaitForExit();
+            Utility.ExecuteProcess(startInfo, 60000);
 
-            startInfo = new(@$"{tempDir}\AssetCc2_fixed.exe", $@"--strip {tempDir}\{fName}.obj.o2f {tempDir}\{fName}.1")
+            startInfo = new(@$"{toolsDir}\AssetCc2_fixed.exe", $"--strip \"{tempDir}\\{fName}.obj.o2f\" \"{tempDir}\\{fName}.1\"")
             {
                 WorkingDirectory = @$"{tempDir}\",
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                RedirectStandardError = true,
             };
-            using (Process process = Process.Start(startInfo))
-                process.WaitForExit();
+            Utility.ExecuteProcess(startInfo, 60000);
 
-            startInfo = new(@$"{tempDir}\hknp2fsnp.exe", $@"{tempDir}\{fName}.1")
+            startInfo = new(@$"{toolsDir}\hknp2fsnp.exe", $"\"{tempDir}\\{fName}.1\"")
             {
                 WorkingDirectory = @$"{tempDir}\",
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                RedirectStandardError = true,
             };
-            using (Process process = Process.Start(startInfo))
-                process.WaitForExit();
+            Utility.ExecuteProcess(startInfo, 60000);
 
-            return File.ReadAllBytes($@"{tempDir}\{fName}.1.hkx");
+            return File.ReadAllBytes($@"{tempDir}\{fName}.1.hkx");  
         }
 
-        private static byte[] UpgradeHKX(string tempDir, byte[] bytes, string objPath)
+        private static byte[] UpgradeHKX(string toolsDir, byte[] bytes, string objPath)
         {
             var des = new HKX2.PackFileDeserializer();
             var root = (HKX2.hkRootLevelContainer)des.Deserialize(new BinaryReaderEx(false, bytes));
 
             hkRootLevelContainer hkx = HkxUpgrader.UpgradehkRootLevelContainer(root);
-            HavokTypeRegistry registry = GetTypeRegistryForDirectory(tempDir);
+            HavokTypeRegistry registry = GetTypeRegistryForDirectory(toolsDir);
 
             /* Absolute garbage code fix for materials */
             /* Somewhere in the process of dropoff -> 12av -> hork code chain the material ids get mutilated and so I have to repair them at the end */
@@ -101,7 +86,7 @@ namespace JortPob.Model
             List<Obj.CollisionMaterial> source = Obj.GetMaterials(objPath);  // grab source materials from obj file
             List<HKLib.hk2018.fsnpCustomMeshParameter.PrimitiveData> mats =
                 ((HKLib.hk2018.fsnpCustomParamCompressedMeshShape)((HKLib.hk2018.hknpPhysicsSceneData)hkx.m_namedVariants[0].m_variant).m_systemDatas[0].m_bodyCinfos[0].m_shape).m_pParam.m_primitiveDataArray;
-            if (mats.Count > source.Count) { Lort.Log($"Mismatch in HKX hitmrtl repair: {Utility.PathToFileName(objPath)}.obj", Lort.Type.Debug); }
+            if (mats.Count > source.Count) { Lort.Log($"Mismatch in HKX hitmrtl repair: {Path.GetFileNameWithoutExtension(objPath)}.obj", Lort.Type.Debug); }
             for(int i=0;i<mats.Count;i++)
             {
                 mats[i].m_materialNameData = ((uint)source[i]); // fixed i guess!
@@ -134,6 +119,34 @@ namespace JortPob.Model
                 Path.Combine(tempDir, "HavokTypeRegistry20180100.xml"),
                 HavokTypeRegistry.Load
             );
+        }
+
+        /**
+         * Helper to generate a reasonably unique temp directory nested in a given directory.
+         * We can probably switch to using the built-in `GetTempPath` in the future, but
+         * this allows us to specify a parent.
+         *
+         * Returns a reference to the created directory.
+         */
+        private static DirectoryInfo CreateTempDirectory(string parentDir)
+        {
+            const int maxRetries = 10;
+            int attempt = 0;
+            string tempPath;
+
+            do
+            {
+                if (attempt >= maxRetries)
+                {
+                    throw new ApplicationException("Exceeded maximum number of retries creating a temp directory.");
+                }
+
+                string randomId = System.Guid.NewGuid().ToString();
+                tempPath = Path.Combine(parentDir, randomId);
+                ++attempt;
+            } while (Path.Exists(tempPath));
+
+            return Directory.CreateDirectory(tempPath);
         }
     }
 }

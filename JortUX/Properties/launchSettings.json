@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "JortUX": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}

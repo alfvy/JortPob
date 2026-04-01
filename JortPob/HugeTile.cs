@@ -38,12 +38,12 @@ namespace JortPob
             return false;
         }
 
-        public override void AddCell(Cell cell)
+        public override void AddCell(ScriptManager scriptManager, Cell cell)
         {
             cells.Add(cell);
             BigTile big = GetBigTile(cell.center);
             if(big == null) { Lort.Log($" ## WARNING ## Cell fell outside of reality [{cell.coordinate.x}, {cell.coordinate.y}] -- {cell.name} :: B01", Lort.Type.Debug); return; }
-            big.AddCell(cell);
+            big.AddCell(scriptManager, cell);
         }
 
         public void AddTerrain(Vector3 position, TerrainInfo terrainInfo)
@@ -60,10 +60,10 @@ namespace JortPob
         }
 
         /* Incoming content is in aboslute worldspace from the ESM, when adding content to a tile we convert it's coordinates to relative space */
-        public new void AddContent(Cache cache, Cell cell, Content content)
+        public new void AddContent(Cache cache, Cell cell, Content content, bool forceFallThrough = false)
         {
             // Special case: if content has a papyrus script it needs to be put in the small tile. large tiles dont have attached EMEVD scripts so they cant live there
-            if(content.papyrus != null) { GetTile(cell.center).AddContent(cache, cell, content); return; }
+            if(content.papyrus != null || forceFallThrough) { GetTile(cell.center).AddContent(cache, cell, content); return; }
 
             switch (content)
             {
@@ -78,6 +78,7 @@ namespace JortPob
                         if(tile == null) { break; } // Content fell outside of the bounds of any valid msbs. BAD!
                         content.load = tile.coordinate;
                         base.AddContent(cache, cell, content);
+                        tile.AddNav(cache, cell, content);
                         break;
                     }
                     goto default;

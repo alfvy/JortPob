@@ -1,14 +1,10 @@
-﻿using HKLib.hk2018.hk;
-using HKX2;
-using JortPob.Common;
+﻿using JortPob.Common;
 using SoulsFormats;
 using SoulsIds;
-using System;
 using System.Collections.Generic;
-using System.Reflection.Metadata.Ecma335;
+using System.Diagnostics;
+using System.IO;
 using static JortPob.Script.Flag;
-using static SoulsFormats.MSB1.Event;
-using static SoulsFormats.MSBAC4.Event;
 
 /* Individual script for an msb. */
 /* managed by ScriptManager 
@@ -20,18 +16,49 @@ namespace JortPob
 {
     using ScriptFlagLookupKey = (Script.Flag.Designation, string);
 
-    public class Script
+    public abstract class BaseScript
     {
+        public readonly ScriptManager manager;
 
-        public Events AUTO;
+        public readonly Events AUTO;
 
-        public readonly int map, x, y, block;
-
-        public readonly ScriptCommon common; // commonevent and commonfunc emevds
         public readonly EMEVD emevd;
         public readonly EMEVD.Event init;
 
-        public readonly List<NpcContent> npcs; // list of npcs that are registered in this areascript, used to do some script generation
+        public BaseScript(ScriptManager manager)
+        {
+            this.manager = manager;
+            AUTO = new(Utility.ResourcePath(@"script\er-common.emedf.json"), true, true);
+
+            emevd = new EMEVD();
+            emevd.Compression = Compression.KRAK();
+            emevd.Format = SoulsFormats.EMEVD.Game.Sekiro;
+
+            // Linked file offsets are stored as bytes of a UTF16 string pointing to the commonfunc and macro emevd files
+            byte[] file1 = System.Text.Encoding.Unicode.GetBytes(@"N:\GR\data\Param\event\common_func.emevd" + "\0");
+            byte[] file2 = System.Text.Encoding.Unicode.GetBytes(@"N:\GR\data\Param\event\common_macro.emevd" + "\0");
+            List<byte> combined = new();
+            combined.AddRange(file1);
+            combined.AddRange(file2);
+            emevd.StringData = combined.ToArray();
+            emevd.LinkedFileOffsets = new() { 0, file1.Length };
+
+            init = new EMEVD.Event(0);
+            emevd.Events.Add(init);
+        }
+
+        public abstract Script.Flag CreateFlagLocal(Content content, string name, uint value = 0);
+        public abstract Script.Flag CreateFlag(Script.Flag.Category category, Script.Flag.Type type, Script.Flag.Designation designation, Content content, uint value = 0, bool allowPhased = false);
+        public abstract Script.Flag CreateFlag(Script.Flag.Category category, Script.Flag.Type type, Script.Flag.Designation designation, string name, uint value = 0);
+        public abstract Script.Flag GetOrCreateFlag(Script.Flag.Category category, Script.Flag.Type type, Script.Flag.Designation designation, Content content, uint value = 0, bool allowPhased = false);
+        public abstract Script.Flag GetOrCreateFlag(Script.Flag.Category category, Script.Flag.Type type, Script.Flag.Designation designation, string name, uint value = 0);
+    }
+
+    public class Script : BaseScript
+    {
+        public readonly int map, x, y, block;
+
+        public readonly List<CharacterContent> npcs; // list of npcs that are registered in this areascript, used to do some script generation
         public readonly List<Content> ownedContent; // list of all items/containers that have an npc owner. this is used to generate a thievery script after main gen finishes
 
         public readonly Dictionary<uint, string> entityIdMapping; // used for debuggin, just records a string (usually a record id) as a description for created entity ids
@@ -52,30 +79,14 @@ namespace JortPob
         private Dictionary<Flag.Category, uint> flagUsedCounts;
         private Dictionary<EntityType, uint> entityUsedCounts;
 
-        public Script(ScriptCommon common, int map, int x, int y, int block)
+        public Script(ScriptManager manager, int map, int x, int y, int block) : base(manager)
         {
-            this.common = common;
             this.map = map;
             this.x = x;
             this.y = y;
             this.block = block;
 
             entityIdMapping = new();
-
-            AUTO = new(Utility.ResourcePath(@"script\\er-common.emedf.json"), true, true);
-
-            EMEVD DEBUGTESTDELETE = EMEVD.Read($"{Const.ELDEN_PATH}\\game\\event\\m60_42_36_00.emevd.dcx");
-
-            emevd = new EMEVD();
-            emevd.Compression = SoulsFormats.DCX.Type.DCX_KRAK;
-            emevd.Format = SoulsFormats.EMEVD.Game.Sekiro;
-
-            // Bytes here are raw string data that points to the filenames of common_func and common_macro
-            emevd.StringData = new byte[] { 78, 0, 58, 0, 92, 0, 71, 0, 82, 0, 92, 0, 100, 0, 97, 0, 116, 0, 97, 0, 92, 0, 80, 0, 97, 0, 114, 0, 97, 0, 109, 0, 92, 0, 101, 0, 118, 0, 101, 0, 110, 0, 116, 0, 92, 0, 99, 0, 111, 0, 109, 0, 109, 0, 111, 0, 110, 0, 95, 0, 102, 0, 117, 0, 110, 0, 99, 0, 46, 0, 101, 0, 109, 0, 101, 0, 118, 0, 100, 0, 0, 0, 78, 0, 58, 0, 92, 0, 71, 0, 82, 0, 92, 0, 100, 0, 97, 0, 116, 0, 97, 0, 92, 0, 80, 0, 97, 0, 114, 0, 97, 0, 109, 0, 92, 0, 101, 0, 118, 0, 101, 0, 110, 0, 116, 0, 92, 0, 99, 0, 111, 0, 109, 0, 109, 0, 111, 0, 110, 0, 95, 0, 109, 0, 97, 0, 99, 0, 114, 0, 111, 0, 46, 0, 101, 0, 109, 0, 101, 0, 118, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-            emevd.LinkedFileOffsets = new() { 0, 82 };
-
-            init = new EMEVD.Event(0);
-            emevd.Events.Add(init);
 
             flags = new();
             flagsByLookupKey = new();
@@ -101,30 +112,58 @@ namespace JortPob
             ownedContent = new();
         }
 
+        /* Registers bed as a "bonfire" and creates and returns the specail entity ids for a bed and its respawn point */
+        private uint bedCount = 0;
+        public (uint bed, uint respawn) RegisterBed()
+        {
+            if(bedCount > Const.MAX_BEDS_PER_MSB) { Lort.Log($"## ERROR ## Failed to register respawn for bed in m{map:D2}_{x:D2}_{y:D2}_{block:D2} due to 19 bed limit!", Lort.Type.Debug); return (0, 0); }
+
+            uint mapOffset;
+            if (map == 60) { mapOffset = uint.Parse($"10{x:D2}{y:D2}0000"); }
+            else { mapOffset = uint.Parse($"{map:D2}{x:D2}0000"); }
+
+            uint bedEntity = mapOffset + 950 + bedCount;
+            uint respawnEntity = bedEntity + 30;
+            bedCount++;
+
+            Flag bedFlag = CreateFlag(Flag.Category.Saved, Flag.Type.Bit, Script.Flag.Designation.RegisterBed, bedEntity.ToString());
+            init.Instructions.Add(AUTO.ParseAdd($"RegisterBonfire({bedFlag.id}, {bedEntity}, 0, 0, 0, 5);"));
+            return (bedEntity, respawnEntity);
+        }
+
         public void RegisterLoadDoor(Paramanager paramanager, DoorContent door, ModelInfo modelInfo)
         {
             int actionParamId = paramanager.GenerateActionButtonDoorParam(modelInfo, door.warp.prompt);
-            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.LoadDoor]}, {actionParamId}, {door.entity}, {door.entity}, {1000}, {door.warp.map}, {door.warp.x}, {door.warp.y}, {door.warp.block}, {door.warp.entity});"));
+            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.LoadDoor]}, {actionParamId}, {door.entity}, {door.entity}, {1000}, {door.warp.map}, {door.warp.x}, {door.warp.y}, {door.warp.block}, {door.warp.entity});"));
         }
 
         public void RegisterItemAsset(ItemContent item)
         {
-            NpcContent owner;
+            CharacterContent owner;
             if(item.ownerNpc != null) { owner = GetAreaNpcById(item.ownerNpc); }
             else { owner = null; }
+
+            Script.Flag disableFlag = manager.GetFlag(Script.Flag.Designation.Disabled, item);
 
             // Unowned item free for the taking
             if (owner == null)
             {
-                init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.ItemAsset]}, {item.treasure.id}, {item.entity});"));
+                if (disableFlag == null)
+                {
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.ItemAsset]}, {item.treasure.id}, {item.entity});"));
+                }
+                else
+                {
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.ItemAssetWithDisable]}, {disableFlag.id}, {item.entity}, {item.treasure.id}, {item.entity});"));
+                }
             }
             // Item owned by an npc that counts as stealing if you take it
             else
             {
-                Flag ownerDead = GetFlag(Designation.Dead, owner.entity.ToString());
-                Flag crimeLevel = common.GetFlag(Designation.CrimeLevel, "CrimeLevel");
-                Flag crimeFlag = GetFlag(Designation.CrimeEvent, owner.entity.ToString());
-                Flag thiefFlag = GetFlag(Designation.ThiefCrime, owner.entity.ToString());
+                Flag ownerDead = manager.GetFlag(Designation.Dead, owner);
+                Flag crimeLevel = manager.GetFlag(Designation.CrimeLevel, "CrimeLevel");
+                Flag crimeFlag = manager.GetFlag(Designation.CrimeEvent, owner);
+                Flag thiefFlag = manager.GetFlag(Designation.ThiefCrime, owner);
 
                 List<string> parameters = new()
                 {
@@ -133,90 +172,248 @@ namespace JortPob
                     item.treasure.id.ToString(),
                     item.entity.ToString(),
                     ownerDead.id.ToString(),
-                    crimeFlag.id.ToString(),
+                    owner.witness == CharacterContent.Witness.Guard ? thiefFlag.id.ToString() : crimeFlag.id.ToString(),  // minor hack. if guard witness then dont trigger hostility so guard can arrest player.
                     thiefFlag.id.ToString(),
                     crimeLevel.id.ToString(),
                     crimeLevel.Bits().ToString(),
                     item.value.ToString()
                 };
-
-                init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.OwnedItemAsset]}, {string.Join(", ", parameters)});"));
+                if (disableFlag == null)
+                {
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.OwnedItemAsset]}, {string.Join(", ", parameters)});"));
+                }
+                else
+                {
+                    parameters.Insert(0, item.entity.ToString());
+                    parameters.Insert(0, disableFlag.id.ToString());
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.OwnedItemAssetWithDisable]}, {string.Join(", ", parameters)});"));
+                }
                 ownedContent.Add(item);
             }
         }
 
-        public void RegisterContainerAsset(ContainerContent container)
+        public void RegisterContainerAsset(ContainerContent container, int totalValue)
         {
-            NpcContent owner;
+            CharacterContent owner;
             if (container.ownerNpc != null) { owner = GetAreaNpcById(container.ownerNpc); }
             else { owner = null; }
 
             if(owner != null)
             {
-                Flag ownerDead = GetFlag(Designation.Dead, owner.entity.ToString());
-                Flag crimeLevel = common.GetFlag(Designation.CrimeLevel, "CrimeLevel");
-                Flag crimeFlag = GetFlag(Designation.CrimeEvent, owner.entity.ToString());
-                Flag thiefFlag = GetFlag(Designation.ThiefCrime, owner.entity.ToString());
+                Flag ownerDead = manager.GetFlag(Designation.Dead, owner);
+                Flag crimeLevel = manager.GetFlag(Designation.CrimeLevel, "CrimeLevel");
+                Flag crimeFlag = manager.GetFlag(Designation.CrimeEvent, owner);
+                Flag thiefFlag = manager.GetFlag(Designation.ThiefCrime, owner);
 
                 List<string> parameters = new()
                 {
                     container.treasure.id.ToString(),
                     container.treasure.id.ToString(),
                     ownerDead.id.ToString(),
-                    crimeFlag.id.ToString(),
+                    owner.witness == CharacterContent.Witness.Guard ? thiefFlag.id.ToString() : crimeFlag.id.ToString(),  // minor hack. if guard witness then dont trigger hostility so guard can arrest player.
                     thiefFlag.id.ToString(),
                     crimeLevel.id.ToString(),
                     crimeLevel.Bits().ToString(),
-                    500.ToString() // @TODO: just setting a random value for this. we should calculate value of items in a container in the future and set that as the crimegold for stealing
+                    totalValue.ToString()
                 };
 
-                init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.OwnedContainer]}, {string.Join(", ", parameters)});"));
+                init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.OwnedContainer]}, {string.Join(", ", parameters)});"));
                 ownedContent.Add(container);
             }
         }
 
-        public void RegisterNpcHostility(NpcContent npc)
+        public void RegisterNpcHostility(CharacterContent npc)
         {
-            CreateFlag(Flag.Category.Temporary, Flag.Type.Nibble, Flag.Designation.FriendHitCounter, npc.entity.ToString()); // setup friendly hit counter
-            Flag hostileFlag = CreateFlag(Flag.Category.Saved, Flag.Type.Bit, Flag.Designation.Hostile, npc.entity.ToString());
-            Flag crimeFlag = CreateFlag(Flag.Category.Saved, Flag.Type.Bit, Flag.Designation.CrimeEvent, npc.entity.ToString());
-            Flag hostileQuipFlag = CreateFlag(Flag.Category.Temporary, Flag.Type.Bit, Flag.Designation.HostileQuip, npc.entity.ToString());
-            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.NpcHostilityHandler]}, {hostileFlag.id}, {npc.entity}, {hostileFlag.id}, {npc.entity});"));
+            GetOrCreateFlag(Flag.Category.Temporary, Flag.Type.Nibble, Flag.Designation.FriendHitCounter, npc); // setup friendly hit counter
+            Flag hostileFlag = GetOrCreateFlag(Flag.Category.Saved, Flag.Type.Bit, Flag.Designation.Hostile, npc, npc.IsHostile() ? 1u : 0u);
+            Flag crimeFlag = GetOrCreateFlag(Flag.Category.Saved, Flag.Type.Bit, Flag.Designation.CrimeEvent, npc);
+            Flag hostileQuipFlag = GetOrCreateFlag(Flag.Category.Temporary, Flag.Type.Bit, Flag.Designation.HostileQuip, npc);
+            Flag hasBeenAttackedFlag = GetOrCreateFlag(Flag.Category.Saved, Flag.Type.Bit, Script.Flag.Designation.HasBeenAttacked, npc);
+            Flag helloFlag = GetOrCreateFlag(Script.Flag.Category.Temporary, Script.Flag.Type.Bit, Script.Flag.Designation.Hello, npc);
+            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.NpcHostilityHandler]}, {hostileFlag.id}, {npc.entity}, {npc.entity}, {hostileFlag.id}, {npc.entity}, {npc.entity});"));
             npcs.Add(npc);
-        }
-
-        public void RegisterNpcHello(NpcContent npc)
-        {
-            /* Hello event: npc turns to player when player enters a certain radius and the esd sets a flag and says a hello line */
-            Flag helloFlag = CreateFlag(Script.Flag.Category.Temporary, Script.Flag.Type.Bit, Script.Flag.Designation.Hello, npc.entity.ToString());
-            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.Hello]}, {helloFlag.id}, {npc.entity}, {helloFlag.id});"));
         }
 
         /* Dead body */
         public void RegisterDeadNpc(NpcContent npc)
         {
-            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.DeadBody]}, {npc.entity}, {npc.entity}, {npc.entity});"));
+            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.DeadBody]}, {npc.entity}, {npc.entity}, {npc.entity});"));
         }
 
-        public void RegisterNpc(Paramanager paramanager, NpcContent npc, Flag count)
+        public void RegisterCharacter(Paramanager paramanager, CharacterContent npc, Flag count)
         {
-            /* Dead/disable spawn event */
-            Flag deadFlag = CreateFlag(Script.Flag.Category.Saved, Script.Flag.Type.Bit, Script.Flag.Designation.Dead, npc.entity.ToString());
-            Flag disableFlag = CreateFlag(Script.Flag.Category.Saved, Script.Flag.Type.Bit, Script.Flag.Designation.Disabled, npc.entity.ToString());
-            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.SpawnHandler]}, {disableFlag.id}, {npc.entity}, {deadFlag.id}, {npc.entity}, {npc.entity}, {deadFlag.id}, {count.id}, {count.Bits()}, {count.MaxValue()});"));
-            if(npc.essential)
+            Flag deadFlag = GetOrCreateFlag(Script.Flag.Category.Saved, Script.Flag.Type.Bit, Script.Flag.Designation.Dead, npc);
+            Flag disableFlag = manager.GetFlag(Script.Flag.Designation.Disabled, npc);
+
+            if (IsInterior())
+            {
+                uint cellAreaEntityId = manager.areas[npc.cell];
+
+                // NPC spawn handler for phased npcs
+                if (npc is PhasedNpcContent)
+                {
+                    PhasedNpcContent pnpc = (PhasedNpcContent)npc;
+                    Flag phaseFlag = manager.GetFlag(Designation.Phase, pnpc);
+                    List<string> parameters = new()
+                    {
+                        cellAreaEntityId.ToString(),
+                        pnpc.entity.ToString(),
+                        deadFlag.id.ToString(),
+                        pnpc.entity.ToString(),
+                        pnpc.entity.ToString(),
+                        disableFlag.id.ToString(),
+                        phaseFlag.id.ToString(),
+                        phaseFlag.Bits().ToString(),
+                        pnpc.phase.ToString(),
+                        pnpc.entity.ToString(),
+                        pnpc.entity.ToString(),
+                        deadFlag.id.ToString(),
+                        count.id.ToString(),
+                        count.Bits().ToString(),
+                        count.MaxValue().ToString()
+                    };
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.IntSpawnHandlerPhased]}, {string.Join(", ", parameters)});"));
+                }
+                // NPC spawn handler for NPCS that can't be disabled
+                else if (disableFlag == null)
+                {
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.IntSpawnHandler]}, {cellAreaEntityId}, {npc.entity}, {deadFlag.id}, {npc.entity}, {npc.entity}, {deadFlag.id}, {count.id}, {count.Bits()}, {count.MaxValue()});"));
+                }
+                // NPC spawn handler for NPCS that can be disabled
+                else
+                {
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.IntSpawnHandlerDisableable]}, {cellAreaEntityId}, {npc.entity}, {deadFlag.id}, {npc.entity}, {disableFlag.id}, {npc.entity}, {npc.entity}, {deadFlag.id}, {count.id}, {count.Bits()}, {count.MaxValue()});"));
+                }
+            }
+            else
+            {
+                // NPC spawn handler for phased npcs
+                if (npc is PhasedNpcContent)
+                {
+                    PhasedNpcContent pnpc = (PhasedNpcContent)npc;
+                    Flag phaseFlag = manager.GetFlag(Designation.Phase, pnpc);
+                    List<string> parameters = new()
+                    {
+                        deadFlag.id.ToString(),
+                        pnpc.entity.ToString(),
+                        pnpc.entity.ToString(),
+                        disableFlag.id.ToString(),
+                        phaseFlag.id.ToString(),
+                        phaseFlag.Bits().ToString(),
+                        pnpc.phase.ToString(),
+                        pnpc.entity.ToString(),
+                        pnpc.entity.ToString(),
+                        deadFlag.id.ToString(),
+                        count.id.ToString(),
+                        count.Bits().ToString(),
+                        count.MaxValue().ToString()
+                    };
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.SpawnHandlerPhased]}, {string.Join(", ", parameters)});"));
+                }
+                // NPC spawn handler for NPCS that can't be disabled
+                else if (disableFlag == null)
+                {
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.SpawnHandler]}, {deadFlag.id}, {npc.entity}, {npc.entity}, {deadFlag.id}, {count.id}, {count.Bits()}, {count.MaxValue()});"));
+                }
+                // NPC spawn handler for NPCS that can be disabled
+                else
+                {
+                    init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.SpawnHandlerDisableable]}, {deadFlag.id}, {npc.entity}, {disableFlag.id}, {npc.entity}, {npc.entity}, {deadFlag.id}, {count.id}, {count.Bits()}, {count.MaxValue()});"));
+                }
+            }
+
+            if (npc.essential)
             {
                 int tutorialPopupId = paramanager.GenerateMessage("", "With this character's death, the thread of prophecy is severed. You are doomed.");
-                init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.Essential]}, {deadFlag.id}, {deadFlag.id}, {tutorialPopupId});"));
+                init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.Essential]}, {deadFlag.id}, {deadFlag.id}, {tutorialPopupId});"));
             }
         }
 
-        public void RegisterCreature(CreatureContent creature, Flag count)
+        public void RegisterHaltEvent(CharacterContent npc)
         {
-            /* Dead/disable spawn event */
-            Flag deadFlag = CreateFlag(Script.Flag.Category.Saved, Script.Flag.Type.Bit, Script.Flag.Designation.Dead, creature.entity.ToString());
-            Flag disableFlag = CreateFlag(Script.Flag.Category.Saved, Script.Flag.Type.Bit, Script.Flag.Designation.Disabled, creature.entity.ToString());
-            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {common.events[ScriptCommon.Event.SpawnHandler]}, {disableFlag.id}, {creature.entity}, {deadFlag.id}, {creature.entity}, {creature.entity}, {deadFlag.id}, {count.id}, {count.Bits()}, {count.MaxValue()});"));
+            Flag deadFlag = manager.GetFlag(Script.Flag.Designation.Dead, npc);
+            Flag hostileFlag = manager.GetFlag(Script.Flag.Designation.Hostile, npc);
+
+            List<string> parameters = new()
+            {
+                deadFlag.id.ToString(),
+                npc.entity.ToString(),
+                hostileFlag.id.ToString(),
+                npc.entity.ToString(),
+                npc.entity.ToString(),
+                npc.entity.ToString(),
+                hostileFlag.id.ToString(),
+                npc.entity.ToString(),
+                npc.entity.ToString(),
+            };
+            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.Halt]}, {string.Join(", ", parameters)});"));
+        }
+
+        public Flag RegisterStaticDisable(StaticContent content)
+        {
+            Script.Flag disableFlag = manager.GetFlag(Script.Flag.Designation.Disabled, content);
+            if(disableFlag == null) { return null; } // disable flags only get created for objects that have disable calls referencing them.
+            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.StaticDisable]}, {disableFlag.id}, {content.entity});"));
+            return disableFlag;
+        }
+
+        /* Used by ESD to disable an object via a flag */
+        public Flag GetOrRegisterTriggerDisable(Content content)
+        {
+            Flag triggerDisableFlag = manager.GetFlag(Script.Flag.Designation.TriggerDisable, content);
+            if (triggerDisableFlag == null)
+            {
+                triggerDisableFlag = CreateFlag(Flag.Category.Temporary, Flag.Type.Bit, Flag.Designation.TriggerDisable, content.id);
+                init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.TriggerDisable]}, {triggerDisableFlag.id}, {content.entity}, {content.entity}, {triggerDisableFlag.id});"));
+            }
+            return triggerDisableFlag;
+        }
+
+        /* Used by ESD to enable an object via a flag */
+        public Flag GetOrRegisterTriggerEnable(Content content)
+        {
+            Flag triggerEnableFlag = manager.GetFlag(Script.Flag.Designation.TriggerEnable, content);
+            if (triggerEnableFlag == null)
+            {
+                triggerEnableFlag = CreateFlag(Flag.Category.Temporary, Flag.Type.Bit, Flag.Designation.TriggerEnable, content.id);
+                init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.TriggerEnable]}, {triggerEnableFlag.id}, {content.entity}, {content.entity}, {triggerEnableFlag.id});"));
+            }
+            return triggerEnableFlag;
+        }
+
+        /* Can't call PlaySE from ESD so we are using an EMEVD event triggered by a flag to do it. Returned flag is the trigger for playing a sound. */
+        public Script.Flag GetOrRegisterPlaySE(uint entity, int seId)
+        {
+            /* See if this SE already has an event registered for it */
+            string playId = $"{entity}->{seId}";
+            Flag playFlag = manager.GetFlag(Designation.PlaySE, playId);
+
+            /* If not create one and return */
+            if (playFlag == null)
+            {
+                playFlag = CreateFlag(Category.Saved, Flag.Type.Bit, Designation.PlaySE, playId);
+                init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.PlaySE]}, {playFlag.id}, {entity}, 5, {seId}, {playFlag.id});"));  // 5 is SFX type
+            }
+            return playFlag;
+        }
+
+        /* Register a modStat call here so that it is permanently applied to npc. Flag returned is the trigger for it to be on. */
+        public Flag RegisterModStat(uint entityId, int speffId)
+        {
+            Flag modStatFlag = CreateFlag(Category.Saved, Type.Bit, Designation.NpcModStat, $"{entityId}->{speffId}");
+            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.NpcModStat]}, {modStatFlag.id}, {entityId}, {speffId});"));
+            return modStatFlag;
+        }
+
+        /* Register NpcInfight event for StartCombat and StopCombat calls */
+        public Flag GetOrRegisterInfight(CharacterContent content)
+        {
+            Script.Flag fightFlag = manager.GetFlag(Designation.NpcInfight, content);
+            if(fightFlag != null) { return fightFlag; } // already exists, return flag
+
+            fightFlag = CreateFlag(Category.Saved, Type.Bit, Designation.NpcInfight, content, 0, true);
+            init.Instructions.Add(AUTO.ParseAdd($"InitializeCommonEvent(0, {manager.common.events[ScriptCommon.Event.NpcInfight]}, {fightFlag.id}, {content.entity}, {content.entity}, {fightFlag.id}, {content.entity}, {content.entity});"));
+            return fightFlag;
         }
 
         /* Crime events are charcters reactions to being attacked or stolen from */
@@ -224,29 +421,32 @@ namespace JortPob
         /* Additionally if this event is triggered we also set all guards hostile and mark guards to force greet the player */
         public void GenerateCrimeEvents()
         {
-            foreach(NpcContent npc in npcs)
+            foreach(CharacterContent npc in npcs)
             {
-                Flag eventFlag = CreateFlag(Flag.Category.Event, Flag.Type.Bit, Flag.Designation.Event, npc.entity.ToString());
+                Flag eventFlag = CreateFlag(Flag.Category.Event, Flag.Type.Bit, Flag.Designation.Event, $"{npc.entity}->CrimeEvent");
                 EMEVD.Event crimeEvent = new EMEVD.Event();
                 crimeEvent.ID = eventFlag.id;
                 // If the player commits a crime agains this npc, their crime flag flips, we then go hostile
-                Flag hvar = FindFlagByLookupKey(Script.FormatFlagLookupKey(Flag.Designation.Hostile, npc.entity.ToString()));
-                Flag cvar = FindFlagByLookupKey(Script.FormatFlagLookupKey(Flag.Designation.CrimeEvent, npc.entity.ToString()));
+                Flag hvar = manager.GetFlag(Flag.Designation.Hostile, npc);
+                Flag cvar = manager.GetFlag(Flag.Designation.CrimeEvent, npc);
                 crimeEvent.Instructions.Add(AUTO.ParseAdd($"IfEventFlag(MAIN, ON, TargetEventFlagType.EventFlag, {cvar.id});"));  // if crime flag on
                 crimeEvent.Instructions.Add(AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, {hvar.id}, ON);"));       // go hostile
 
                 // Look for nearby npcs and see if any of them are nearby, if they are they will also turn hostile if their alarm value is high enough
                 // @TODO: minor concern but this only searches by distance within this msb. in the overworld if an npc was near a border it would not look for nearby npcs in the next tile over. very minor issue but noting it here anyways
-                foreach (NpcContent other in npcs)
+                foreach (CharacterContent other in npcs)
                 {
                     if (!other.IsGuard()) // if you are a guard, go full aggro, otherwise its conditional
                     {
                         if (other.alarm < 50) { continue; } // no nearby crime aggro if low alarm
                         if (System.Numerics.Vector3.Distance(npc.position, other.position) > 10) { continue; } // no nearby crime aggro if far away
                     }
-                    Flag otherhvar = FindFlagByLookupKey(Script.FormatFlagLookupKey(Flag.Designation.Hostile, other.entity.ToString()));
+                    Flag otherhvar = manager.GetFlag(Flag.Designation.Hostile, other);
                     crimeEvent.Instructions.Add(AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, {otherhvar.id}, ON);"));       // go hostile as well
                 }
+
+                // Apply the 'alarming' functional speff to the player. Used by dialog filters
+                crimeEvent.Instructions.Add(AUTO.ParseAdd($"SetSpEffect(10000, {(int)SpeffManager.Functional.Alarming});"));
 
                 // Lastly, flip the crime event flag back to 0
                 crimeEvent.Instructions.Add(AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, {cvar.id}, OFF);"));
@@ -264,7 +464,7 @@ namespace JortPob
             Flag thieveryEventFlag = CreateFlag(Flag.Category.Event, Flag.Type.Bit, Flag.Designation.Event, $"ThieveryEvent::{map:D2}_{x:D2}_{y:D2}_{block:D2}");
             thieveryEvent.ID = thieveryEventFlag.id;
 
-            Flag playerIsSneakingFlag = common.GetFlag(Designation.PlayerIsSneaking, "PlayerIsSneaking");
+            Flag playerIsSneakingFlag = manager.GetFlag(Designation.PlayerIsSneaking, "PlayerIsSneaking");
 
             thieveryEvent.Instructions.Add(AUTO.ParseAdd($"IfEventFlag(MAIN, OFF, TargetEventFlagType.EventFlag, {playerIsSneakingFlag.id});")); // if not sneaking
             foreach (Content content in ownedContent)
@@ -282,9 +482,9 @@ namespace JortPob
             init.Instructions.Add(AUTO.ParseAdd($"InitializeEvent(0, {thieveryEventFlag.id}, 0);"));
         }
 
-        private NpcContent GetAreaNpcById(string id)
+        private CharacterContent GetAreaNpcById(string id)
         {
-            foreach(NpcContent npc in npcs)
+            foreach(CharacterContent npc in npcs)
             {
                 if (npc.id == id) { return npc; }
             }
@@ -309,7 +509,24 @@ namespace JortPob
             return (designation, name.ToLower());
         }
 
-        public Flag CreateFlag(Flag.Category category, Flag.Type type, Flag.Designation designation, string name, uint value = 0)
+        public override Flag CreateFlag(Flag.Category category, Flag.Type type, Flag.Designation designation, Content content, uint value = 0, bool allowPhased = false)
+        {
+            if(content is PhasedNpcContent && !allowPhased) { throw new System.Exception("Cannot create flags for phased content in this manner! See CreateFlagLocal or use allowePhased if you are certain it's okay."); }
+            else if(content is PhasedNpcContent) { return CreateFlag(category, type, designation, manager.routing[(PhasedNpcContent)content], value); }
+            return CreateFlag(category, type, designation, content.entity.ToString(), value);
+        }
+
+        public override Flag CreateFlagLocal(Content content, string name, uint value = 0)
+        {
+            if (content is PhasedNpcContent)
+            {
+                PhasedNpcContent pnpc = (PhasedNpcContent)content;
+                return GetOrCreateFlag(Category.Saved, Type.Short, Designation.Local, $"{manager.routing[pnpc]}.{name}", value); // this is the only place where a phased npc creates new flags
+            }
+            return CreateFlag(Category.Saved, Type.Short, Designation.Local, $"{content.entity.ToString()}.{name}", value);
+        }
+
+        public override Flag CreateFlag(Flag.Category category, Flag.Type type, Flag.Designation designation, string name, uint value = 0)
         {
             uint rawCount = flagUsedCounts[category];
             uint perThou = rawCount / 1000;
@@ -334,6 +551,20 @@ namespace JortPob
             return flag;
         }
 
+        public override Flag GetOrCreateFlag(Category category, Type type, Designation designation, Content content, uint value = 0, bool allowPhased = false)
+        {
+            Flag flag = manager.GetFlag(designation, content);
+            if (flag != null) { return flag; }
+            return CreateFlag(category, type, designation, content, value, allowPhased);
+        }
+
+        public override Flag GetOrCreateFlag(Flag.Category category, Flag.Type type, Flag.Designation designation, string name, uint value = 0)
+        {
+            Flag flag = manager.GetFlag(designation, name);
+            if (flag != null) { return flag; }
+            return CreateFlag(category, type, designation, name, value);
+        }
+
         /* Create a unique entity id for this MSB */
         public uint CreateEntity(EntityType type, string name)
         {
@@ -352,7 +583,7 @@ namespace JortPob
             //if (rawCount >= 1000) { throw new Exception($" Entity ID overflow in m{map:D2}_{x:D2}_{y:D2}"); }
 
             uint newid;
-            if (rawCount >= 1000) { newid = common.CreateEntity(type, name); }
+            if (rawCount >= 950) { newid = manager.common.CreateEntity(type, name); }
             else { newid = mapOffset + ((uint)type) + rawCount; }
 
             entityIdMapping.Add(newid, name);
@@ -360,23 +591,23 @@ namespace JortPob
             return newid;
         }
 
-        private Script.Flag GetFlag(Designation designation, string name)
-        {
-            ScriptFlagLookupKey lookupKey = Script.FormatFlagLookupKey(designation, name.ToLower());
-
-            return FindFlagByLookupKey(lookupKey);
-        }
-
         public Flag FindFlagByLookupKey(ScriptFlagLookupKey key)
         {
             return flagsByLookupKey.GetValueOrDefault(key);
         }
 
-        public void Write()
+        // map 60 and 61 are the main overworld and dlc overworld respectively. All other map ids are interior areas like caves/forts. Important disction as there are differences in how they are handled by the game engine.
+        public bool IsInterior()
         {
-            emevd.Write($"{Const.OUTPUT_PATH}\\event\\m{map:D2}_{x:D2}_{y:D2}_{block:D2}.emevd.dcx");
+            return !(map == 60 || map == 61);
         }
 
+        public void Write()
+        {
+            emevd.Write(Path.Combine(Const.OUTPUT_PATH, "event", $"m{map:D2}_{x:D2}_{y:D2}_{block:D2}.emevd.dcx"));
+        }
+
+        [DebuggerDisplay("Flag :: {category} {type} {designation} {name}")]
         public class Flag
         {
             public enum Category
@@ -396,16 +627,35 @@ namespace JortPob
                 ItemVisibility,                                 // Flag that determines if an item in a shop is visible for the player to buy
                 Global, Local, Reputation, Journal, CrimeLevel,          // CrimeLevel is gold owed to guards, the Crime below is a per npc variable for if you comitted a crime against them
                 Dead, DeadCount, Disabled, Hostile, CrimeEvent, FriendHitCounter, Pickpocketed, ThiefCrime,      // hostile flag exists for friendly npcs, if you piss em off they stab you
+                HasBeenAttacked, // used by a specific filter condition. if the npc is ever hit by the player this is permanently true
                 TopicEnabled, TalkedToPc, Disposition, PlayerRace,
                 FactionJoined, FactionReputation, FactionRank, FactionExpelled,    // faction stuff
-                GuardIsGreeting, PlayerIsTalking, PlayerIsSneaking, PlayerRuneCount,
-                ReturnValueRankReq,                              // these are temp values used by ESD to store variables
+                GuardIsGreeting, PlayerIsTalking, PlayerIsSneaking, PlayerRuneCount, PlayerStat, PlayerItemCount,
+                ReturnValueRankReq, ReturnReactionHigh, ReturnReactionLow,          // these are temp values used by ESD to store variables
+                CurrentWeather,
+                Arrest,                // Flag for determining if guards have attempted an arrest or if they are just going to attack you
                 CrimeAbsolved,            // temp value, setting it to 1 triggers a common emevd event that clears all crime and hostility flags
+                ResetHostility,           // similar to above but doesnt clear crime, just resets hostility
                 HostileQuip, Hello,    // temp value that is flagged when a guard is gretting the player, if the player has a bounty and trys to leave dialog without paying they get dunked on
-                OnActivate, CellChanged, GetButtonPressedBit, GetButtonPressedValue, // used by papyrus to emulate mw script behaviours
+                OnActivate, OnDeath, CellChanged, GetButtonPassBit, GetButtonFailBit, GetButtonPressedValue, // used by papyrus to emulate mw script behaviours
+                PermanentSpeff, NpcModStat,  // Used for maintaining speffs on the player/npcs permanently
+                NpcInfight,   // Used to make npcs fight each other. papyrus StartCombat/StopCombat calls
+                AiPackage,   // Index of what default aipacakge we are running
+                SwitchAiPackage, // Very special event flag that creates a function with a single parameter that kills all ai package events and starts a new one after
+                AiPackageDone,  // Set to 1 when "SwitchAiPackage" is called. Reading from this value in a script sets it back to 0
+                Wander,      // Index of wander position used by Wander AiPackage
+                RunSubscript, // Flag created for StartScript, StopScript, ScriptRunning papyrus calls. when true subscripts run, when false they stop
+                Phase,      // Used by phased npcs to determine what location they are at
                 Message,    // Flag to trigger a popmessage or notification
+                PlaySE,     // Flat to trigger playing a sound effect
                 TravelWarp, // Flag to trigger warping the player from travel npcs
-                RemoveItem  // Flag to trigger removing an item from the player
+                RemoveItem,  // Flag to trigger removing an item from the player
+                Random,      // Flag for EMEVD papyrus to get values from Random calls
+                SecondsPassed, // Timer flag value used to emulate GetSecondsPassed papyrus call
+                TriggerEnable, TriggerDisable,  // Flags set by ESD to trigger an EMEVD event to enable or disable an object
+                DiscoverLocation,  // marks location on your map when set
+                RegisterBed,      // For register bonfire calls in EMEVD
+                Hardcode     // Used by any jank hardcoding I end up doing
             }
 
             public readonly Category category;

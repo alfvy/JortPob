@@ -1,0 +1,52 @@
+{
+  "b_n_imperial_m_hair_00": {
+    "comment": "Bald",
+    "part": 0,
+    "color": "Gray"
+  },
+  "b_n_imperial_m_hair_01": {
+    "comment": "Balding",
+    "part": 2,
+    "color": "White"
+  },
+  "b_n_imperial_m_hair_02": {
+    "comment": "Ponytail",
+    "part": 9,
+    "color": "Light Brown"
+  },
+  "b_n_imperial_m_hair_03": {
+    "comment": "Short Hair",
+    "part": 1,
+    "color": "Brown"
+  },
+  "b_n_imperial_m_hair_04": {
+    "comment": "Short Hair",
+    "part": 3,
+    "color": "Dark Brown"
+  },
+  "b_n_imperial_m_hair_05": {
+    "comment": "Buzz",
+    "part": 113,
+    "color": "Black"
+  },
+  "b_n_imperial_m_hair_06": {
+    "comment": "Long",
+    "part": 10,
+    "color": "Brown"
+  },
+  "b_n_imperial_m_hair_07": {
+    "comment": "Long",
+    "part": 101,
+    "color": "Black"
+  },
+  "b_n_imperial_m_hair_08": {
+    "comment": "Ponytail",
+    "part": 9,
+    "color": "Black"
+  },
+  "b_n_imperial_m_hair_09": {
+    "comment": "Thick",
+    "part": 100,
+    "color": "Black"
+  }
+}

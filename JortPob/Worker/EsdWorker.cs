@@ -1,14 +1,11 @@
 ﻿using System;
 using JortPob.Common;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using SoulsFormats;
 using SoulsIds;
-using ESDLang;
 
 namespace JortPob.Worker
 {
@@ -141,13 +138,13 @@ namespace JortPob.Worker
             }
 
             // Create the spec for EldenRing
-            string gameDir = WindowsifyPath($"{Const.ELDEN_PATH}Game");
+            string gameDir = WindowsifyPath(Path.Combine(Const.ELDEN_PATH, "Game"));
             SoulsIds.GameSpec spec = SoulsIds.GameSpec.ForGame(SoulsIds.GameSpec.FromGame.ER);
             spec.GameDir = gameDir;
 
             // Define universe/editor
             SoulsIds.Universe universe = new();
-            SoulsIds.Scraper scraper = new(spec, $"{Const.ELDEN_PATH}Game\\empty");
+            SoulsIds.Scraper scraper = new(spec, Path.Combine(gameDir, "empty"));
             SoulsIds.GameEditor editor = new GameEditor(spec);
 
             // Back-fill map info into the universe

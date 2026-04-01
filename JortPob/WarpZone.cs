@@ -48,10 +48,10 @@ namespace JortPob
             Vector3 lineStart = new(-110.107f, 14.5f, 11.222f);
             Vector3 lineEnd = new(-123.839f, 14.5f, 4.42f);
 
-            Script debugScript = new(scriptManager.common, 18, 0, 0, 0);
+            Script debugScript = new(scriptManager, 18, 0, 0, 0);
             debugScript.init.Instructions.Add(debugScript.AUTO.ParseAdd($"RegisterBonfire(18000000, 18001950, 0, 0, 0, 5);"));
             debugScript.init.Instructions.Add(debugScript.AUTO.ParseAdd($"RegisterBonfire(18000001, 18001951, 0, 0, 0, 5);"));
-            List<String> debugWarpCellList = new() { "Seyda Neen", "Balmora", "Tel Mora", "Pelagiad", "Caldera", "Khuul", "Gnisis", "Ald Ruhn" };
+            List<String> debugWarpCellList = new() { "Seyda Neen", "Balmora", "Tel Mora", "Pelagiad", "Caldera", "Khuul", "Gnisis", "Ald-ruhn" };
             int debugCounty = 0;
             for (int i = 0; i < debugWarpCellList.Count(); i++)
             {
@@ -107,24 +107,34 @@ namespace JortPob
             EMEVD.Event debugResetEvent = new(debugResetFlag.id);
             debugResetEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"IfActionButtonInArea(MAIN, {actionButtonId2}, {debugResetAsset.EntityID});"));
 
-            int delayCounter = 0; // if you do to much in a single frame the game crashes so every hundred flags we wait a frame
+            int delayCounter = 0; // if you do to much in a single frame the game crashes so we sometimes wait a frame
             foreach (Script.Flag flag in allFlags)
             {
 
                 if (flag.category == Script.Flag.Category.Event) { continue; } // not values, used for event ids
                 if (flag.category == Script.Flag.Category.Temporary) { continue; } // not even saved anyways so skip
                 if (flag.designation == Script.Flag.Designation.PlayerRace) { continue; } // do not reset these as they are only set at character creation
+                if (flag.designation == Script.Flag.Designation.Local && flag.name == "main.runonce") { continue; } // don't reset the papyrus main runonce flag until the very end (so the main startup script doesn't get started until we are done resetting all flag memory)
+                if (flag.designation == Script.Flag.Designation.Hardcode && flag.name == "GameInit") { continue; } // another event we should not reset
 
-                for (int i = 0; i < (int)flag.type; i++)
+                if (flag.type == Script.Flag.Type.Bit)
                 {
-                    bool bit = (flag.value & (1 << i)) != 0;
-                    debugResetEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, {flag.id + i}, {(bit ? "ON" : "OFF")});"));
+                    debugResetEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, {flag.id}, {(flag.value == 1 ? "ON" : "OFF")});"));
+                }
+                else
+                {
+                    debugResetEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"EventValueOperation({flag.id}, {flag.Bits()}, {flag.value}, 0, 1, CalculationType.Assign);"));
                 }
                 if (delayCounter++ > 512)
                 {
                     debugResetEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"WaitFixedTimeFrames(1);"));
                     delayCounter = 0;
                 }
+            }
+            Script.Flag mainRunOnceFlag = scriptManager.GetFlag(Script.Flag.Designation.Local, "main.runonce");
+            if (mainRunOnceFlag != null)  // runonce flag is actually a custom thing i wrote in to the main script in an esp so make this optional to prevent crash
+            {
+                debugResetEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"EventValueOperation({mainRunOnceFlag.id}, {mainRunOnceFlag.Bits()}, {mainRunOnceFlag.value}, 0, 1, CalculationType.Assign);")); // after all other flags, reset main runonce so main can rerun initializer scripts
             }
             debugResetEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"DisplayBanner(31);")); // display a banner when save data reset is done. it takes a secondish
 

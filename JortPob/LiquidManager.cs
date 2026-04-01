@@ -58,7 +58,7 @@ namespace JortPob
 
             /* Files happen */
             string flverPath = @"water\super_water.flver";
-            flver.Write($"{Const.CACHE_PATH}{flverPath}");
+            flver.Write(Path.Combine(Const.CACHE_PATH, flverPath));
 
             /* make a waterinfo class about this generated water */
             LiquidInfo waterInfo = new(0, flverPath);
@@ -68,7 +68,7 @@ namespace JortPob
                 WetMesh wetcollision = tuple.Item2;
                 Obj obj = wetcollision.ToObj(Obj.CollisionMaterial.Water).optimize();
                 string objPath = $"water\\collision[{coordinate.x},{coordinate.y}].obj";
-                obj.write($"{Const.CACHE_PATH}{objPath}");
+                obj.write(Path.Combine(Const.CACHE_PATH, objPath));
 
                 CollisionInfo collisionInfo = new($"water collision[{coordinate.x}, {coordinate.y}]", objPath);
                 waterInfo.AddCollision(coordinate, collisionInfo);
@@ -81,7 +81,7 @@ namespace JortPob
             WetMesh lavaMesh = new WetMesh(GetCutoutType(Cutout.Type.Lava, true), Cutout.Type.Lava);
             FLVER2 lavaFlver = GenerateLavaFlver(lavaMesh, materialContext);
             string lavaFlverPath = @"water\super_lava.flver";
-            lavaFlver.Write($"{Const.CACHE_PATH}{lavaFlverPath}");
+            lavaFlver.Write(Path.Combine(Const.CACHE_PATH, lavaFlverPath));
             LiquidInfo lavaInfo = new(2, lavaFlverPath);
 
 
@@ -90,7 +90,7 @@ namespace JortPob
             WetMesh swampMesh = new WetMesh(GetCutoutType(Cutout.Type.Swamp, true), Cutout.Type.Swamp);
             FLVER2 swampFlver = GenerateSwampFlver(swampMesh, materialContext);
             string swampFlverPath = @"water\super_swamp.flver";
-            swampFlver.Write($"{Const.CACHE_PATH}{swampFlverPath}");
+            swampFlver.Write(Path.Combine(Const.CACHE_PATH, swampFlverPath));
             LiquidInfo swampInfo = new(1, swampFlverPath);
 
             return new List<LiquidInfo>() { waterInfo, swampInfo, lavaInfo };
@@ -199,7 +199,7 @@ namespace JortPob
                 Int2 coordinate = tuple.Item1;
                 Obj obj = tuple.Item2;
                 string objPath = $"cutout\\collision[{coordinate.x},{coordinate.y}].obj";
-                obj.write($"{Const.CACHE_PATH}{objPath}");
+                obj.write(Path.Combine(Const.CACHE_PATH, objPath));
 
                 CollisionInfo collisionInfo = new($"cutout collision[{coordinate.x}, {coordinate.y}]", objPath);
                 CutoutInfo cutoutInfo = new(coordinate, collisionInfo);
@@ -2054,7 +2054,7 @@ namespace JortPob
                 this.mesh = new();
 
                 AssimpContext assimpContext = new();
-                Scene fbx = assimpContext.ImportFile($"{Const.MORROWIND_PATH}Data Files\\meshes\\{meshPath.Replace(".nif", ".fbx")}");
+                Scene fbx = assimpContext.ImportFile(Path.Combine(Const.MORROWIND_PATH, $@"Data Files\meshes\{Path.ChangeExtension(meshPath, "fbx")}"));
                 Mesh mesh = null;  // find first mesh that's not collision and use it
                 Node node = null;
 

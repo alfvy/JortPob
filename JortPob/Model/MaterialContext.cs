@@ -146,14 +146,14 @@ namespace JortPob.Model
 
                         string[] scale = xmlTexture.GetAttribute("scale").Split(",");
 
-                        texture.Type = xmlTexture.GetAttribute("type");
+                        texture.ParamName = xmlTexture.GetAttribute("type");
                         texture.Path = xmlTexture.GetAttribute("path");
-                        texture.Unk10 = byte.Parse(unk10);
-                        texture.Unk11 = bool.Parse(unk11);
+                        texture.TilingTypeU = (FLVER2.Texture.TilingType)byte.Parse(unk10);
+                        texture.TilingTypeV = (FLVER2.Texture.TilingType)byte.Parse(unk11);
                         texture.Unk14 = float.Parse(unk14);
                         texture.Unk18 = float.Parse(unk18);
                         texture.Unk1C = float.Parse(unk1c);
-                        texture.Scale = new System.Numerics.Vector2(float.Parse(scale[0]), float.Parse(scale[1]));
+                        texture.TilingScale = new System.Numerics.Vector2(float.Parse(scale[0]), float.Parse(scale[1]));
 
                         material.Textures.Add(texture);
                     }
@@ -205,14 +205,14 @@ namespace JortPob.Model
                 } 
                 else if (relpath.ToLower().StartsWith("textures\\"))
                 {
-                    abspath = $"{Const.MORROWIND_PATH}Data Files\\{relpath}";
+                    abspath = Path.Combine(Const.MORROWIND_PATH, $@"Data Files\{relpath}");
                 } 
                 else
                 {
-                    abspath = $"{Const.MORROWIND_PATH}Data Files\\Textures\\{relpath}";
+                    abspath = Path.Combine(Const.MORROWIND_PATH, $@"Data Files\Textures\{relpath}");
                 }
 
-                string fileName = Utility.PathToFileName(abspath);
+                string fileName = Path.GetFileNameWithoutExtension(abspath);
 
                 /* Decide what kind of material to generate based on texture name */
                 if (
@@ -235,11 +235,11 @@ namespace JortPob.Model
         {
             if (texturePath.ToLower().StartsWith("textures\\"))
             {
-                texturePath = $"{Const.MORROWIND_PATH}Data Files\\{texturePath}";
+                texturePath = Path.Combine(Const.MORROWIND_PATH, "Data Files", texturePath);
             }
             else
             {
-                texturePath = $"{Const.MORROWIND_PATH}Data Files\\Textures\\{texturePath}";
+                texturePath = Path.Combine(Const.MORROWIND_PATH, @"Data Files\Textures", texturePath);
             }
 
             if (Path.GetExtension(texturePath) == string.Empty)
@@ -247,7 +247,7 @@ namespace JortPob.Model
                 texturePath = Utility.ResourcePath(@"textures\tx_missing.dds");
             }
 
-            string fileName = Utility.PathToFileName(texturePath);
+            string fileName = Path.GetFileNameWithoutExtension(texturePath);
 
             /* Decide what kind of material to generate based on texture name */
             if (fileName.Contains("leave") || fileName.Contains("leaf") || fileName.Contains("plant")) // @TODO: rework this system with an override
@@ -269,7 +269,7 @@ namespace JortPob.Model
             foreach (SharpAssimp.Material sourceMaterial in sourceMaterials)
             {
                 string diffuseTextureSourcePath = sourceMaterial.TextureDiffuse.FilePath != null ? sourceMaterial.TextureDiffuse.FilePath : Utility.ResourcePath(@"textures\tx_missing.dds");
-                string diffuseTexture = Utility.PathToFileName(diffuseTextureSourcePath);
+                string diffuseTexture = Path.GetFileNameWithoutExtension(diffuseTextureSourcePath);
 
                 /* Decide what kind of material to generate based on texture name */
                 if (diffuseTexture.Contains("leave") || diffuseTexture.Contains("leaf") || diffuseTexture.Contains("plant")) // @TODO: rework this system with an override
@@ -294,7 +294,7 @@ namespace JortPob.Model
             }
             else
             {
-                diffuseTexture = Utility.PathToFileName(diffuseTextureSourcePath);
+                diffuseTexture = Path.GetFileNameWithoutExtension(diffuseTextureSourcePath);
                 genTextures.TryAdd(diffuseTextureSourcePath, diffuseTexture);
             }
 
@@ -340,7 +340,7 @@ namespace JortPob.Model
                 }
                 else
                 {
-                    string n = Utility.PathToFileName(diffuseTextureSourcePath);
+                    string n = Path.GetFileNameWithoutExtension(diffuseTextureSourcePath);
                     genTextures.TryAdd(diffuseTextureSourcePath, n);
                     return n;
                 }
@@ -388,7 +388,7 @@ namespace JortPob.Model
             }
             else
             {
-                diffuseTexture = Utility.PathToFileName(diffuseTextureSourcePath);
+                diffuseTexture = Path.GetFileNameWithoutExtension(diffuseTextureSourcePath);
                 genTextures.TryAdd(diffuseTextureSourcePath, diffuseTexture);
             }
 
@@ -433,7 +433,7 @@ namespace JortPob.Model
                 }
                 else
                 {
-                    string n = Utility.PathToFileName(diffuseTextureSourcePath);
+                    string n = Path.GetFileNameWithoutExtension(diffuseTextureSourcePath);
                     genTextures.TryAdd(diffuseTextureSourcePath, n);
                     return n;
                 }
@@ -509,7 +509,7 @@ namespace JortPob.Model
                 }
                 else
                 {
-                    string n = Utility.PathToFileName(diffuseTextureSourcePath);
+                    string n = Path.GetFileNameWithoutExtension(diffuseTextureSourcePath);
                     genTextures.TryAdd(diffuseTextureSourcePath, n);
                     return n;
                 }
@@ -564,7 +564,7 @@ namespace JortPob.Model
                 }
                 else
                 {
-                    string n = Utility.PathToFileName(diffuseTextureSourcePath);
+                    string n = Path.GetFileNameWithoutExtension(diffuseTextureSourcePath);
                     genTextures.TryAdd(diffuseTextureSourcePath, n);
                     return n;
                 }
@@ -639,7 +639,7 @@ namespace JortPob.Model
                 }
                 else
                 {
-                    string n = Utility.PathToFileName(diffuseTextureSourcePath);
+                    string n = Path.GetFileNameWithoutExtension(diffuseTextureSourcePath);
                     genTextures.TryAdd(diffuseTextureSourcePath, n);
                     return n;
                 }
@@ -771,7 +771,7 @@ namespace JortPob.Model
 
         public MaterialInfo GenerateMaterialSwamp(int index)
         {
-            string diffuseTextureSourcePathA = $"{Const.MORROWIND_PATH}Data Files\\textures\\tx_bc_scum.dds"; // hardcoded swamp texture
+            string diffuseTextureSourcePathA = Path.Combine(Const.MORROWIND_PATH, @"Data Files\textures\tx_bc_scum.dds"); // hardcoded swamp texture
             string diffuseTextureA;
             string AddTexture(string diffuseTextureSourcePath)
             {
@@ -781,7 +781,7 @@ namespace JortPob.Model
                 }
                 else
                 {
-                    string n = Utility.PathToFileName(diffuseTextureSourcePath);
+                    string n = Path.GetFileNameWithoutExtension(diffuseTextureSourcePath);
                     genTextures.TryAdd(diffuseTextureSourcePath, n);
                     return n;
                 }
@@ -827,8 +827,8 @@ namespace JortPob.Model
             Lort.NewTask("Writing matbins", genMATBINs.Count());
             foreach(KeyValuePair<string, MATBIN> kvp in genMATBINs)
             {
-                string outFileName = $"{Utility.PathToFileName(kvp.Value.SourcePath)}.matbin";
-                kvp.Value.Write($"{Const.CACHE_PATH}materials\\{outFileName}");
+                string outFileName = Path.ChangeExtension(kvp.Value.SourcePath, ".matbin");
+                kvp.Value.Write(Path.Combine(Const.CACHE_PATH, "materials", outFileName));
                 Lort.TaskIterate();
             }
 
@@ -866,15 +866,13 @@ namespace JortPob.Model
                         int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(data);
 
                         TPF tpf = new TPF();
-                        tpf.Encoding = 1;
-                        tpf.Flag2 = 3;
                         tpf.Platform = TPF.TPFPlatform.PC;
-                        tpf.Compression = DCX.Type.DCX_KRAK;
+                        tpf.Compression = Compression.KRAK();
 
-                        TPF.Texture tex = new($"{kvp.Value}", (byte)format, 0, data, TPF.TPFPlatform.PC);
+                        TPF.Texture tex = new(kvp.Value, (byte)format, 0, data, TPF.TPFPlatform.PC);
                         tpf.Textures.Add(tex);
 
-                        tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}.tpf.dcx");
+                        tpf.Write(Path.Combine(Const.CACHE_PATH, "textures", $"{kvp.Value}.tpf.dcx"));
                     }
 
                     /* And then, make a low detail texture for lods and bind that up */
@@ -882,15 +880,13 @@ namespace JortPob.Model
                         int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(dataLow);
 
                         TPF tpf = new TPF();
-                        tpf.Encoding = 1;
-                        tpf.Flag2 = 3;
                         tpf.Platform = TPF.TPFPlatform.PC;
-                        tpf.Compression = DCX.Type.DCX_KRAK;
+                        tpf.Compression = Compression.KRAK();
 
                         TPF.Texture tex = new($"{kvp.Value}_l", (byte)format, 0, dataLow, TPF.TPFPlatform.PC);
                         tpf.Textures.Add(tex);
 
-                        tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}_l.tpf.dcx");
+                        tpf.Write(Path.Combine(Const.CACHE_PATH, "textures", $"{kvp.Value}_l.tpf.dcx"));
                     }
                 }
                 else
@@ -903,15 +899,13 @@ namespace JortPob.Model
                         int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(errorData);
 
                         TPF tpf = new TPF();
-                        tpf.Encoding = 1;
-                        tpf.Flag2 = 3;
                         tpf.Platform = TPF.TPFPlatform.PC;
-                        tpf.Compression = DCX.Type.DCX_KRAK;
+                        tpf.Compression = Compression.KRAK();
 
                         TPF.Texture tex = new($"{kvp.Value}", (byte)format, 0, errorData, TPF.TPFPlatform.PC);
                         tpf.Textures.Add(tex);
 
-                        tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}.tpf.dcx");
+                        tpf.Write(Path.Combine(Const.CACHE_PATH, "textures", $"{kvp.Value}.tpf.dcx"));
                     }
 
                     /* And then, make a low detail texture for lods and bind that up */
@@ -919,15 +913,13 @@ namespace JortPob.Model
                         int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(errorDataLow);
 
                         TPF tpf = new TPF();
-                        tpf.Encoding = 1;
-                        tpf.Flag2 = 3;
                         tpf.Platform = TPF.TPFPlatform.PC;
-                        tpf.Compression = DCX.Type.DCX_KRAK;
+                        tpf.Compression = Compression.KRAK();
 
                         TPF.Texture tex = new($"{kvp.Value}_l", (byte)format, 0, errorDataLow, TPF.TPFPlatform.PC);
                         tpf.Textures.Add(tex);
 
-                        tpf.Write($"{Const.CACHE_PATH}textures\\{kvp.Value}_l.tpf.dcx");
+                        tpf.Write(Path.Combine(Const.CACHE_PATH, "textures", $"{kvp.Value}_l.tpf.dcx"));
                     }
                 }
 

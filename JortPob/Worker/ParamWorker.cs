@@ -1,8 +1,8 @@
 ﻿using JortPob.Common;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Threading;
 using WitchyFormats;
 using static JortPob.Paramanager;
 
@@ -26,7 +26,7 @@ namespace JortPob.Worker
 
                 FsParam fsp = FsParam.Read(file.Bytes);
                 ParamDefType ty = (ParamDefType)Enum.Parse(typeof(ParamDefType), fsp.ParamType);
-                ParamType ty2 = (ParamType)Enum.Parse(typeof(ParamType), Utility.PathToFileName(file.Name));
+                ParamType ty2 = (ParamType)Enum.Parse(typeof(ParamType), Path.GetFileNameWithoutExtension(file.Name));
                 fsp.ApplyParamdef(paramdefs[ty]);
                 p = fsp;
                 t = ty2;

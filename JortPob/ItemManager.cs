@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.Json.Nodes;
 using WitchyFormats;
+using static IronPython.Modules._ast;
 
 namespace JortPob
 {
@@ -45,18 +46,18 @@ namespace JortPob
         private SpellManager spellManager;
         public RecipeManager recipeManager;
         private SpeffManager speffManager;
-        private IconManager iconManager;
+        private MenuTextureManager textureManager;
         private TextManager textManager;
 
         private int nextWeaponId, nextArmorId, nextAccessoryId, nextGoodsId, nextCustomWeaponId, nextShopId;
 
-        public ItemManager(ESM esm, Paramanager paramanager, ScriptManager scriptManager, SpeffManager speffManager, IconManager iconManager, TextManager textManager)
+        public ItemManager(ESM esm, Paramanager paramanager, ScriptManager scriptManager, SpeffManager speffManager, MenuTextureManager textureManager, TextManager textManager)
         {
             this.paramanager = paramanager;
             this.scriptManager = scriptManager;
             this.spellManager = new SpellManager(esm, paramanager, textManager);
             this.speffManager = speffManager;
-            this.iconManager = iconManager;
+            this.textureManager = textureManager;
             this.textManager = textManager;
 
             items = new();
@@ -159,6 +160,7 @@ namespace JortPob
 
                         switch (def.type)
                         {
+                            case Type.CustomWeapon:
                             case Type.Weapon:
                                 /* First check if this weapon has infusion rows, and if we need to copy them */
                                 FsParam.Row sourceRow = paramanager.GetRow(paramanager.param[Paramanager.ParamType.EquipParamWeapon], def.row);
@@ -201,9 +203,9 @@ namespace JortPob
                                 /* Copy rows and apply modifications */
                                 foreach ((Infusion infusion, int row) in rowsToCopy)
                                 {
-                                    ItemInfo weapon = new(def.id, Type.Weapon, nextWeaponId + (int)infusion, value, scriptItem);
-                                    SillyJsonUtils.CopyRowAndModify(paramanager, speffManager, Paramanager.ParamType.EquipParamWeapon, def.id, row, weapon.row, def.data);
-                                    textManager.AddWeapon(weapon.row, def.text.name, def.text.description, infusion);
+                                    int rowId = nextWeaponId + (int)infusion;
+                                    SillyJsonUtils.CopyRowAndModify(paramanager, speffManager, Paramanager.ParamType.EquipParamWeapon, def.id, row, rowId, def.data);
+                                    textManager.AddWeapon(rowId, def.text.name, def.text.description, infusion);
                                     if (def.text.enchant != null)
                                     {
                                         FsParam.Row infusedSourceRow = paramanager.GetRow(paramanager.param[Paramanager.ParamType.EquipParamWeapon], row);
@@ -217,39 +219,59 @@ namespace JortPob
 
                                             string enchant = def.text.enchant[j++];
                                             int txtId = textManager.AddWeaponEffect(enchant);
-                                            SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamWeapon, weapon.row, fieldName, txtId);
+                                            SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamWeapon, rowId, fieldName, txtId);
                                         }
                                     }
-                                    if (def.useIcon) { SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamWeapon, weapon.row, "iconId", iconManager.GetIconByRecord(id).id); }
-                                    items.Add(weapon);
+                                    if (def.useIcon) { SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamWeapon, rowId, "iconId", textureManager.icon.GetIconByRecord(id).id); }
                                 }
-                                nextWeaponId += 10000;
+
+                                /* Add iteminfo for weapon, or generate customweapon rows if needed */
+                                if(def.type == Type.Weapon)
+                                {
+                                    ItemInfo weapon = new(def.id, Type.Weapon, nextWeaponId, value, scriptItem, json);
+                                    items.Add(weapon);
+                                    nextWeaponId += 10000;
+                                }
+                                else if (def.type == Type.CustomWeapon)
+                                {
+                                    FsParam customWeaponParam = paramanager.param[Paramanager.ParamType.EquipParamCustomWeapon];
+                                    FsParam.Row row = paramanager.CloneRow(customWeaponParam[10], def.id, nextCustomWeaponId);
+                                    row["baseWepId"].Value.SetValue(nextWeaponId + ((int)def.infusion));
+                                    row["gemId"].Value.SetValue(def.skill);
+                                    row["reinforceLv"].Value.SetValue((byte)def.upgrade);
+                                    paramanager.AddRow(customWeaponParam, row);
+
+                                    ItemInfo custom = new(def.id, Type.CustomWeapon, nextCustomWeaponId, value, scriptItem, json);
+                                    items.Add(custom);
+                                    nextCustomWeaponId += 10000;
+                                }
+
                                 break;
                             case Type.Armor:
-                                ItemInfo armor = new(def.id, Type.Armor, nextArmorId, value, scriptItem);
+                                ItemInfo armor = new(def.id, Type.Armor, nextArmorId, value, scriptItem, json);
                                 SillyJsonUtils.CopyRowAndModify(paramanager, speffManager, Paramanager.ParamType.EquipParamProtector, def.id, def.row, nextArmorId, def.data);
                                 textManager.AddArmor(armor.row, def.text.name, def.text.summary, def.text.description);
                                 if (def.useIcon)
                                 {
-                                    SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamProtector, nextArmorId, "iconIdM", iconManager.GetIconByRecord(id).id);
-                                    SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamProtector, nextArmorId, "iconIdF", iconManager.GetIconByRecord(id).id);
+                                    SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamProtector, nextArmorId, "iconIdM", textureManager.icon.GetIconByRecord(id).id);
+                                    SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamProtector, nextArmorId, "iconIdF", textureManager.icon.GetIconByRecord(id).id);
                                 }
                                 nextArmorId += 10000;
                                 items.Add(armor);
                                 break;
                             case Type.Accessory:
-                                ItemInfo accessory = new(def.id, Type.Accessory, nextAccessoryId, value, scriptItem);
+                                ItemInfo accessory = new(def.id, Type.Accessory, nextAccessoryId, value, scriptItem, json);
                                 SillyJsonUtils.CopyRowAndModify(paramanager, speffManager, Paramanager.ParamType.EquipParamAccessory, def.id, def.row, nextAccessoryId, def.data);
                                 textManager.AddAccessory(accessory.row, def.text.name, def.text.summary, def.text.description);
-                                if (def.useIcon) { SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamAccessory, nextAccessoryId, "iconId", iconManager.GetIconByRecord(id).id); }
+                                if (def.useIcon) { SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamAccessory, nextAccessoryId, "iconId", textureManager.icon.GetIconByRecord(id).id); }
                                 nextAccessoryId += 10;
                                 items.Add(accessory);
                                 break;
                             case Type.Goods:
-                                ItemInfo goods = new(def.id, Type.Goods, nextGoodsId, value, scriptItem);
+                                ItemInfo goods = new(def.id, Type.Goods, nextGoodsId, value, scriptItem, json);
                                 SillyJsonUtils.CopyRowAndModify(paramanager, speffManager, Paramanager.ParamType.EquipParamGoods, def.id, def.row, nextGoodsId, def.data);
                                 textManager.AddGoods(goods.row, def.text.name, def.text.summary, def.text.description, def.text.effect);
-                                if (def.useIcon) { SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamGoods, nextGoodsId, "iconId", iconManager.GetIconByRecord(id).id); }
+                                if (def.useIcon) { SillyJsonUtils.SetField(paramanager, Paramanager.ParamType.EquipParamGoods, nextGoodsId, "iconId", textureManager.icon.GetIconByRecord(id).id); }
                                 nextGoodsId += 10;
                                 items.Add(goods);
                                 break;
@@ -266,10 +288,10 @@ namespace JortPob
                         if (remap.type == Type.CustomWeapon)
                         {
                             int customWeaponRow = GenerateCustomWeapon(remap);
-                            it = new(id, remap.type, customWeaponRow, value, scriptItem);
+                            it = new(id, remap.type, customWeaponRow, value, scriptItem, json);
                         }
                         /* Otherwise it's chill */
-                        else { it = new(id, remap.type, remap.row, value, scriptItem); }
+                        else { it = new(id, remap.type, remap.row, value, scriptItem, json); }
 
                         items.Add(it);
 
@@ -518,14 +540,14 @@ namespace JortPob
 
             textManager.AddWeapon(row.ID, json["name"].GetValue<string>(), "Descriptions describe things!");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconId"].Value.SetValue(icon!=null?icon.id:((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
             row["sellValue"].Value.SetValue((int)Math.Max(1, value * Const.MERCANTILE_SELL_SCALE));
             if (speff != null) { row["residentSpEffectId"].Value.SetValue(speff.row); }
 
             paramanager.AddRow(weaponParam, row);
-            items.Add(new(id, Type.Weapon, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Weapon, row.ID, value, hasScriptReference, json));
             nextWeaponId += 10000;
         }
 
@@ -542,14 +564,14 @@ namespace JortPob
 
             textManager.AddWeapon(row.ID, json["name"].GetValue<string>(), "Descriptions describe things!");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconId"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
             row["sellValue"].Value.SetValue((int)Math.Max(1, value * Const.MERCANTILE_SELL_SCALE));
             if (speff != null) { row["residentSpEffectId"].Value.SetValue(speff.row); }
 
             paramanager.AddRow(weaponParam, row);
-            items.Add(new(id, Type.Weapon, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Weapon, row.ID, value, hasScriptReference, json));
             nextWeaponId += 10000;
         }
 
@@ -591,7 +613,7 @@ namespace JortPob
 
             textManager.AddArmor(row.ID, json["name"].GetValue<string>(), "Information informs you.", "Descriptions describe things!");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconIdM"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["iconIdF"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
@@ -599,7 +621,7 @@ namespace JortPob
             if (speff != null) { row["residentSpEffectId"].Value.SetValue(speff.row); }
 
             paramanager.AddRow(armorParam, row);
-            items.Add(new(id, Type.Armor, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Armor, row.ID, value, hasScriptReference, json));
             nextArmorId += 10000;
         }
 
@@ -638,7 +660,7 @@ namespace JortPob
 
             textManager.AddArmor(row.ID, json["name"].GetValue<string>(), "Information informs you.", "Descriptions describe things!");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconIdM"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["iconIdF"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
@@ -646,7 +668,7 @@ namespace JortPob
             if (speff != null) { row["residentSpEffectId"].Value.SetValue(speff.row); }
 
             paramanager.AddRow(armorParam, row);
-            items.Add(new(id, Type.Armor, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Armor, row.ID, value, hasScriptReference, json));
             nextArmorId += 10000;
         }
 
@@ -679,14 +701,14 @@ namespace JortPob
 
             textManager.AddAccessory(row.ID, json["name"].GetValue<string>(), "Information informs you.", "Descriptions describe things!");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconId"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
             row["sellValue"].Value.SetValue((int)Math.Max(1, value * Const.MERCANTILE_SELL_SCALE));
             if (speff != null) { row["refId"].Value.SetValue(speff.row); }
 
             paramanager.AddRow(accessoryParam, row);
-            items.Add(new(id, Type.Accessory, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Accessory, row.ID, value, hasScriptReference, json));
             nextAccessoryId += 10;
         }
 
@@ -700,13 +722,13 @@ namespace JortPob
 
             textManager.AddGoods(row.ID, json["name"].GetValue<string>(), "Information informs you.", "Descriptions describe things!", "More information.");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconId"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
             row["sellValue"].Value.SetValue((int)Math.Max(1, value * Const.MERCANTILE_SELL_SCALE));
 
             paramanager.AddRow(goodsParam, row);
-            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference, json));
             nextGoodsId += 10;
         }
 
@@ -722,7 +744,7 @@ namespace JortPob
 
             SpeffManager.Speff speff = speffManager.GetAlchemySpeff(id);
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconId"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
             row["sellValue"].Value.SetValue((int)Math.Max(1, value * Const.MERCANTILE_SELL_SCALE));
@@ -730,7 +752,7 @@ namespace JortPob
             row["refId_default"].Value.SetValue(speff.row);
 
             paramanager.AddRow(goodsParam, row);
-            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference, json));
             nextGoodsId += 10;
         }
 
@@ -744,13 +766,13 @@ namespace JortPob
 
             textManager.AddGoods(row.ID, json["name"].GetValue<string>(), "Information informs you.", "Descriptions describe things!", "More information.");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconId"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
             row["sellValue"].Value.SetValue((int)Math.Max(1, value * Const.MERCANTILE_SELL_SCALE));
 
             paramanager.AddRow(goodsParam, row);
-            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference, json));
             nextGoodsId += 10;
         }
 
@@ -764,13 +786,13 @@ namespace JortPob
 
             textManager.AddGoods(row.ID, json["name"].GetValue<string>(), "Information informs you.", "Descriptions describe things!", "More information.");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconId"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
             row["sellValue"].Value.SetValue((int)Math.Max(1, value * Const.MERCANTILE_SELL_SCALE));
 
             paramanager.AddRow(goodsParam, row);
-            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference, json));
             nextGoodsId += 10;
         }
 
@@ -784,13 +806,13 @@ namespace JortPob
 
             textManager.AddGoods(row.ID, json["name"].GetValue<string>(), "Information informs you.", "Descriptions describe things!", "More information.");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconId"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
             row["sellValue"].Value.SetValue((int)Math.Max(1, value * Const.MERCANTILE_SELL_SCALE));
 
             paramanager.AddRow(goodsParam, row);
-            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference, json));
             nextGoodsId += 10;
         }
 
@@ -804,13 +826,13 @@ namespace JortPob
 
             textManager.AddGoods(row.ID, json["name"].GetValue<string>(), "Information informs you.", "Descriptions describe things!", "More information.");
 
-            IconManager.IconInfo icon = iconManager.GetIconByRecord(id);
+            IconManager.IconInfo icon = textureManager.icon.GetIconByRecord(id);
             row["iconId"].Value.SetValue(icon != null ? icon.id : ((ushort)0));
             row["rarity"].Value.SetValue((byte)0);
             row["sellValue"].Value.SetValue((int)Math.Max(1, value * Const.MERCANTILE_SELL_SCALE));
 
             paramanager.AddRow(goodsParam, row);
-            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference));
+            items.Add(new(id, Type.Goods, row.ID, value, hasScriptReference, json));
             nextGoodsId += 10;
         }
 
@@ -858,20 +880,18 @@ namespace JortPob
             return null;
         }
 
-        public List<(ItemInfo item, int quantity)> ResolveInventory(NpcContent npc)
-        {
-            return ResolveInventory(npc.inventory);
-        }
-
-        public List<(ItemInfo item, int quantity)> ResolveInventory(ContainerContent container)
-        {
-            return ResolveInventory(container.inventory);
-        }
-
         /* Resolves a content objects inventory (record id and quanity) to actual ItemInfo objects */
         /* Also truncates inventory to 10 slots which is the max size for an ItemLot param chain! */
-        public List<(ItemInfo item, int quantity)> ResolveInventory(List<(string id, int quantity)> inv)
+        public List<(ItemInfo item, int quantity)> ResolveInventory(Content content)
         {
+            List<(string id, int quantity)> inv;
+            switch (content)
+            {
+                case CharacterContent npc: inv = npc.inventory; break;
+                case ContainerContent cnt: inv = cnt.inventory; break;
+                default: throw new Exception($"Content type of '{content.type}' cannot have an inventory to resolve!");
+            }
+
             const int MAX_INV = 10;
 
             if (inv == null || inv.Count() <= 0) { return new(); }
@@ -910,11 +930,14 @@ namespace JortPob
                 (ItemInfo item, int quantity) entry = inventory[i];
                 if (entry.item.id.ToLower() == "gold_001") {
                     inventory.RemoveAt(i--);
-                    ItemInfo rune = new ItemInfo("TEMP_HACK_TODO_GOLDEN_RUNE_ONE", Type.Goods, 2900, 200, false);
+                    ItemInfo rune = new ItemInfo("TEMP_HACK_TODO_GOLDEN_RUNE_ONE", Type.Goods, 2900, 200, false, ItemInfo.OriginalType.MiscItem);
                     inventory.Add((rune, 1)); // @TODO: temporary. see above
                     break;
                 }
             }
+
+            /* If the content is an NPC we resolve their equipment BEFORE truncating their inventory. This prevents npcs with big inventories from losing their clothes */
+            if (content is NpcContent) { ResolveEquipment(content as NpcContent, inventory); }
 
             /* Truncate inventory if it exceeds max size */
             /* We prioritize quest items (script referenced item records) first, then randomly choose from remaining pool what gets included */
@@ -946,6 +969,113 @@ namespace JortPob
             }
 
             return inventory;
+        }
+
+        /* Resolve equipment slots for NpcContent */
+        public void ResolveEquipment(NpcContent npc, List<(ItemInfo item, int quantity)> inventory)
+        {
+            List<ItemManager.ItemInfo> oneHand = new(), acc = new(), goods = new();
+            ItemManager.ItemInfo twoHand = null, ranged = null, arrow = null, bolt = null, shield = null;
+            ItemManager.ItemInfo head = null, body = null, hands = null, legs = null;
+
+            foreach ((ItemInfo item, int quantity) entry in inventory)
+            {
+                switch (entry.item.info)
+                {
+                    case ItemInfo.OriginalType.AxeOneHand:
+                    case ItemInfo.OriginalType.BluntOneHand:
+                    case ItemInfo.OriginalType.LongBladeOneHand:
+                    case ItemInfo.OriginalType.ShortBladeOneHand:
+                        oneHand.Add(entry.item);
+                        break;
+                    case ItemInfo.OriginalType.AxeTwoHand:
+                    case ItemInfo.OriginalType.BluntTwoClose:
+                    case ItemInfo.OriginalType.BluntTwoWide:
+                    case ItemInfo.OriginalType.LongBladeTwoClose:
+                    case ItemInfo.OriginalType.SpearTwoWide:
+                        if (twoHand != null && entry.item.value > twoHand.value) { twoHand = entry.item; }
+                        else if (twoHand == null) { twoHand = entry.item; }
+                        break;
+                    case ItemInfo.OriginalType.MarksmanBow:
+                    case ItemInfo.OriginalType.MarksmanCrossbow:
+                        if (ranged != null && entry.item.value > ranged.value) { ranged = entry.item; }
+                        else if (ranged == null) { ranged = entry.item; }
+                        break;
+                    case ItemInfo.OriginalType.Arrow:
+                        if (arrow != null && entry.item.value > arrow.value) { arrow = entry.item; }
+                        else if (arrow == null) { arrow = entry.item; }
+                        break;
+                    case ItemInfo.OriginalType.Bolt:
+                        if (bolt != null && entry.item.value > bolt.value) { bolt = entry.item; }
+                        else if (bolt == null) { bolt = entry.item; }
+                        break;
+                    case ItemInfo.OriginalType.Shield:
+                        if (shield != null && entry.item.value > shield.value) { shield = entry.item; }
+                        else if (shield == null) { shield = entry.item; }
+                        break;
+                    case ItemInfo.OriginalType.Helmet:
+                        if (head != null && entry.item.value > head.value) { head = entry.item; }
+                        else if (head == null) { head = entry.item; }
+                        break;
+                    case ItemInfo.OriginalType.Cuirass:
+                    case ItemInfo.OriginalType.Shirt:
+                    case ItemInfo.OriginalType.Robe:
+                        if (body != null && entry.item.value > body.value) { body = entry.item; }
+                        else if (body == null) { body = entry.item; }
+                        break;
+                    case ItemInfo.OriginalType.LeftBracer:
+                    case ItemInfo.OriginalType.RightBracer:
+                    case ItemInfo.OriginalType.LeftGlove:
+                    case ItemInfo.OriginalType.RightGlove:
+                        if (hands != null && entry.item.value > hands.value) { hands = entry.item; }
+                        else if (hands == null) { hands = entry.item; }
+                        break;
+                    case ItemInfo.OriginalType.Greaves:
+                    case ItemInfo.OriginalType.Boots:
+                    case ItemInfo.OriginalType.Pants:
+                    case ItemInfo.OriginalType.Skirt:
+                    case ItemInfo.OriginalType.Shoes:
+                        if (legs != null && entry.item.value > legs.value) { legs = entry.item; }
+                        else if (legs == null) { legs = entry.item; }
+                        break;
+                    case ItemInfo.OriginalType.Amulet:
+                    case ItemInfo.OriginalType.Ring:
+                    case ItemInfo.OriginalType.Belt:
+                        acc.Add(entry.item);
+                        break;
+                    case ItemInfo.OriginalType.Alchemy:
+                    case ItemInfo.OriginalType.MarksmanThrown:
+                        goods.Add(entry.item);
+                        break;
+                }
+            }
+
+            oneHand = oneHand.OrderByDescending(i => i.value).ToList();
+            acc = acc.OrderByDescending(i => i.value).ToList();
+            goods = goods.OrderByDescending(i => i.value).ToList();
+
+            ItemInfo rightHand, leftHand;
+            // Go twohanded big weapon
+            if (twoHand != null && twoHand.value > oneHand.FirstOrDefault()?.value) { rightHand = twoHand; leftHand = null; }
+            // Go dual short blades
+            else if (oneHand.Count() >= 2 && oneHand[0].info == ItemInfo.OriginalType.ShortBladeOneHand && oneHand[1].info == ItemInfo.OriginalType.ShortBladeOneHand) { rightHand = oneHand[0]; leftHand = oneHand[1]; }
+            // One handed weapon and shield (if we have a shield)
+            else if (oneHand.Count() >= 1) { rightHand = oneHand[0]; leftHand = shield; }
+            // Bare hands I guess!
+            else { rightHand = null; leftHand = null; }
+
+            // Set npc equip slots now
+            npc.equipWeaponRight = rightHand;
+            npc.equipWeaponLeft = leftHand;
+            npc.equipRange = ranged;
+            npc.equipHead = head;
+            npc.equipBody = body;
+            npc.equipHands = hands;
+            npc.equipLegs = legs;
+            npc.equipArrow = arrow;
+            npc.equipBolt = bolt;
+            npc.equipAcc = acc[..Math.Min(acc.Count(), 4)].ToArray();
+            npc.equipGood = goods[..Math.Min(goods.Count(), 6)].ToArray();
         }
 
         /* Creates params for a barter shop from a list of item record ids and returns the base row */
@@ -1052,18 +1182,18 @@ namespace JortPob
         }
 
         /* Creates params for an enchant shop, parameter determines the max quality of enchantments provided */
-        public int CreateShop(NpcContent.Stats.Tier tier)
+        public int CreateShop(CharacterContent.Stats.Tier tier)
         {
             /* Randomly select skills to provide based on tier */
             List<Override.SkillInfo> skillPool = Override.GetSkills(tier); // this method creates a new list so we can modify it without issue
             int numItems;
             switch(tier)
             {
-                case NpcContent.Stats.Tier.Novice: numItems = Utility.RandomRange(1, 2); break;
-                case NpcContent.Stats.Tier.Apprentice: numItems = Utility.RandomRange(3, 4); break;
-                case NpcContent.Stats.Tier.Journeyman: numItems = Utility.RandomRange(5, 7); break;
-                case NpcContent.Stats.Tier.Expert: numItems = Utility.RandomRange(8, 11); break;
-                case NpcContent.Stats.Tier.Master: numItems = Utility.RandomRange(13, 18); break;
+                case CharacterContent.Stats.Tier.Novice: numItems = Utility.RandomRange(1, 2); break;
+                case CharacterContent.Stats.Tier.Apprentice: numItems = Utility.RandomRange(3, 4); break;
+                case CharacterContent.Stats.Tier.Journeyman: numItems = Utility.RandomRange(5, 7); break;
+                case CharacterContent.Stats.Tier.Expert: numItems = Utility.RandomRange(8, 11); break;
+                case CharacterContent.Stats.Tier.Master: numItems = Utility.RandomRange(13, 18); break;
                 default: throw new Exception($"Invalid skill tier: {tier}"); // can't happen
             }
 
@@ -1148,19 +1278,53 @@ namespace JortPob
         [DebuggerDisplay("Item :: {id} :: {type}->{row}")]
         public class ItemInfo
         {
+            public enum OriginalType  // type from morrowind record
+            {
+                // Weapon types
+                Arrow, AxeOneHand, AxeTwoHand, BluntOneHand, BluntTwoClose, BluntTwoWide, Bolt, LongBladeOneHand, LongBladeTwoClose, MarksmanBow, 
+                MarksmanCrossbow, MarksmanThrown, ShortBladeOneHand, SpearTwoWide,
+                // Armor types
+                Boots, Cuirass, Greaves, Helmet, LeftBracer, LeftGauntlet, LeftPauldron, RightBracer, RightGauntlet, RightPauldron, Shield,
+                // Clothing types
+                Amulet, Belt, LeftGlove, Pants, RightGlove, Ring, Robe, Shirt, Shoes, Skirt,
+                // Regular item types
+                Ingredient, Alchemy, Book, MiscItem, Apparatus, Probe, Lockpick, RepairItem
+            }
+
             public readonly Type type;  // param type
             public readonly int row;    // param row
             public readonly string id;  // morrowind record id
             public readonly int value;  // value for shops to use
             public readonly bool quest; // item is referenced in a script. this doesn't 100% mean its a quest item but it does mean it's needed to compile scripts
+            public readonly OriginalType info;
 
-            public ItemInfo(string id, Type type, int row, int value, bool quest)
+            public ItemInfo(string id, Type type, int row, int value, bool quest, JsonNode json)
             {
                 this.id = id;
                 this.type = type;
                 this.row = row;
                 this.value = value;
                 this.quest = quest;
+
+                /* Extract original type from json */
+                string recordType = json["type"].GetValue<string>().ToLower().Trim();
+                string itemType;
+                if (recordType == "weapon") { itemType = json["data"]["weapon_type"].GetValue<string>(); }
+                else if (recordType == "armor") { itemType = json["data"]["armor_type"].GetValue<string>(); }
+                else if (recordType == "clothing") { itemType = json["data"]["clothing_type"].GetValue<string>(); }
+                else { itemType = json["type"].GetValue<string>(); }
+
+                info = Enum.Parse<OriginalType>(itemType);
+            }
+
+            public ItemInfo(string id, Type type, int row, int value, bool quest, ItemInfo.OriginalType info)
+            {
+                this.id = id;
+                this.type = type;
+                this.row = row;
+                this.value = value;
+                this.quest = quest;
+                this.info = info;
             }
 
             /* Returns the correct int value for an equipType param field. */

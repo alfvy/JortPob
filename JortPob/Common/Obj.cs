@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Windows.Forms;
 
 namespace JortPob.Common
 {
@@ -186,13 +187,107 @@ namespace JortPob.Common
             return objs;
         }
 
+        /* Merges all faces into a single G of the given material */
+        public Obj collapse(Obj.CollisionMaterial material)
+        {
+            Obj obj = new();
+            obj.vs.AddRange(vs);
+            obj.vts.AddRange(vts);
+            obj.vns.AddRange(vns);
+
+            ObjG objG = new();
+            objG.name = $"{material}";
+            objG.mtl = $"hkm_{material}_Safe1";
+            
+            foreach(ObjG g in gs)
+            {
+                objG.fs.AddRange(g.fs);
+            }
+
+            obj.gs.Add(objG);
+            return obj;
+        }
+
+        /* Merges an obj into this obj at a given transformation. This particular part of the obj api was created for navmesh scene building. */
+        public void add(Obj obj, Vector3 position, Vector3 rotation, float scale)
+        {
+            int offsetV = vs.Count();
+            int offsetVN = vns.Count();
+            int offsetVT = vts.Count();
+
+            /* Some fucked math to get correct transform */
+            Vector3 d2r = rotation * (MathF.PI / 180f);
+            Matrix4x4 rx = Matrix4x4.CreateRotationX(d2r.X);
+            Matrix4x4 ry = Matrix4x4.CreateRotationY(d2r.Y);
+            Matrix4x4 rz = Matrix4x4.CreateRotationZ(d2r.Z);
+
+            Matrix4x4 mt = Matrix4x4.CreateTranslation(position);
+            Matrix4x4 mr = rx * rz * ry;
+            Matrix4x4 ms = Matrix4x4.CreateScale(scale);
+            Matrix4x4 transform = ms * mr * mt;
+
+            /* copy vertices from source obj into this obj with the given transforms */
+            foreach (Vector3 v in obj.vs)
+            {
+                Vector3 transformed = Vector3.Transform(v, transform);
+                vs.Add(transformed);
+            }
+            foreach (Vector3 vn in obj.vns)
+            {
+                Vector3 rotated = Vector3.TransformNormal(vn, mr);
+                vns.Add(rotated);
+            }
+            foreach(Vector3 vt in obj.vts)
+            {
+                vts.Add(vt);
+            }
+
+            /* copy face indices */
+            foreach(ObjG g in obj.gs)
+            {
+                ObjG G = new();
+                G.name = g.name;
+                G.mtl = g.mtl;
+                foreach(ObjF f in g.fs)
+                {
+                    ObjV A = new(f.a.v + offsetV, f.a.vt + offsetVT, f.a.vn + offsetVN);
+                    ObjV B = new(f.b.v + offsetV, f.b.vt + offsetVT, f.b.vn + offsetVN);
+                    ObjV C = new(f.c.v + offsetV, f.c.vt + offsetVT, f.c.vn + offsetVN);
+                    ObjF F = new(A, B, C);
+                    G.fs.Add(F);
+                }
+                gs.Add(G);
+            }
+        }
+
+        /* Returns number of triangles in this obj */
+        public int count()
+        {
+            return gs.Sum(g => g.fs.Count());
+        }
+
+        /* return true if obj has nothing in it */
+        public bool empty()
+        {
+            return count() <= 0;
+        }
+
+        /* only works on objs written by this api */
+        public static int GetFaceCount(string objPath)
+        {
+            var objLines = File.ReadLines(objPath);
+            string line = objLines.First();
+            return int.Parse(line.Split(":")[1].Trim());
+        }
+
         /* Takes data in this class and writes an obj file of it to the path specified */
         public void write(string outPath)
         {
             StringBuilder sb = new();
 
             /* Header */
-            sb.Append($"mtllib {Utility.PathToFileName(outPath)}.mtl\r\n");
+            sb.Append($"## Triangle Count: {count()}\r\n");
+            sb.Append($"mtllib {Path.GetFileNameWithoutExtension(outPath)}.mtl\r\n");
 
             /* write vertices */
             sb.Append("## Vertices: "); sb.Append(vs.Count); sb.Append(" ##\r\n");

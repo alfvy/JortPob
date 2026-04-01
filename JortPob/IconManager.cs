@@ -1,36 +1,27 @@
 ﻿using DirectXTexNet;
 using JortPob.Common;
-using SharpAssimp;
 using SoulsFormats;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization.Metadata;
-using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
-using TeximpNet.DDS;
-using static IronPython.Modules._ast;
-using static JortPob.IconManager.IconLayout;
 using static JortPob.SpeffManager.Speff.Effect;
 
 namespace JortPob
 {
     public class IconManager
     {
-        public readonly List<IconInfo> icons;
-        public readonly List<BuffInfo> buffs;
+        public List<IconInfo> icons { get; init; }
+        public List<BuffInfo> buffs { get; init; }
 
         public ushort nextIconId = 19000; // all ids after this are free to use
         public ushort nextBuffId = 20600; // all ids after this are free to use
 
         public IconManager(ESM esm)
         {
-            if (Const.DEBUG_SKIP_ICONS) { return; }
+            if (Const.DEBUG_SKIP_MENU_TEXTURES) { return; }
 
             /* Item Icons */
             Lort.Log($"Loading icons...", Lort.Type.Main);
@@ -95,7 +86,7 @@ namespace JortPob
         /* This one is special, this is getting an icon based on a record that uses it. Multiple records can use the same icon so its a slow search */
         public IconInfo GetIconByRecord(string record)
         {
-            if (Const.DEBUG_SKIP_ICONS) { return new IconInfo("Default", 0); }
+            if (Const.DEBUG_SKIP_MENU_TEXTURES) { return new IconInfo("Default", 0); }
 
             foreach (IconInfo icon in icons)
             {
@@ -109,7 +100,7 @@ namespace JortPob
 
         public BuffInfo GetBuffByType(SpeffManager.Speff.Effect.MagicEffect type)
         {
-            if (Const.DEBUG_SKIP_ICONS) { return null; }
+            if (Const.DEBUG_SKIP_MENU_TEXTURES) { return null; }
 
             foreach (BuffInfo buff in buffs)
             {
@@ -121,10 +112,8 @@ namespace JortPob
             return null;
         }
 
-        public void Write()
+        public (BXF4 hiBxf, BXF4 lowBxf) Write()
         {
-            if (Const.DEBUG_SKIP_ICONS) { return; }
-
             /* Do regular icons for use in the inventory */
             const int WIDTH = 4096;
             const int HEIGHT = 2048;
@@ -141,9 +130,9 @@ namespace JortPob
             List<(IconInfo iconInfo, Bitmap bitmap)> bitmaps = new();
             foreach (IconInfo icon in icons)
             {
-                byte[] ddsBytes = System.IO.File.ReadAllBytes($"{Const.MORROWIND_PATH}Data Files\\icons\\{icon.path}");
+                byte[] ddsBytes = File.ReadAllBytes(Path.Combine(Const.MORROWIND_PATH, $@"Data Files\icons\{icon.path}"));
                 using Bitmap bitmap = Common.DDS.DDStoBitmap(ddsBytes);
-                Bitmap scaledBitmap = Common.Utility.XbrzUpscale(bitmap, 5);
+                Bitmap scaledBitmap = Utility.XbrzUpscale(bitmap, 5);
                 bitmaps.Add((icon, scaledBitmap));
             }
 
@@ -193,9 +182,9 @@ namespace JortPob
             List<(BuffInfo buffInfo, Bitmap bitmap)> buffBitmaps = new();
             foreach (BuffInfo buff in buffs)
             {
-                byte[] ddsBytes = System.IO.File.ReadAllBytes($"{Const.MORROWIND_PATH}Data Files\\icons\\{buff.path}");
+                byte[] ddsBytes = File.ReadAllBytes(Path.Combine(Const.MORROWIND_PATH, $@"Data Files\icons\{buff.path}"));
                 Bitmap buffBitmap = Common.DDS.DDStoBitmap(ddsBytes);
-                buffBitmap = Common.Utility.XbrzUpscale(buffBitmap, 4);
+                buffBitmap = Utility.XbrzUpscale(buffBitmap, 4);
                 buffBitmap = Utility.ResizeBitmap(buffBitmap, BUFF, BUFF);
                 buffBitmaps.Add((buff, buffBitmap));
             }
@@ -236,8 +225,8 @@ namespace JortPob
 
             void AddSheets(string layoutPath, string tpfPath, string hilow)
             {
-                TPF tpf = TPF.Read($"{Const.ELDEN_PATH}Game\\{tpfPath}");
-                BND4 bnd = BND4.Read($"{Const.ELDEN_PATH}Game\\{layoutPath}");
+                TPF tpf = TPF.Read(Path.Combine(Const.ELDEN_PATH, "Game", tpfPath));
+                BND4 bnd = BND4.Read(Path.Combine(Const.ELDEN_PATH, "Game", layoutPath));
 
                 foreach ((Layout layout, Bitmap bitmap) tuple in sheets)
                 {
@@ -258,8 +247,8 @@ namespace JortPob
                     bnd.Files.Add(bf);
                 }
 
-                tpf.Write($"{Const.OUTPUT_PATH}{tpfPath}");
-                bnd.Write($"{Const.OUTPUT_PATH}{layoutPath}");
+                tpf.Write(Path.Combine(Const.OUTPUT_PATH, tpfPath));
+                bnd.Write(Path.Combine(Const.OUTPUT_PATH, layoutPath));
             }
 
             Lort.Log($"Binding {sheets.Count()} sheets...", Lort.Type.Main);
@@ -278,20 +267,20 @@ namespace JortPob
             Lort.Log($"Generating {icons.Count()} previews...", Lort.Type.Main);
             Lort.NewTask("Generating Previews", icons.Count());
 
-            void AddIcons(string path)
+            BXF4 AddIcons(string path)
             {
                 /* Load BXF4 from elden ring directory (requires game unpacked!) */
-                BXF4 bxf = BXF4.Read($"{Const.ELDEN_PATH}Game\\{path}.tpfbhd", $"{Const.ELDEN_PATH}Game\\{path}.tpfbdt");
+                BXF4 bxf = BXF4.Read(Path.Combine(Const.ELDEN_PATH, $@"Game\{path}.tpfbhd"), Path.Combine(Const.ELDEN_PATH, $@"Game\{path}.tpfbdt"));
                 List<BinderFile> filesToInsert = new();
 
                 /* Generate binder files to add from dds texture files */
                 foreach(IconInfo icon in icons)
                 {
-                    byte[] data = System.IO.File.ReadAllBytes($"{Const.MORROWIND_PATH}Data Files\\icons\\{icon.path}");
+                    byte[] data = File.ReadAllBytes(Path.Combine(Const.MORROWIND_PATH, $@"Data Files\icons\{icon.path}"));
 
                     Bitmap bitmap = Common.DDS.DDStoBitmap(data);
-                    Bitmap scaledBitmap = Common.Utility.XbrzUpscale(bitmap, 6); // 32x32x -> 192x192
-                    Bitmap linearScaledBitmap = Common.Utility.LinearToSRGB(scaledBitmap);
+                    Bitmap scaledBitmap = Utility.XbrzUpscale(bitmap, 6); // 32x32x -> 192x192
+                    Bitmap linearScaledBitmap = Utility.LinearToSRGB(scaledBitmap);
                     byte[] scaledDDS = Common.DDS.BitmapToDDS(linearScaledBitmap, DXGI_FORMAT.BC2_UNORM);
                     scaledBitmap.Dispose();
                     linearScaledBitmap.Dispose();
@@ -299,10 +288,8 @@ namespace JortPob
                     int format = JortPob.Common.DDS.GetTpfFormatFromDdsBytes(scaledDDS);
 
                     TPF tpf = new TPF();
-                    tpf.Encoding = 1;
-                    tpf.Flag2 = 3;
                     tpf.Platform = TPF.TPFPlatform.PC;
-                    tpf.Compression = DCX.Type.DCX_KRAK;
+                    tpf.Compression = Compression.KRAK();
 
                     TPF.Texture tex = new(icon.TextureName(), (byte)format, 0, scaledDDS, TPF.TPFPlatform.PC);
                     tpf.Textures.Add(tex);
@@ -326,15 +313,17 @@ namespace JortPob
                 }
 
                 /* Write */
-                bxf.Write($"{Const.OUTPUT_PATH}{path}.tpfbhd", $"{Const.OUTPUT_PATH}{path}.tpfbdt");
+                return bxf;
             }
 
             Lort.Log($"Binding {icons.Count()} previews...", Lort.Type.Main);
             Lort.NewTask("Binding Previews", 2);
-            AddIcons(hiPath); Lort.TaskIterate();
-            AddIcons(lowPath); Lort.TaskIterate();
+            var hiBxf = AddIcons(hiPath); Lort.TaskIterate();
+            var lowBxf = AddIcons(lowPath); Lort.TaskIterate();
 
             Lort.TaskIterate();
+
+            return (hiBxf, lowBxf);
         }
 
         public class IconInfo

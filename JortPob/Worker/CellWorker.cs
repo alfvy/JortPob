@@ -3,8 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
-using System.Threading;
-using System.Threading.Tasks;
 
 #nullable enable
 
@@ -17,10 +15,9 @@ namespace JortPob.Worker
             bool is_interior = node["data"]!["flags"]!.GetValue<string>().ToLower().Contains("is_interior");
             int x = int.Parse(node["data"]!["grid"]![0]!.ToString());
             int y = int.Parse(node["data"]!["grid"]![1]!.ToString());
-            if (Const.DEBUG_EXCLUSIVE_CELL_BUILD_BY_NAME != null && !(node["name"] != null && node["name"]!.ToString() == Const.DEBUG_EXCLUSIVE_CELL_BUILD_BY_NAME)) { return null; }
             if (Math.Abs(x) > Const.CELL_EXTERIOR_BOUNDS || Math.Abs(y) > Const.CELL_EXTERIOR_BOUNDS || is_interior)
             {
-                if (!Const.DEBUG_EXCLUSIVE_INTERIOR_BUILD_NAME(node["name"]!.ToString()) || Const.DEBUG_SKIP_INTERIOR)
+                if (!Const.DEBUG_EXCLUSIVE_INTERIOR_BUILD_NAME(node["name"]!.ToString()))
                 {
                     return null;
                 }

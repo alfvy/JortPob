@@ -1,16 +1,14 @@
-﻿using JortPob.Common;
+﻿using FSParam;
+using JortPob.Common;
 using JortPob.Worker;
-using Microsoft.Scripting.Hosting;
 using SoulsFormats;
+using SoulsFormats.Cryptography;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Text.Json.Nodes;
 using WitchyFormats;
-using static JortPob.Override;
-using static SoulsFormats.MSBAC4.Event;
 
 namespace JortPob
 {
@@ -87,6 +85,7 @@ namespace JortPob
         public readonly TextManager textManager;
 
         public readonly Dictionary<ParamType, FsParam> param;
+        public readonly LiveParam extendedTalkParam;
 
         public Dictionary<string, int> interactActionButtons, itemActionButtons; // string is the text of the button prompt, int is the row id
 
@@ -106,7 +105,7 @@ namespace JortPob
             interactActionButtons = new();
             itemActionButtons = new();
 
-            SoulsFormats.BND4 paramBnd = SoulsFormats.SFUtil.DecryptERRegulation(Utility.ResourcePath(@"misc\regulation.bin"));
+            SoulsFormats.BND4 paramBnd = RegulationDecryptor.DecryptERRegulation(Utility.ResourcePath(@"misc\regulation.bin"));
             string[] files = Directory.GetFiles(Utility.ResourcePath(@"misc\paramdefs"));
 
             Dictionary<ParamDefType, WitchyFormats.PARAMDEF> paramdefs = new();
@@ -141,6 +140,23 @@ namespace JortPob
             talkParam.ClearRows();
             foreach (FsParam.Row row in openingcustcenestuff) {
                 talkParam.AddRow(row);
+            }
+
+            /* Load extenedTalkParam and do the same thing as above */
+            foreach(BinderFile bf in paramBnd.Files) { if (Path.GetFileNameWithoutExtension(bf.Name) == ParamType.TalkParam.ToString()) { extendedTalkParam = LiveParam.Read(bf.Bytes); break; } }
+            extendedTalkParam.ApplyParamdef(SoulsFormats.PARAMDEF.XmlDeserialize(Utility.ResourcePath(@"misc\paramdefs\TalkParam.xml")));
+
+            List<LiveParam.Row> openingcustcenestuff2 = new();
+            foreach (LiveParam.Row row in extendedTalkParam.Rows)
+            {
+                if (row.ID > 1500080)
+                    break;
+                openingcustcenestuff2.Add(row);
+            }
+            extendedTalkParam.ClearRows();
+            foreach (LiveParam.Row row in openingcustcenestuff2)
+            {
+                extendedTalkParam.AddRow(row);
             }
 
             /* Clear out recipe and recipe material params */
@@ -192,6 +208,39 @@ namespace JortPob
             itemLotParamMap.ClearRows();
             foreach (FsParam.Row row in keepMapLots) { itemLotParamMap.AddRow(row); }
 
+            /* Clear out mapheight params, these are 1000% not needed for the morrowind map. Just trust me */
+            FsParam mapGridHeightParam = param[ParamType.MapGridCreateHeightLimitInfoParam];
+            for (int i = 0; i < mapGridHeightParam.Rows.Count(); i++)
+            {
+                FsParam.Row row = mapGridHeightParam.Rows[i];
+                if (row.ID >= 99999901) { continue; } // keep some base params
+                mapGridHeightParam.RemoveRow(row);
+                i--;
+            }
+
+            FsParam mapGridHeightDetailParam = param[ParamType.MapGridCreateHeightDetailLimitInfo];
+            for (int i = 0; i < mapGridHeightDetailParam.Rows.Count(); i++)
+            {
+                FsParam.Row row = mapGridHeightDetailParam.Rows[i];
+                if (row.ID <= 2) { continue; } // keep some base params
+                mapGridHeightDetailParam.RemoveRow(row);
+                i--;
+            }
+
+            /* Clear out WorldMapPointParam. We don't need any of these from the base game. */
+            FsParam worldMapPointParam = param[ParamType.WorldMapPointParam];
+            FsParam.Row worldMapPointParamTemplate = GetRow(worldMapPointParam, 61413800);   // grab stormhill shack as our template
+            worldMapPointParamTemplate.ID = 1;
+            worldMapPointParamTemplate["eventFlagId"].Value.SetValue(6000u); // always off
+            worldMapPointParam.ClearRows();
+            AddRow(worldMapPointParam, worldMapPointParamTemplate);
+
+            /* Clear out WorldMapPlaceNaemParam. We don't need any of these from the base game. */
+            FsParam worldMapPlaecNameParam = param[ParamType.WorldMapPlaceNameParam];
+            FsParam.Row worldMapPlaecNameParamTemplate = GetRow(worldMapPlaecNameParam, 1);   // grab the blank one as a template
+            worldMapPlaecNameParam.ClearRows();
+            AddRow(worldMapPlaecNameParam, worldMapPlaecNameParamTemplate);
+
             GC.Collect(); // maybe fixes a bug with fsparam. 80% sure
         }
 
@@ -223,9 +272,10 @@ namespace JortPob
             Lort.Log($"Binding {param.Count()} PARAMs...", Lort.Type.Main);
             Lort.NewTask($"Binding PARAMs", param.Count());
             Lort.Log($"Total TalkParam rows: {param[Paramanager.ParamType.TalkParam].Rows.Count()} out of a max of {ushort.MaxValue}", Lort.Type.Debug);
-
+            
+            /* Write params */
             BND4 bnd = new();
-            bnd.Compression = SoulsFormats.DCX.Type.DCX_ZSTD;
+            bnd.Compression = Compression.ZSTD();
             bnd.Version = "11601000";
             int i = 0;
             foreach (KeyValuePair<ParamType, FsParam> kvp in param)
@@ -245,7 +295,10 @@ namespace JortPob
 
                 Lort.TaskIterate();
             }
-            SFUtil.EncryptERRegulation($"{Const.OUTPUT_PATH}regulation.bin", bnd);
+            RegulationDecryptor.EncryptERRegulation(Path.Combine(Const.OUTPUT_PATH, "regulation.bin"), bnd);
+
+            /* Write LiveParam extended talk rows */
+            extendedTalkParam.Write(Path.Combine(Const.OUTPUT_PATH, "ExtendedTalkParam.param"));
         }
 
         /* picks the partdrawparam for an asset based on its size. smaller assets have shorter render distance etc */
@@ -637,22 +690,20 @@ namespace JortPob
         }
 
         public void GenerateTalkParam(List<NpcManager.TopicData> topicData)
-        {
-            FsParam talkParam = param[ParamType.TalkParam];
-            
+        { 
             /*
              * Since FsParam[ID] is actually a linear search for a matching row, we build a Dictionary up-front
              * to speed up checks. Because of this, however, we need to keep it up-to-date in the loop below.
              */
-            Dictionary<int, FsParam.Row> rowsById = talkParam.Rows.ToDictionary(r => r.ID);
+            Dictionary<int, LiveParam.Row> rowsById = extendedTalkParam.Rows.ToDictionary(r => r.ID);
 
-            FsParam.Row templateTalkRow = rowsById[1400000]; // 1400000 is a line from opening cutscene
+            LiveParam.Row templateTalkRow = rowsById[1400000]; // 1400000 is a line from opening cutscene
 
-            FsParam.Column msgId = talkParam["msgId"];
-            FsParam.Column voiceId = talkParam["voiceId"];
+            LiveParam.Column msgId = extendedTalkParam["msgId"];
+            LiveParam.Column voiceId = extendedTalkParam["voiceId"];
 
-            FsParam.Column msgId_female = talkParam["msgId_female"];
-            FsParam.Column voiceId_female = talkParam["voiceId_female"];
+            LiveParam.Column msgId_female = extendedTalkParam["msgId_female"];
+            LiveParam.Column voiceId_female = extendedTalkParam["voiceId_female"];
 
             foreach (NpcManager.TopicData topic in topicData)
             {
@@ -667,7 +718,9 @@ namespace JortPob
                         if (rowsById.ContainsKey(id)) { continue; }
 
                         // truncating the text in the row name because it can cause issues if it is too long
-                        FsParam.Row row = CloneRow(templateTalkRow, text.Substring(0, Math.Min(32, text.Length)), id); // 1400000 is a line from opening cutscene
+                        LiveParam.Row row = new LiveParam.Row(templateTalkRow);
+                        row.ID = id;
+                        row.Name = text.Substring(0, Math.Min(32, text.Length));
 
                         msgId.SetValue(row, id * 10); // message id (male)
                         voiceId.SetValue(row, id * 10); // message id (male)
@@ -676,11 +729,116 @@ namespace JortPob
                         voiceId_female.SetValue(row, id * 10); // message id (female)
 
                         textManager.AddTalk(id * 10, text);
-                        AddRow(talkParam, row);
+                        LiveParam.Row oldrow = extendedTalkParam[row.ID];
+                        if (oldrow != null)
+                            extendedTalkParam.RemoveRow(oldrow);
+                        extendedTalkParam.AddRow(row);
                         rowsById[id] = row; // this is where we keep the lookup up-to-date
                     }
                 }
             }
+        }
+
+        public void GenerateFaceParam(NpcContent npc, int id)
+        {
+            Override.FaceData face = Override.GetFace(npc.head);
+            Override.Hair hair = Override.GetHair(npc.hair);
+
+            int rowToCopy = 23150; // default girl women as our template
+
+            FsParam faceParam = param[ParamType.FaceParam];
+            FsParam.Row row = CloneRow(faceParam[rowToCopy], npc.id, id);
+
+            // set values for face
+            foreach(var kvp in face.data)
+            {
+                row[kvp.Key].Value.SetValue(kvp.Value);
+            }
+
+            // set values for hair
+            byte[] color = hair.GetColor();
+            row["hair_partsId"].Value.SetValue(hair.part);
+            row["hair_color_R"].Value.SetValue(color[0]);
+            row["hair_color_G"].Value.SetValue(color[1]);
+            row["hair_color_B"].Value.SetValue(color[2]);
+            row["beard_color_R"].Value.SetValue(color[0]);
+            row["beard_color_G"].Value.SetValue(color[1]);
+            row["beard_color_B"].Value.SetValue(color[2]);
+            row["body_hairColor_R"].Value.SetValue(color[0]);
+            row["body_hairColor_G"].Value.SetValue(color[1]);
+            row["body_hairColor_B"].Value.SetValue(color[2]);
+
+            AddRow(faceParam, row);
+        }
+
+        public void GenerateCharInitParam(ItemManager itemManager, NpcContent npc, int id)
+        {
+            Override.FaceData face = Override.GetFace("");
+            Override.Hair hair = Override.GetHair("");
+
+            int rowToCopy = 23150; // default girl women as our template
+
+            FsParam charInitParam = param[ParamType.CharaInitParam];
+            FsParam.Row row = CloneRow(charInitParam[rowToCopy], npc.id, id);
+
+            /* Face and sex */
+            GenerateFaceParam(npc, id); // create faceparam to pair with this charainit
+            row["npcPlayerFaceGenId"].Value.SetValue(id);  // set faceparam
+            row["npcPlayerSex"].Value.SetValue(npc.sex == CharacterContent.Sex.Male ? (byte)1 : (byte)0); // set sex
+
+            /* Equipment */
+            row["equip_Wep_Right"].Value.SetValue(npc.equipWeaponRight?.row ?? -1);
+            row["equip_Subwep_Right"].Value.SetValue(npc.equipRange?.row ?? -1);
+            row["equip_Wep_Left"].Value.SetValue(npc.equipWeaponLeft?.row ?? -1);
+            row["equip_Helm"].Value.SetValue(npc.equipHead?.row ?? -1);
+            row["equip_Armer"].Value.SetValue(npc.equipBody?.row ?? -1);   // SIC
+            row["equip_Gaunt"].Value.SetValue(npc.equipHands?.row ?? -1);
+            row["equip_Leg"].Value.SetValue(npc.equipLegs?.row ?? -1);
+            row["equip_Arrow"].Value.SetValue(npc.equipArrow?.row ?? -1);
+            row["equip_Bolt"].Value.SetValue(npc.equipBolt?.row ?? -1);
+
+            for (int i = 0; i < npc.equipAcc.Length; i++)
+            {
+                ItemManager.ItemInfo acc = npc.equipAcc[i];
+                row[$"equip_Accessory{i + 1:D2}"].Value.SetValue(acc.row);
+            }
+
+            for (int i = 0; i < npc.equipGood.Length; i++)
+            {
+                ItemManager.ItemInfo good = npc.equipGood[i];
+                row[$"item_{i + 1:D2}"].Value.SetValue(good.row);
+                row[$"itemNum_{i + 1:D2}"].Value.SetValue((byte)1);   // @TODO: npc use item counts?
+            }
+
+            /* Stats */  // @TODO: placeholder calc for stats. directly translation with a little scaling. will comeback to this when we get more into gameplay design
+            int vigr = (int)(npc.level * 2.9f) + 7;
+            int endr = (int)(npc.stats.Get(CharacterContent.Stats.Attribute.Endurance) * .75f);
+            int strg = (int)(npc.stats.Get(CharacterContent.Stats.Attribute.Strength) * .75f);
+            int dext = (int)(((npc.stats.Get(CharacterContent.Stats.Attribute.Agility) + npc.stats.Get(CharacterContent.Stats.Attribute.Speed)) * .5f) * .75f);
+            int mind = (int)(npc.stats.Get(CharacterContent.Stats.Attribute.Willpower) * .75f);
+            int intl = (int)(npc.stats.Get(CharacterContent.Stats.Attribute.Intelligence) * .75f);
+            int fath = (int)(((npc.stats.Get(CharacterContent.Stats.Attribute.Luck) + npc.stats.Get(CharacterContent.Stats.Attribute.Willpower)) * .5f) * .75f);
+            int arcn = (int)(npc.stats.Get(CharacterContent.Stats.Attribute.Personality) * .75f);
+            int total = Math.Max(1, vigr + endr + strg + dext + mind + intl + fath + arcn - 79);
+
+            row["baseHp"].Value.SetValue((ushort)0);
+            row["baseMp"].Value.SetValue((ushort)0);
+            row["baseSp"].Value.SetValue((ushort)0);
+
+            row["HpEstMax"].Value.SetValue((sbyte)0);
+            row["MpEstMax"].Value.SetValue((sbyte)0);
+
+            row["soulLv"].Value.SetValue((short)total);
+            row["baseVit"].Value.SetValue((byte)vigr);
+            row["baseWil"].Value.SetValue((byte)mind);
+            row["baseEnd"].Value.SetValue((byte)endr);
+            row["baseStr"].Value.SetValue((byte)strg);
+            row["baseDex"].Value.SetValue((byte)dext);
+            row["baseMag"].Value.SetValue((byte)intl);
+            row["baseFai"].Value.SetValue((byte)fath);
+            row["baseLuc"].Value.SetValue((byte)arcn);
+
+            AddRow(charInitParam, row);
         }
 
         public void GenerateNpcParam(ItemManager itemManager, Script script, NpcContent npc, int id)
@@ -691,7 +849,7 @@ namespace JortPob
             else { rowToCopy = 523010000; }          // white mask varre
 
             FsParam npcParam = param[ParamType.NpcParam];
-            FsParam.Row row = CloneRow(npcParam[rowToCopy], npc.name, id); // 523010000 is white mask varre
+            FsParam.Row row = CloneRow(npcParam[rowToCopy], npc.id, id);
 
             int itemLotRow;
             List<(ItemManager.ItemInfo item, int quantity)> inventory = itemManager.ResolveInventory(npc);
@@ -702,10 +860,52 @@ namespace JortPob
 
             int textId = textManager.AddNpcName(npc.name);
             row.Cells[5].SetValue(textId); // nameId
-            row.Cells[105].SetValue((byte)(npc.hostile ? 27 : 26)); // team type (hostile=27, friendly=26)
+            row.Cells[105].SetValue((byte)26); // team type [friendlynpc=26]
             row["itemLotId_enemy"].Value.SetValue(itemLotRow);
 
-             AddRow(npcParam, row);
+            AddRow(npcParam, row);
+        }
+
+        public void GenerateNpcParam(ItemManager itemManager, Script script, CreatureContent creature, int id, Override.EnemyRemap remap)
+        {
+            int rowToCopy = remap.npc.row;
+
+            FsParam npcParam = param[ParamType.NpcParam];
+            FsParam.Row row = CloneRow(npcParam[rowToCopy], creature.id, id);
+
+            int itemLotRow;
+            List<(ItemManager.ItemInfo item, int quantity)> inventory = itemManager.ResolveInventory(creature);
+            if (inventory.Count() > 0) { itemLotRow = GenerateInventoryItemLot(script, creature, inventory); }    // @TODO: rework item lot generation for creatures to be non-fixed
+            else { itemLotRow = -1; }
+
+            int textId = textManager.AddNpcName(creature.name);
+            row.Cells[5].SetValue(textId); // nameId
+            row.Cells[105].SetValue((byte)(creature.IsHostile() ? 6 : 26)); // team type (enemy=6, hostilenpc=27, friendlynpc=26)
+            row["itemLotId_enemy"].Value.SetValue(itemLotRow);
+
+            // @TODO: apply data from json remap to param!
+
+            AddRow(npcParam, row);
+        }
+
+        public void GenerateThinkParam(ItemManager itemManager, Script script, NpcContent npc, int id)
+        {
+            FsParam thinkParam = param[ParamType.NpcThinkParam];
+            FsParam.Row row = CloneRow(thinkParam[533250000], npc.id, id); // 533250000 is rogier followy
+
+            // STUB:: do stuff to this param lol
+
+            AddRow(thinkParam, row);
+        }
+
+        public void GenerateThinkParam(ItemManager itemManager, Script script, CreatureContent creature, int id, Override.EnemyRemap remap)
+        {
+            FsParam thinkParam = param[ParamType.NpcThinkParam];
+            FsParam.Row row = CloneRow(thinkParam[remap.think.row], creature.id, id);
+
+            // STUB:: do stuff to this param lol
+
+            AddRow(thinkParam, row);
         }
 
         public int GenerateActionButtonItemParam(string text)
@@ -761,7 +961,7 @@ namespace JortPob
         {
             int rowId = nextActionButtonId++;
 
-            FLVER2 flver = FLVER2.Read($"{Const.CACHE_PATH}{modelInfo.path}"); // load flver of this door so we can look at its bounding box
+            FLVER2 flver = FLVER2.Read(Path.Combine(Const.CACHE_PATH, modelInfo.path)); // load flver of this door so we can look at its bounding box
             float x = flver.Nodes[0].BoundingBoxMax.X - flver.Nodes[0].BoundingBoxMin.X;
             float z = flver.Nodes[0].BoundingBoxMax.Z - flver.Nodes[0].BoundingBoxMin.Z;
             float width = x > z ? x : z;
@@ -774,7 +974,7 @@ namespace JortPob
             int textId = textManager.AddActionButton(text);
 
             row["regionType"].Value.SetValue((byte)0); // cylinder
-            row["dummyPoly1"].Value.SetValue(-1); // these seem to be broken in ER so setting -1
+            row["dummyPoly1"].Value.SetValue((int)Const.FLVER_DMY_BOTTOM); // area for entering door is at the bottom since the check is at the feet of the player character
             row["dummyPoly2"].Value.SetValue(-1);
             row["radius"].Value.SetValue(width); // radius
             row["angle"].Value.SetValue(180); // angle from dmy
@@ -808,25 +1008,39 @@ namespace JortPob
         }
 
         /* Generate or get an already generated worldmappoint to be used as a placename. Not for actual map icons! */
-        public int GenerateWorldMapPoint(BaseTile tile, Cell cell, Vector3 relative, int id)
+        public int GenerateWorldMapPoint(BaseTile tile, Layout.MapPoint point, int id)
         {
             FsParam worldMapPointParam = param[ParamType.WorldMapPointParam];
-            FsParam.Row row = CloneRow(worldMapPointParam[61423600], $"{cell.name} placename", id); // 61423600 is limgrave church of elleh placename
+            FsParam.Row row = CloneRow(worldMapPointParam[1], $"{point.name} placename", id); // 1 is our template
 
-            int textId = textManager.AddLocation(cell.name);
+            int textId = textManager.AddLocation(point.name);
 
-            row["eventFlagId"].Value.SetValue(60000u);  // idk if we need to genrate ids, this seems to just work
-            row["dispMask00"].Value.SetValue((byte)0);
+            row["eventFlagId"].Value.SetValue(point.discovered.id);
+            row["iconId"].Value.SetValue((ushort)point.icon);
+            row["altIconId"].Value.SetValue((ushort)point.icon);
+            row["dispMask00"].Value.SetValue((byte)1);
+            row["dispMinZoomStep"].Value.SetValue((byte)(point.important ? 0 : 1));
+            row["selectMinZoomStep"].Value.SetValue((byte)(point.important ? 0 : 1));
 
             row["areaNo"].Value.SetValue((byte)tile.map);
             row["gridXNo"].Value.SetValue((byte)tile.coordinate.x);
             row["gridZNo"].Value.SetValue((byte)tile.coordinate.y);
 
-            row["posX"].Value.SetValue(relative.X);
-            row["posY"].Value.SetValue(relative.Y);
-            row["posZ"].Value.SetValue(relative.Z);
+            row["posX"].Value.SetValue(point.relative.X);
+            row["posY"].Value.SetValue(point.relative.Y);
+            row["posZ"].Value.SetValue(point.relative.Z);
 
             row["textId1"].Value.SetValue(textId);
+
+            row["textEnableFlag2Id3"].Value.SetValue(0);
+            row["textDisableFlag2Id3"].Value.SetValue(0);
+
+            row["textId3"].Value.SetValue(-1);
+            row["textEnableFlagId3"].Value.SetValue((uint)0);
+            row["textDisableFlagId3"].Value.SetValue((uint)0);
+            row["textType3"].Value.SetValue((byte)0);
+
+            row["entryFEType"].Value.SetValue((byte)(point.important?0:2));  // 0 shows a area title when you walk into it, 2 does not
 
             AddRow(worldMapPointParam, row);
 
@@ -837,12 +1051,16 @@ namespace JortPob
         public int GenerateWorldMapPoint(InteriorGroup group, Cell cell, Vector3 relative, int id)
         {
             FsParam worldMapPointParam = param[ParamType.WorldMapPointParam];
-            FsParam.Row row = CloneRow(worldMapPointParam[61423600], $"{cell.name} placename", id); // 61423600 is limgrave church of elleh placename
+            FsParam.Row row = CloneRow(worldMapPointParam[1], $"{cell.name} placename", id); // 1 is our template
 
             int textId = textManager.AddLocation(cell.name);
 
-            row["eventFlagId"].Value.SetValue(60000u);  // idk if we need to genrate ids, this seems to just work
-            row["dispMask00"].Value.SetValue((byte)0);
+            row["eventFlagId"].Value.SetValue(6001u);  // always on event flag
+            row["iconId"].Value.SetValue((ushort)0);
+            row["altIconId"].Value.SetValue((ushort)0);
+            row["dispMask00"].Value.SetValue((byte)0);   // never show on map
+            row["dispMask01"].Value.SetValue((byte)0);   // never show on map
+            row["dispMask02"].Value.SetValue((byte)0);   // never show on map
 
             row["areaNo"].Value.SetValue((byte)group.map);
             row["gridXNo"].Value.SetValue((byte)group.area);
@@ -853,6 +1071,16 @@ namespace JortPob
             row["posZ"].Value.SetValue(relative.Z);
 
             row["textId1"].Value.SetValue(textId);
+
+            row["textEnableFlag2Id3"].Value.SetValue(0);
+            row["textDisableFlag2Id3"].Value.SetValue(0);
+
+            row["textId3"].Value.SetValue(-1);
+            row["textEnableFlagId3"].Value.SetValue((uint)0);
+            row["textDisableFlagId3"].Value.SetValue((uint)0);
+            row["textType3"].Value.SetValue((byte)0);
+
+            row["entryFEType"].Value.SetValue((byte)0);
 
             AddRow(worldMapPointParam, row);
 
@@ -906,6 +1134,8 @@ namespace JortPob
             int[] charMakeMenuListItemParam_Races = new int[] { 240, 241, 242, 243, 244, 245, 246, 247, 248, 249 };
             int charMakeMenuListItemParam_Race_Gender_Offset = 20; // add this to above value to get the female version
 
+            FsParam.Row imperialMaleFaceDefault = null;  // setting all class choices to default to imperial male
+
             FsParam charMakeMenuListItemParam = param[ParamType.CharMakeMenuListItemParam];
             FsParam faceParam = param[ParamType.FaceParam];
             for (int i = 0; i < charMakeMenuListItemParam_Races.Count(); i++)
@@ -934,8 +1164,17 @@ namespace JortPob
                 faceMaleRow.Name = $"Male {playerRace.name}";   // row names for helpful debugging
                 faceFemaleRow.Name = $"Female {playerRace.name}";
 
-                faceMaleRow["burn_scar"].Value.SetValue(playerRace.id);  // the burn scars value is used as a race indentifier. this is picked up by scripts and reset to 0 on first game load
+                /* Apply facedata from json */
+                Override.FaceData maleFaceData = Override.GetFace($"cc_m_{playerRace.name.ToLower().Replace(" ", "")}");
+                Override.FaceData femaleFaceData = Override.GetFace($"cc_f_{playerRace.name.ToLower().Replace(" ", "")}");
+                foreach (var kvp in maleFaceData.data) { faceMaleRow[kvp.Key].Value.SetValue(kvp.Value); }
+                foreach (var kvp in femaleFaceData.data) { faceFemaleRow[kvp.Key].Value.SetValue(kvp.Value); }
+
+                // the burn scars value is used as a race indentifier. this is picked up by scripts and reset to 0 on first game load
+                faceMaleRow["burn_scar"].Value.SetValue(playerRace.id);
                 faceFemaleRow["burn_scar"].Value.SetValue(playerRace.id);
+
+                if(playerRace.name.ToLower() == "imperial") { imperialMaleFaceDefault = faceMaleRow; }
             }
 
             // Class stuff
@@ -961,11 +1200,80 @@ namespace JortPob
                 charMakeMenuListClassRow["captionId"].Value.SetValue(classTextId);
 
                 // Char init rows
-                FsParam.Row classRow = charInitParam[(int)(uint)baseClassRow["chrInitParam"].Value.Value];
-                FsParam.Row originRow = charInitParam[(int)(uint)baseClassRow["originChrInitParam"].Value.Value];
+                FsParam.Row classFaceRow = charInitParam[(int)(uint)baseClassRow["chrInitParam"].Value.Value];     // face default for a class
+                FsParam.Row originRow = charInitParam[(int)(uint)baseClassRow["originChrInitParam"].Value.Value];  // actual class
 
-                classRow.Name = playerClass.name;   // row names for helpful debugging
+                classFaceRow.Name = playerClass.name;   // row names for helpful debugging
                 originRow.Name = playerClass.name;
+
+                classFaceRow["npcPlayerFaceGenId"].Value.SetValue(imperialMaleFaceDefault.ID); // make all class choices have the imperial male a their default chr choice
+
+                foreach(var (key, value) in playerClass.data)
+                {
+                    FsParam.Cell cell = (FsParam.Cell)originRow[key];
+                    switch (cell.Value)
+                    {
+                        case short:
+                            cell.SetValue((short)value);
+                            break;
+                        case byte:
+                            cell.SetValue((byte)value);
+                            break;
+                        default:
+                            throw new NotImplementedException($"Type {cell.Value.GetType()} not implemented in GenerateCustomCharacterCreation()");
+                    }
+                }
+
+                originRow["equip_Wep_Right"].Value.SetValue(-1);
+                originRow["equip_Subwep_Right"].Value.SetValue(-1);
+                originRow["equip_Wep_Left"].Value.SetValue(-1);
+                originRow["equip_Subwep_Left"].Value.SetValue(-1);
+
+                originRow["equip_Helm"].Value.SetValue(-1);
+                originRow["equip_Armer"].Value.SetValue(160100);  // SIC
+                originRow["equip_Gaunt"].Value.SetValue(-1);
+                originRow["equip_Leg"].Value.SetValue(160300);
+
+                originRow["equip_Arrow"].Value.SetValue(-1);
+                originRow["equip_SubArrow"].Value.SetValue(-1);
+            }
+
+            // Gift stuff
+            List<Override.Gift> gifts = Override.GetCharacterCreationGifts();
+            int[] charInitParam_Gifts = new int[] { 2400, 2401, 2402, 2403, 2404, 2405, 2406, 2407, 2408, 2409 };
+            int[] charMakeMenuListItemParam_Gifts = new int[] { 100300, 100301, 100302, 100303, 100304, 100305, 100306, 100307, 100308, 100309 };
+            for (int i = 0; i < baseChrSelectMenuParam_Classes.Count(); i++)
+            {
+                Override.Gift gift = gifts[i];
+                FsParam.Row charMakeMenuListGiftRow = charMakeMenuListItemParam[charMakeMenuListItemParam_Gifts[i]];
+                FsParam.Row charInitGiftRow = charInitParam[charInitParam_Gifts[i]];
+
+                // Text in menu
+                int classTextId = textManager.AddMenuText(gift.name, gift.description);
+                charMakeMenuListGiftRow.Name = gift.name;   // row names for helpful debugging
+                charMakeMenuListGiftRow["captionId"].Value.SetValue(classTextId);
+
+                // Change item in CharInit
+                charInitGiftRow.Name = gift.name;
+                charInitGiftRow["item_03"].Value.SetValue(-1);
+                charInitGiftRow["itemNum_03"].Value.SetValue((byte)0);
+                charInitGiftRow["equip_Accessory01"].Value.SetValue(-1);
+
+                foreach (var (key, value) in gift.data)
+                {
+                    FsParam.Cell cell = (FsParam.Cell)charInitGiftRow[key];
+                    switch (cell.Value)
+                    {
+                        case int:
+                            cell.SetValue((int)value);
+                            break;
+                        case byte:
+                            cell.SetValue((byte)value);
+                            break;
+                        default:
+                            throw new NotImplementedException($"Type {cell.Value.GetType()} not implemented in GenerateCustomCharacterCreation()");
+                    }
+                }
             }
 
             // Minor text tweaks
@@ -982,7 +1290,7 @@ namespace JortPob
         }
 
         /* Generates an itemlot with a single item and no flag */
-        public int GenerateAddItemLot(ItemManager.ItemInfo itemInfo)
+        public int GenerateAddItemLot(ItemManager.ItemInfo itemInfo, int quantity)
         {
             FsParam itemLotParam = param[Paramanager.ParamType.ItemLotParam_map];
             FsParam.Row row = CloneRow(itemLotParam[0], $"single, repeatable, scripted, {itemInfo.type}", nextMapItemLotId); // 0 is a default template we created in the constructor
@@ -990,7 +1298,7 @@ namespace JortPob
             row["getItemFlagId"].Value.SetValue((uint)0);
             row["lotItemCategory01"].Value.SetValue(itemInfo.ItemLotCategory());
             row["lotItemId01"].Value.SetValue(itemInfo.row);
-            row["lotItemNum01"].Value.SetValue((byte)1);
+            row["lotItemNum01"].Value.SetValue((byte)quantity);
             row[$"lotItemBasePoint01"].Value.SetValue((ushort)1000);
 
             AddRow(itemLotParam, row);
@@ -1057,6 +1365,7 @@ namespace JortPob
 
             int i = 0;
             int baseRow = nextMapItemLotId;
+            int totalValue = 0;
             foreach ((ItemManager.ItemInfo item, int quantity) entry in inventory)
             {
                 Script.Flag itemLotFlag = script.CreateFlag(Script.Flag.Category.Saved, Script.Flag.Type.Bit, Script.Flag.Designation.Item, $"Container::{container.id}:{0}");
@@ -1070,17 +1379,18 @@ namespace JortPob
                 row[$"lotItemBasePoint01"].Value.SetValue((ushort)1000);
 
                 i++;
+                totalValue += entry.item.value;
                 AddRow(itemLotParam, row);
             }
 
-            script.RegisterContainerAsset(container);
+            script.RegisterContainerAsset(container, totalValue);
 
             nextMapItemLotId += 10;
             return baseRow;
         }
 
         /* Generates an enemy item lot from the inventory of an npccontent with no flag. This is for LIVING npcs when the player kills them */
-        public int GenerateInventoryItemLot(Script script, NpcContent npc, List<(ItemManager.ItemInfo item, int quantity)> inventory)
+        public int GenerateInventoryItemLot(Script script, Content content, List<(ItemManager.ItemInfo item, int quantity)> inventory)
         {
             FsParam itemLotParam = param[Paramanager.ParamType.ItemLotParam_enemy];
             if (inventory.Count() <= 0) { return -1; } // skip empty inv
@@ -1090,7 +1400,7 @@ namespace JortPob
             int baseRow = nextEnemyItemLotId;
             foreach ((ItemManager.ItemInfo item, int quantity) entry in inventory)
             {
-                FsParam.Row row = CloneRow(itemLotParam[584000500], $"npc inventory, repeatable, {npc.id}:{i}:{entry.item.id}", baseRow + i); // 584000500 is a blankish one i found that looked good as a base
+                FsParam.Row row = CloneRow(itemLotParam[584000500], $"npc inventory, repeatable, {content.id}:{i}:{entry.item.id}", baseRow + i); // 584000500 is a blankish one i found that looked good as a base
                 
                 row["getItemFlagId"].Value.SetValue((uint)0);
                 row[$"lotItemCategory01"].Value.SetValue(entry.item.ItemLotCategory());
@@ -1106,27 +1416,33 @@ namespace JortPob
             return baseRow;
         }
 
-        /* Die */ // @TODO: maybe move all row removal into the constructor since it can just *happen*
-        public void KillMapHeightParams()
+        public void GenerateLoadingMenuRows(TextManager text)
         {
-            /* Delete most of these */
-            FsParam mapGridHeightParam = param[ParamType.MapGridCreateHeightLimitInfoParam];
-            for (int i = 0; i < mapGridHeightParam.Rows.Count(); i++)
-            {
-                FsParam.Row row = mapGridHeightParam.Rows[i];
-                if (row.ID >= 99999901) { continue; } // keep some base params
-                mapGridHeightParam.RemoveRow(row);
-                i--;
-            }
+            // all custom loading menu items are stored in "resources/msg/loadingMenuItems.json"
+            // quantity testing hasn't been done yet, but there can be more loading titles than the base game
+            // just don't go crazy without telling one of the mods
 
-            /* Delete most of these */
-            FsParam mapGridHeightDetailParam = param[ParamType.MapGridCreateHeightDetailLimitInfo];
-            for (int i = 0; i < mapGridHeightDetailParam.Rows.Count(); i++)
+            if (Const.DEBUG_SKIP_MENU_TEXTURES) return;
+
+            // Grab loading menu text override
+            List<Override.LoadingTip> loadingTips = Override.GetLoadingTips();
+
+            // Wipe out loading text param
+            FsParam loadingMenuParam = param[ParamType.KnowledgeLoadScreenItemParam];
+            loadingMenuParam.ClearRows();
+
+            // Add our new ones in
+            foreach (Override.LoadingTip loadingTip in loadingTips)
             {
-                FsParam.Row row = mapGridHeightDetailParam.Rows[i];
-                if (row.ID <= 2) { continue; } // keep some base params
-                mapGridHeightDetailParam.RemoveRow(row);
-                i--;
+                FsParam.Row row = new FsParam.Row(loadingMenuParam.Rows.Count()+1, loadingTip.title, loadingMenuParam);
+                int textId = textManager.AddLoadingTip(loadingTip.title, loadingTip.text);
+
+                row["disableParam_NT"].Value.SetValue((byte)0);
+                row["unlockFlagId"].Value.SetValue((UInt32)0);
+                row["invalidFlagId"].Value.SetValue((UInt32)0);
+                row["msgId"].Value.SetValue(textId);
+
+                loadingMenuParam.AddRow(row);
             }
         }
     }

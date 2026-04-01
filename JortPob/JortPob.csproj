@@ -12,6 +12,8 @@
     <PackageReference Include="geometry3Sharp" />
     <PackageReference Include="gfoidl.Base64" />
     <PackageReference Include="MeshDecimator.RahimovIR" />
+    <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
+    <PackageReference Include="NAudio" />
     <PackageReference Include="SharpAssimp" />
     <PackageReference Include="System.Drawing.Common" />
     <PackageReference Include="System.Speech" />
@@ -20,6 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="ERNavmeshGenCS">
+      <HintPath>DLL\ERNavmeshGenCS.dll</HintPath>
+    </Reference>
     <Reference Include="ESDLang">
       <HintPath>DLL\ESDLang.dll</HintPath>
     </Reference>
@@ -43,7 +48,6 @@
     </Reference>
     <Reference Include="IronPython.Modules">
       <HintPath>DLL\IronPython.Modules.dll</HintPath>
-      <Private></Private>
     </Reference>
     <Reference Include="IronPython.SQLite">
       <HintPath>DLL\IronPython.SQLite.dll</HintPath>
@@ -87,44 +91,42 @@
   </ItemGroup>
 
   <!-- DLLs -->
-  <ItemGroup>
-    <None Update="DLL\HKLib.dll">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="DLL\HKLib.Reflection.dll">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="DLL\HKLib.Serialization.dll">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="DLL\HKX2.dll">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="DLL\SoulsIds.dll">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="DLL\tes3-interop.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DLL\tes3.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="libzstd.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DLL\SoulsAssetPipeline.dll">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="DLL\SoulsFormats.dll">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="DLL\ZstdNet.dll">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="oo2core_6_win64.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+	<Target Name="CopyFileToRoot" AfterTargets="AfterBuild">
+		<Copy SourceFiles="DLL\BouncyCastle.Cryptography.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\DrSwizzler.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\ERNavmeshGen.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\ERNavmeshGenCS.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\ESDLang.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\esdtool.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\HKLib.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\HKLib.Reflection.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\HKLib.Serialization.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\HkxUpgradeLib.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\IronPython.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\IronPython.Modules.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\IronPython.SQLite.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\IronPython.Wpf.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\keystone.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\libzstd.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\Microsoft.Dynamic.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\Microsoft.Scripting.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\Microsoft.Scripting.Metadata.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\Mono.Unix.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\NativeFileDialogSharp.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\Newtonsoft.Json.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\nfd.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\SoulsAssetPipeline.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\SoulsFormats.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\SoulsIds.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\StudioUtils.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\System.CodeDom.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\tes3-interop.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\tes3.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\Tommy.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\WitchyFormats.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\ZstdNet.dll" DestinationFolder="$(OutDir)" />
+		<Copy SourceFiles="DLL\Zydis.dll" DestinationFolder="$(OutDir)" />
+	</Target>
 	
   <!-- Resources -->
   <ItemGroup>

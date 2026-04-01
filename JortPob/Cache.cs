@@ -246,7 +246,7 @@ namespace JortPob
         /* Big stupid load function */
         public static Cache Load(ESM esm)
         {
-            string manifestPath = Const.CACHE_PATH + @"cache.json";
+            string manifestPath = Path.Combine(Const.CACHE_PATH, "cache.json");
 
             /* Cache Exists ? */
             if (File.Exists(manifestPath))
@@ -285,7 +285,7 @@ namespace JortPob
                         {
                             foreach (Content content in contents)
                             {
-                                if(content.mesh == null) { continue; }  // skip content with no mesh
+                                if(String.IsNullOrEmpty(content.mesh)) { continue; }  // skip content with no mesh
                                 if (addCutouts) { LiquidManager.AddCutout(content); } // check if this is a lava or swamp mesh and add it to cutouts if it is
                                 var model = GetMesh(content);
                                 if (model == null)
@@ -302,7 +302,7 @@ namespace JortPob
                     }
                 }
                 ScoopEmUp(esm.exterior, true);
-                if (!Const.DEBUG_SKIP_INTERIOR) { ScoopEmUp(esm.interior, false); }
+                ScoopEmUp(esm.interior, false);
 
                 Lort.Log($"Generating new cache...", Lort.Type.Main);
 
@@ -325,8 +325,8 @@ namespace JortPob
 
                 /* Add some pregen assets */
                 ModelInfo boxModelInfo = new("InteriorShadowBox", $"meshes\\interior_shadow_box.flver", 100);
-                ModelConverter.NIFToFLVER(materialContext, boxModelInfo, false, Utility.ResourcePath(@"mesh\\box.nif"), $"{Const.CACHE_PATH}{boxModelInfo.path}");
-                FLVER2 boxFlver = FLVER2.Read($"{Const.CACHE_PATH}{boxModelInfo.path}"); // we need this box to be exactly 1 unit in each direction no matter what so we just edit it real quick
+                ModelConverter.NIFToFLVER(materialContext, boxModelInfo, false, Utility.ResourcePath(@"mesh\box.nif"), Path.Combine(Const.CACHE_PATH, boxModelInfo.path));
+                FLVER2 boxFlver = FLVER2.Read(Path.Combine(Const.CACHE_PATH, boxModelInfo.path)); // we need this box to be exactly 1 unit in each direction no matter what so we just edit it real quick
                 foreach (FLVER.Vertex v in boxFlver.Meshes[0].Vertices)
                 {
                     float x = v.Position.X > 0f ? .5f : -.5f;
@@ -335,11 +335,14 @@ namespace JortPob
                     v.Position = new Vector3(x, y, z);
                 }
                 BoundingBoxSolver.FLVER(boxFlver); // redo bounding box since we edited the mesh
-                boxFlver.Write($"{Const.CACHE_PATH}{boxModelInfo.path}");
+                boxFlver.Write(Path.Combine(Const.CACHE_PATH, boxModelInfo.path));
                 nu.assets.Add(boxModelInfo);
 
                 string defaultCollisionObjPath = "meshes\\default_collision_plane.obj";
-                if(!File.Exists($"{Const.CACHE_PATH}\\{defaultCollisionObjPath}")) { File.Copy(Utility.ResourcePath(@"mesh\plane.obj.file"), $"{Const.CACHE_PATH}{defaultCollisionObjPath}"); }
+                if(!File.Exists(Path.Combine(Const.CACHE_PATH, defaultCollisionObjPath))) 
+                {
+                    File.Copy(Utility.ResourcePath(@"mesh\plane.obj.file"), Path.Combine(Const.CACHE_PATH, defaultCollisionObjPath)); 
+                }
                 nu.defaultCollision = new("DefaultCollisionPlane", defaultCollisionObjPath);
 
                 /* Write textures */
@@ -456,7 +459,7 @@ namespace JortPob
     public class TerrainInfo
     {
         public readonly Int2 coordinate;   // Location in world cell grid
-        public readonly string path;
+        public readonly string path, obj;  // path goes to flver, obj goes to full obj
         public List<CollisionInfo> collision;
         public List<TextureInfo> textures; // All generated tpf files
         public bool hasWater, hasLava, hasSwamp; // caching these flags so we dont have to load the landscape to find out
@@ -466,6 +469,7 @@ namespace JortPob
         {
             this.coordinate = coordinate;
             this.path = path;
+            obj = Path.ChangeExtension(path, ".obj");
             textures = new();
             collision = new();
 

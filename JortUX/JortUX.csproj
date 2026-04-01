@@ -12,31 +12,8 @@
     <ProjectReference Include="..\JortPob\JortPob.csproj" />
   </ItemGroup>
 
+  <!-- IronPython has to be added as a project reference or it gets cranky -->
   <ItemGroup>
-    <Reference Include="BouncyCastle.Cryptography">
-      <HintPath>..\JortPob\DLL\BouncyCastle.Cryptography.dll</HintPath>
-    </Reference>
-    <Reference Include="DrSwizzler">
-      <HintPath>..\JortPob\DLL\DrSwizzler.dll</HintPath>
-    </Reference>
-    <Reference Include="ESDLang">
-      <HintPath>..\JortPob\DLL\ESDLang.dll</HintPath>
-    </Reference>
-    <Reference Include="esdtool">
-      <HintPath>..\JortPob\DLL\esdtool.dll</HintPath>
-    </Reference>
-    <Reference Include="HKLib">
-      <HintPath>..\JortPob\DLL\HKLib.dll</HintPath>
-    </Reference>
-    <Reference Include="HKLib.Reflection">
-      <HintPath>..\JortPob\DLL\HKLib.Reflection.dll</HintPath>
-    </Reference>
-    <Reference Include="HKLib.Serialization">
-      <HintPath>..\JortPob\DLL\HKLib.Serialization.dll</HintPath>
-    </Reference>
-    <Reference Include="HkxUpgradeLib">
-      <HintPath>..\JortPob\DLL\HkxUpgradeLib.dll</HintPath>
-    </Reference>
     <Reference Include="IronPython">
       <HintPath>..\JortPob\DLL\IronPython.dll</HintPath>
     </Reference>
@@ -49,60 +26,40 @@
     <Reference Include="IronPython.Wpf">
       <HintPath>..\JortPob\DLL\IronPython.Wpf.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.Dynamic">
-      <HintPath>..\JortPob\DLL\Microsoft.Dynamic.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.Scripting">
-      <HintPath>..\JortPob\DLL\Microsoft.Scripting.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.Scripting.Metadata">
-      <HintPath>..\JortPob\DLL\Microsoft.Scripting.Metadata.dll</HintPath>
-    </Reference>
-    <Reference Include="Mono.Unix">
-      <HintPath>..\JortPob\DLL\Mono.Unix.dll</HintPath>
-    </Reference>
-    <Reference Include="NativeFileDialogSharp">
-      <HintPath>..\JortPob\DLL\NativeFileDialogSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>..\JortPob\DLL\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="SoulsAssetPipeline">
-      <HintPath>..\JortPob\DLL\SoulsAssetPipeline.dll</HintPath>
-    </Reference>
-    <Reference Include="SoulsFormats">
-      <HintPath>..\JortPob\DLL\SoulsFormats.dll</HintPath>
-    </Reference>
-    <Reference Include="SoulsIds">
-      <HintPath>..\JortPob\DLL\SoulsIds.dll</HintPath>
-    </Reference>
-    <Reference Include="StudioUtils">
-      <HintPath>..\JortPob\DLL\StudioUtils.dll</HintPath>
-    </Reference>
-    <Reference Include="tes3-interop">
-      <HintPath>..\JortPob\DLL\tes3-interop.dll</HintPath>
-	</Reference>
-    <Reference Include="Tommy">
-      <HintPath>..\JortPob\DLL\Tommy.dll</HintPath>
-    </Reference>
-    <Reference Include="WitchyFormats">
-      <HintPath>..\JortPob\DLL\WitchyFormats.dll</HintPath>
-    </Reference>
-    <Reference Include="ZstdNet">
-      <HintPath>..\JortPob\DLL\ZstdNet.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="tes3.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-  <Target Name="CopyESDLangDocs" AfterTargets="AfterBuild">
-    <ItemGroup Label="ESDLangDocs">
-      <ESDLangDocsSourceFiles Include="..\JortPob\Resources\tools\ESDTool\dist\**\*" />
-    </ItemGroup>
-    <Copy SourceFiles="@(ESDLangDocsSourceFiles)" DestinationFolder="$(OutDir)\dist" SkipUnchangedFiles="true" ContinueOnError="false" />
+  <!-- DLLs -->
+  <Target Name="CopyFileToRoot" AfterTargets="AfterBuild">
+	<Copy SourceFiles="..\JortPob\DLL\BouncyCastle.Cryptography.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\DrSwizzler.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\ERNavmeshGen.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\ERNavmeshGenCS.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\ESDLang.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\esdtool.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\HKLib.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\HKLib.Reflection.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\HKLib.Serialization.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\HkxUpgradeLib.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\keystone.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\libzstd.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\Microsoft.Dynamic.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\Microsoft.Scripting.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\Microsoft.Scripting.Metadata.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\Mono.Unix.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\NativeFileDialogSharp.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\Newtonsoft.Json.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\nfd.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\SoulsAssetPipeline.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\SoulsFormats.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\SoulsIds.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\StudioUtils.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\System.CodeDom.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\tes3-interop.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\tes3.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\Tommy.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\WitchyFormats.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\ZstdNet.dll" DestinationFolder="$(OutDir)" />
+	<Copy SourceFiles="..\JortPob\DLL\Zydis.dll" DestinationFolder="$(OutDir)" />
   </Target>
 
 </Project>

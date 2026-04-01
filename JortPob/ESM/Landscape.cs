@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text.Json.Nodes;
+using System.IO;
 
 
 namespace JortPob
@@ -69,7 +70,7 @@ namespace JortPob
             {
                 {
                     DEFAULT_TEXTURE_INDEX, // Default hardcoded terrain texture. Morrowind moment.
-                    new Texture("Default Terrain Texture", $"{Const.MORROWIND_PATH}{Const.TERRAIN_DEFAULT_TEXTURE}", DEFAULT_TEXTURE_INDEX)
+                    new Texture("Default Terrain Texture", Path.Combine(Const.MORROWIND_PATH, Const.TERRAIN_DEFAULT_TEXTURE), DEFAULT_TEXTURE_INDEX)
                 }
             };
 
@@ -84,9 +85,10 @@ namespace JortPob
 
                 if (ltjson != null)
                 {
+                    var ltFile = ltjson["file_name"]!.ToString();
                     texturesByIndex.Add(
                         index,
-                        new Texture(ltjson["id"].ToString().ToLower(), $"{Const.MORROWIND_PATH}Data Files\\textures\\{ltjson["file_name"].ToString().ToLower().Substring(0, ltjson["file_name"].ToString().Length - 4)}.dds", index)
+                        new Texture(ltjson["id"].ToString().ToLower(), Path.Combine(Const.MORROWIND_PATH, $@"Data Files\textures\{Path.ChangeExtension(ltFile, "dds")}"), index)
                     );
                 }
                 else
@@ -533,6 +535,12 @@ namespace JortPob
 
             Lort.Log($"# ## WARNING ## Missing texture index [{id}] in landscape mesh!", Lort.Type.Debug);
             return texturesByIndex[DEFAULT_TEXTURE_INDEX];
+        }
+
+        /* Returns average height value of all vertices. Used for estimating location of regions in this cell */
+        public float GetHeightAverage()
+        {
+            return vertices.Average(v => v.position.Y);
         }
 
         public class Mesh

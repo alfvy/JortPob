@@ -1,7 +1,5 @@
 ﻿using JortPob.Common;
 using JortPob.Worker;
-using Microsoft.Scripting.Utils;
-using SoulsFormats;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -9,13 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 using static JortPob.Dialog;
-using static JortPob.NpcContent;
-using static JortPob.NpcContent.Stats;
-using static JortPob.NpcManager;
-using static JortPob.NpcManager.TopicData;
-using static JortPob.Script;
 
 namespace JortPob
 {
@@ -36,34 +28,37 @@ namespace JortPob
         public List<RaceInfo> races;
         public List<JobInfo> jobs;  // classes, but we cant really use that word so 'job'
         public List<FactionInfo> factions;
+        public List<LeveledCreature> leveled; // leveled creature lists
+        public List<SoundInfo> sounds;
         public List<Cell> exterior, interior;
         public List<Papyrus> scripts;
 
         public ESM(ScriptManager scriptManager)
         {
+            // Ensure the cache path exists
+            Directory.CreateDirectory(Const.CACHE_PATH);
             /* Check if a json has been generated from the esm, if not make one */
-            string jsonPath = $"{Const.CACHE_PATH}morrowind.json";
+            string jsonPath = Path.Combine(Const.CACHE_PATH, "morrowind.json");
             if (!File.Exists(jsonPath))
             {
                 /* Merge load order to a single file using merge_to_master */
                 string esmPath;
                 if (Const.LOAD_ORDER.Length == 1)
                 {
-                    esmPath = $"{Const.MORROWIND_PATH}Data Files\\{Const.LOAD_ORDER[0]}";
+                    esmPath = Path.Combine(Const.MORROWIND_PATH, "Data Files", Const.LOAD_ORDER[0]);
                 }
                 else
                 {
                     // Copy our master esm to the cache folder
-                    esmPath = $"{Const.CACHE_PATH}morrowind.esm";
+                    esmPath = Path.Combine(Const.CACHE_PATH, "morrowind.esm");
                     if(File.Exists(esmPath)) { File.Delete(esmPath); }
-                    if(!Directory.Exists(Const.CACHE_PATH)) { Directory.CreateDirectory(Const.CACHE_PATH); }
-                    File.Copy($"{Const.MORROWIND_PATH}Data Files\\{Const.LOAD_ORDER[0]}", esmPath);
+                    File.Copy(Path.Combine(Const.MORROWIND_PATH, "Data Files", Const.LOAD_ORDER[0]), esmPath);
 
                     // Merge the rest of the load order into that esm
                     for (int i=1;i<Const.LOAD_ORDER.Length;i++)
                     {
                         Lort.Log($"Merging '{Const.LOAD_ORDER[i]}' ...", Lort.Type.Main);
-                        string childPath = $"{Const.MORROWIND_PATH}Data Files\\{Const.LOAD_ORDER[i]}";
+                        string childPath = Path.Combine(Const.MORROWIND_PATH, "Data Files", Const.LOAD_ORDER[i]);
 
                         ProcessStartInfo mergeStartInfo = new(Utility.ResourcePath(@"tools\MergeToMaster\merge_to_master.exe"), $"-o \"{childPath}\" \"{esmPath}\"")
                         {
@@ -71,22 +66,19 @@ namespace JortPob
                             UseShellExecute = false,
                             CreateNoWindow = true
                         };
-                        using var mergeProcess = Process.Start(mergeStartInfo);
-                        mergeProcess.WaitForExit();
+                        Utility.ExecuteProcess(mergeStartInfo);
                     }
                 }
 
                 /* Convert esm to a json file using tes3conv */
                 Lort.Log($"Creating 'cache\\morrowind.json' ...", Lort.Type.Main);
-                if(!System.IO.Directory.Exists(Const.CACHE_PATH)) { System.IO.Directory.CreateDirectory(Const.CACHE_PATH); }
                 ProcessStartInfo convStartInfo = new(Utility.ResourcePath(@"tools\Tes3Conv\tes3conv.exe"), $"-c \"{esmPath}\" \"{jsonPath}\"")
                 {
                     WorkingDirectory = Utility.ResourcePath(@"tools\Tes3Conv"),
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
-                using var convProcess = Process.Start(convStartInfo);
-                convProcess.WaitForExit();
+                Utility.ExecuteProcess(convStartInfo);
             }
             /* Process json */
             Lort.Log($"Loading 'cache\\morrowind.json' ...", Lort.Type.Main);
@@ -217,14 +209,20 @@ namespace JortPob
                 jobs.Add(new(jsonNode));
             }
 
+            /* Load leveled creature lists so we can resolve them to creatures while processing cells */
+            leveled = new();
+            foreach(JsonNode jsonNode in GetAllRecordsByType(ESM.Type.LeveledCreature))
+            {
+                leveled.Add(new(jsonNode));
+            }
+
             /* Multi threading to speed this up... */
             (exterior, interior) = CellWorker.Go(this);
             landscapesByCoordinate = new();
 
             /* Process papyrus scripts */
             scripts = new();
-            List<JsonNode> scriptJsons = [.. GetAllRecordsByType(ESM.Type.Script)];
-            foreach(JsonNode jsonNode in scriptJsons)
+            foreach(JsonNode jsonNode in GetAllRecordsByType(ESM.Type.Script))
             {
                 try
                 {
@@ -239,16 +237,22 @@ namespace JortPob
 
             /* Load faction info from esm */
             factions = new();
-            List<JsonNode> factionJson = [.. GetAllRecordsByType(ESM.Type.Faction)];
-            foreach (JsonNode jsonNode in factionJson)
+            foreach (JsonNode jsonNode in GetAllRecordsByType(ESM.Type.Faction))
             {
                 FactionInfo faction = new(jsonNode);
                 factions.Add(faction);
             }
+
+            /* Load sound records from esm */
+            sounds = new();
+            foreach (JsonNode jsonNode in GetAllRecordsByType(ESM.Type.Sound))
+            {
+                SoundInfo sound = new(jsonNode);
+                sounds.Add(sound);
+            }
         }
 
         /* List of types that we should search for references */
-        // more const values we should move somewhere. @TODO
         public readonly Type[] VALID_CONTENT_TYPES = {
             Type.Static, Type.Container, Type.Light, Type.Sound, Type.Skill, Type.Region, Type.Door, Type.MiscItem, Type.Weapon,  Type.Creature, Type.Bodypart, Type.Npc,
             Type.Armor, Type.Clothing, Type.RepairItem, Type.Activator, Type.Apparatus, Type.Lockpick, Type.Probe, Type.Ingredient, Type.Book, Type.Alchemy, Type.LeveledItem,
@@ -256,7 +260,6 @@ namespace JortPob
         };
 
         /* References don't contain any explicit 'type' data so... we just gotta go find it lol */
-        /* @TODO: well actually i think the 'flags' int value in some records is useed as a 32bit boolean array and that may specify record types possibly. Look into it? */
         public Record FindRecordById(string id)
         {
             foreach (var type in VALID_CONTENT_TYPES)
@@ -268,6 +271,29 @@ namespace JortPob
                 }
             }
             return null; // Not found!
+        }
+
+        /* Gets a pathgrid record for the given cell name/grid. cell name is used by interiors and grid is used by exteriors */
+        public JsonNode FindPathRecord(string cell)
+        {
+            foreach (JsonNode json in GetAllRecordsByType(Type.PathGrid))
+            {
+                string name = json["cell"].GetValue<string>().ToLower();
+                if (cell.ToLower() == name) { return json; }
+            }
+            return null;
+        }
+
+        public JsonNode FindPathRecord(Int2 coordinate)
+        {
+            foreach (JsonNode json in GetAllRecordsByType(Type.PathGrid))
+            {
+                int x = json["data"]["grid"].AsArray()[0].GetValue<int>();
+                int y = json["data"]["grid"].AsArray()[1].GetValue<int>();
+                Int2 grid = new(x, y);
+                if (grid == coordinate) { return json; }
+            }
+            return null;
         }
 
         public IEnumerable<JsonNode> GetAllRecordsByType(Type type)
@@ -293,6 +319,16 @@ namespace JortPob
             foreach (Cell cell in interior)
             {
                 if (cell.name == name) { return cell; }
+            }
+            return null;
+        }
+
+        /* By Morrowind coordinates, not elden ring relative coordinates. Only exterior cells (obviously) */
+        public Cell GetCellByPosition(System.Numerics.Vector3 position)
+        {
+            foreach(Cell cell in exterior)
+            {
+                if (cell.IsPointInside(position)) { return cell; }
             }
             return null;
         }
@@ -346,10 +382,14 @@ namespace JortPob
 
         public FactionInfo? GetFaction(string id) => factions.FirstOrDefault(faction => faction.id == id.ToLower());
 
-        public Papyrus? GetPapyrus(string id) => scripts.FirstOrDefault(script => script.id == id.ToLower());
+        public SoundInfo? GetSound(string id) => sounds.FirstOrDefault(sound => sound.id == id.ToLower());
+
+        public Papyrus? GetPapyrus(string? id) => id is null ? null : scripts.FirstOrDefault(script => script.id == id.ToLower());
+
+        public LeveledCreature? GetLeveledCreature(string id) => leveled.FirstOrDefault(lc => lc.id == id.ToLower());
 
         /* Get dialog and character data for building esd */
-        public List<Tuple<DialogRecord, List<DialogInfoRecord>>> GetDialog(ScriptManager scriptManager, NpcContent npc)
+        public List<Tuple<DialogRecord, List<DialogInfoRecord>>> GetDialog(ScriptManager scriptManager, CharacterContent npc)
         {
             List<Tuple<DialogRecord, List<DialogInfoRecord>>> ds = new();  // i am really sorry about this type
             foreach(DialogRecord dialogRecord in dialog)
@@ -360,11 +400,10 @@ namespace JortPob
                 List<DialogInfoRecord> infos = new();
                 foreach(DialogInfoRecord info in dialogRecord.infos)
                 {
-                    //if (info.type == DialogRecord.Type.Hello) { continue; } // discarding this for now
                     if (info.type == DialogRecord.Type.Flee) { continue; } // discarding this for now
-                    //if (info.type == DialogRecord.Type.Thief) { continue; } // discarding this for now
-                    //if (info.type == DialogRecord.Type.Idle) { continue; } // discarding this for now
                     if (info.type == DialogRecord.Type.Intruder) { continue; } // discarding this for now
+
+                    if (npc.race == CharacterContent.Race.Creature && info.speaker != npc.id) { continue; } // creatures only have lines with the speaker condition set for them explicitly
 
                     // Check if the npc meets all static requirements for this dialog line. this includes resolving some filter to see if they can ever pass
                     if (info.IsUnreachableFor(scriptManager, npc)) { continue; }
@@ -380,13 +419,41 @@ namespace JortPob
 
             return ds;
         }
+
+        public Record ResolveLeveledCreature(string id)
+        {
+            LeveledCreature leveledCreatureList = GetLeveledCreature(id) ?? throw new Exception($"Failed to resolve leveled creature list: {id}");
+            string resolvedId = leveledCreatureList.Get();
+            Record resolvedRecord = FindRecordById(resolvedId);
+            if (resolvedRecord.type == ESM.Type.LeveledCreature) { resolvedRecord = ResolveLeveledCreature(resolvedId); }  // leveld lists can be recursive. jfk todd, why?
+            return resolvedRecord;
+        }
+
+        /* Checks if a creature has any dialog associated to it and returns true/false. */
+        /* This is an expensive and commonly used check so we cache the result for reuse */
+        private Dictionary<string, bool> hasDialogCache = new();
+        public bool HasDialog(CreatureContent content)
+        {
+            if (hasDialogCache.ContainsKey(content.id)) { return hasDialogCache[content.id]; }
+
+            foreach (DialogRecord record in dialog)
+            {
+                foreach (DialogInfoRecord info in record.infos)
+                {
+                    if (info.speaker == content.id) { hasDialogCache.Add(content.id, true); return true; }
+                }
+            }
+
+            hasDialogCache.Add(content.id, false);
+            return false;
+        }
     }
 
     public class RaceInfo
     {
         public readonly string id, name, description;
-        public readonly Dictionary<NpcContent.Stats.Attribute, Dictionary<NpcContent.Sex, int>> attributes;
-        public readonly Dictionary<NpcContent.Stats.Skill, int> skills;
+        public readonly Dictionary<CharacterContent.Stats.Attribute, Dictionary<CharacterContent.Sex, int>> attributes;
+        public readonly Dictionary<CharacterContent.Stats.Skill, int> skills;
 
         public RaceInfo(JsonNode json)
         {
@@ -397,13 +464,13 @@ namespace JortPob
             attributes = new();
             skills = new();
 
-            foreach (NpcContent.Stats.Attribute attribute in Enum.GetValues(typeof(NpcContent.Stats.Attribute)))
+            foreach (CharacterContent.Stats.Attribute attribute in Enum.GetValues(typeof(CharacterContent.Stats.Attribute)))
             {
-                Dictionary<NpcContent.Sex, int> values = new();
+                Dictionary<CharacterContent.Sex, int> values = new();
 
                 JsonArray jary = json["data"][attribute.ToString().ToLower()].AsArray();
-                values.Add(Sex.Male, jary[0].GetValue<int>());
-                values.Add(Sex.Female, jary[1].GetValue<int>());
+                values.Add(CharacterContent.Sex.Male, jary[0].GetValue<int>());
+                values.Add(CharacterContent.Sex.Female, jary[1].GetValue<int>());
 
                 attributes.Add(attribute, values);
 
@@ -413,14 +480,14 @@ namespace JortPob
             {
                 string s = json["data"]["skill_bonuses"][$"skill_{i}"].GetValue<string>();
                 if (s.ToLower() == "none") { continue; }
-                NpcContent.Stats.Skill skill = (NpcContent.Stats.Skill)System.Enum.Parse(typeof(NpcContent.Stats.Skill), s);
+                CharacterContent.Stats.Skill skill = (CharacterContent.Stats.Skill)System.Enum.Parse(typeof(CharacterContent.Stats.Skill), s);
                 int value = json["data"]["skill_bonuses"][$"bonus_{i}"].GetValue<int>();
                 skills.Add(skill, value);
             }
         }
 
-        public int GetAttribute(NpcContent.Sex sex, NpcContent.Stats.Attribute attribute) { return attributes[attribute][sex]; }
-        public int GetSkill(NpcContent.Stats.Skill skill) { if (skills.ContainsKey(skill)) { return skills[skill]; } else { return 0; } }
+        public int GetAttribute(CharacterContent.Sex sex, CharacterContent.Stats.Attribute attribute) { return attributes[attribute][sex]; }
+        public int GetSkill(CharacterContent.Stats.Skill skill) { if (skills.ContainsKey(skill)) { return skills[skill]; } else { return 0; } }
     }
 
     public class JobInfo
@@ -432,67 +499,67 @@ namespace JortPob
 
         public readonly string id, name, description;
         private readonly Specialization specialization;
-        private readonly List<NpcContent.Stats.Attribute> attributes;
-        private readonly List<NpcContent.Stats.Skill> major, minor;
-        private readonly List<NpcContent.Service> services;
+        private readonly List<CharacterContent.Stats.Attribute> attributes;
+        private readonly List<CharacterContent.Stats.Skill> major, minor;
+        private readonly List<CharacterContent.Service> services;
 
         public JobInfo(JsonNode json)
         {
             id = json["id"].GetValue<string>().ToLower();
             name = json["name"].GetValue<string>();
             description = json["description"].GetValue<string>();
-            specialization = (Specialization)System.Enum.Parse(typeof(Specialization), json["data"]["specialization"].GetValue<string>());
+            specialization = Enum.Parse<Specialization>(json["data"]["specialization"].GetValue<string>());
 
             attributes = new();
             major = new();
             minor = new();
             services = new();
 
-            attributes.Add((NpcContent.Stats.Attribute)System.Enum.Parse(typeof(NpcContent.Stats.Attribute), json["data"]["attribute1"].GetValue<string>()));
-            attributes.Add((NpcContent.Stats.Attribute)System.Enum.Parse(typeof(NpcContent.Stats.Attribute), json["data"]["attribute2"].GetValue<string>()));
+            attributes.Add(Enum.Parse<CharacterContent.Stats.Attribute>(json["data"]["attribute1"].GetValue<string>()));
+            attributes.Add(Enum.Parse<CharacterContent.Stats.Attribute>(json["data"]["attribute2"].GetValue<string>()));
             for(int i=1;i<=5;i++)
             {
-                major.Add((NpcContent.Stats.Skill)System.Enum.Parse(typeof(NpcContent.Stats.Skill), json["data"][$"major{i}"].GetValue<string>()));
-                minor.Add((NpcContent.Stats.Skill)System.Enum.Parse(typeof(NpcContent.Stats.Skill), json["data"][$"minor{i}"].GetValue<string>()));
+                major.Add(Enum.Parse<CharacterContent.Stats.Skill>(json["data"][$"major{i}"].GetValue<string>()));
+                minor.Add(Enum.Parse<CharacterContent.Stats.Skill>(json["data"][$"minor{i}"].GetValue<string>()));
             }
         }
 
-        public bool HasAttribute(NpcContent.Stats.Attribute attribute) { return attributes.Contains(attribute); }
-        public bool HasMajor(NpcContent.Stats.Skill skill) { return major.Contains(skill); }
-        public bool HasMinor(NpcContent.Stats.Skill skill) { return minor.Contains(skill); }
-        public bool HasSpecialization(NpcContent.Stats.Skill skill)
+        public bool HasAttribute(CharacterContent.Stats.Attribute attribute) { return attributes.Contains(attribute); }
+        public bool HasMajor(CharacterContent.Stats.Skill skill) { return major.Contains(skill); }
+        public bool HasMinor(CharacterContent.Stats.Skill skill) { return minor.Contains(skill); }
+        public bool HasSpecialization(CharacterContent.Stats.Skill skill)
         {
             switch(skill)
             {
-                case NpcContent.Stats.Skill.Armorer:
-                case NpcContent.Stats.Skill.Athletics:
-                case NpcContent.Stats.Skill.Axe:
-                case NpcContent.Stats.Skill.Block:
-                case NpcContent.Stats.Skill.BluntWeapon:
-                case NpcContent.Stats.Skill.HeavyArmor:
-                case NpcContent.Stats.Skill.LongBlade:
-                case NpcContent.Stats.Skill.MediumArmor:
-                case NpcContent.Stats.Skill.Spear:
+                case CharacterContent.Stats.Skill.Armorer:
+                case CharacterContent.Stats.Skill.Athletics:
+                case CharacterContent.Stats.Skill.Axe:
+                case CharacterContent.Stats.Skill.Block:
+                case CharacterContent.Stats.Skill.BluntWeapon:
+                case CharacterContent.Stats.Skill.HeavyArmor:
+                case CharacterContent.Stats.Skill.LongBlade:
+                case CharacterContent.Stats.Skill.MediumArmor:
+                case CharacterContent.Stats.Skill.Spear:
                     return specialization == Specialization.Combat;
-                case NpcContent.Stats.Skill.Acrobatics:
-                case NpcContent.Stats.Skill.HandToHand:
-                case NpcContent.Stats.Skill.LightArmor:
-                case NpcContent.Stats.Skill.Marksman:
-                case NpcContent.Stats.Skill.Mercantile:
-                case NpcContent.Stats.Skill.Security:
-                case NpcContent.Stats.Skill.ShortBlade:
-                case NpcContent.Stats.Skill.Sneak:
-                case NpcContent.Stats.Skill.Speechcraft:
+                case CharacterContent.Stats.Skill.Acrobatics:
+                case CharacterContent.Stats.Skill.HandToHand:
+                case CharacterContent.Stats.Skill.LightArmor:
+                case CharacterContent.Stats.Skill.Marksman:
+                case CharacterContent.Stats.Skill.Mercantile:
+                case CharacterContent.Stats.Skill.Security:
+                case CharacterContent.Stats.Skill.ShortBlade:
+                case CharacterContent.Stats.Skill.Sneak:
+                case CharacterContent.Stats.Skill.Speechcraft:
                     return specialization == Specialization.Stealth;
-                case NpcContent.Stats.Skill.Alchemy:
-                case NpcContent.Stats.Skill.Alteration:
-                case NpcContent.Stats.Skill.Conjuration:
-                case NpcContent.Stats.Skill.Destruction:
-                case NpcContent.Stats.Skill.Enchant:
-                case NpcContent.Stats.Skill.Illusion:
-                case NpcContent.Stats.Skill.Mysticism:
-                case NpcContent.Stats.Skill.Restoration:
-                case NpcContent.Stats.Skill.Unarmored:
+                case CharacterContent.Stats.Skill.Alchemy:
+                case CharacterContent.Stats.Skill.Alteration:
+                case CharacterContent.Stats.Skill.Conjuration:
+                case CharacterContent.Stats.Skill.Destruction:
+                case CharacterContent.Stats.Skill.Enchant:
+                case CharacterContent.Stats.Skill.Illusion:
+                case CharacterContent.Stats.Skill.Mysticism:
+                case CharacterContent.Stats.Skill.Restoration:
+                case CharacterContent.Stats.Skill.Unarmored:
                     return specialization == Specialization.Magic;
                 default:
                     throw new Exception("What the fuck");
@@ -504,16 +571,16 @@ namespace JortPob
     {
         public readonly string id, name;
         public readonly List<Rank> ranks;
+        private readonly List<(string id, int value)> reactions;
 
         public FactionInfo(JsonNode json)
         {
             id = json["id"].GetValue<string>().ToLower();
             name = json["name"].GetValue<string>();
-            ranks = new();
 
+            ranks = new();
             JsonArray rankNames = json["rank_names"].AsArray();
             JsonArray rankRequirements = json["data"]["requirements"].AsArray();
-
             for (int i=0;i< rankNames.Count();i++)
             {
                 string rankName = rankNames[i].GetValue<string>();
@@ -522,6 +589,37 @@ namespace JortPob
                 Rank rank = new(rankName, i+1, reputation);
                 ranks.Add(rank);
             }
+
+            reactions = new();
+            JsonArray reacts = json["reactions"].AsArray();
+            for(int i=0;i< reacts.Count();i++)
+            {
+                JsonNode entry = reacts[i];
+                reactions.Add((entry["faction"].GetValue<string>().ToLower(), entry["reaction"].GetValue<int>()));
+            }
+        }
+
+        public List<(string id, int value)> GetHighReactions()
+        {
+            // Copy and sort array then return.
+            List<(string id, int reaction)> highs = new();
+            highs.AddRange(reactions);
+            highs.Sort((x, y) => y.reaction.CompareTo(x.reaction));
+            return highs;
+        }
+
+        public List<(string id, int value)> GetLowReactions()
+        {
+            // Copy and sort array then return.
+            List<(string id, int reaction)> lows = new();
+            lows.AddRange(reactions);
+            lows.Sort((x, y) => x.reaction.CompareTo(y.reaction));
+            return lows;
+        }
+
+        public bool HasReactions()
+        {
+            return reactions.Count > 0;
         }
 
         public class Rank
@@ -534,6 +632,53 @@ namespace JortPob
                 this.level = level;
                 this.reputation = reputation;
             }
+        }
+    }
+
+    public class LeveledCreature
+    {
+        public readonly string id;
+        public readonly int chance;
+
+        public readonly List<(string id, int level)> creatures;
+
+        public LeveledCreature(JsonNode json)
+        {
+            id = json["id"].GetValue<string>().ToLower();
+            chance = json["chance_none"].GetValue<int>();
+
+            creatures = new();
+            foreach (JsonNode entry in json["creatures"].AsArray())
+            {
+                JsonArray data = entry.AsArray();
+
+                string creature = data[0].GetValue<string>().ToLower();
+                int level = data[1].GetValue<int>();
+
+                creatures.Add((creature, level));
+            }
+        }
+
+        /* @TODO: better selection code. currently just using a starndard random draw */
+        public string Get()
+        {
+            int rand = Utility.RandomRange(0, creatures.Count());
+            return creatures[rand].id;
+        }
+    }
+
+    public class SoundInfo
+    {
+        public readonly string id, path;
+        public readonly int volume, min, max;
+        
+        public SoundInfo(JsonNode json)
+        {
+            id = json["id"].GetValue<string>().ToLower();
+            path = json["sound_path"].GetValue<string>();
+            volume = json["data"]["volume"].GetValue<int>();
+            min = json["data"]["range"].AsArray()[0].GetValue<int>();
+            max = json["data"]["range"].AsArray()[1].GetValue<int>();
         }
     }
 

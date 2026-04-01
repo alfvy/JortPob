@@ -1,7 +1,10 @@
 ﻿{
   "comment": "Chargen dagger remap to a regular dagger. Test!",
-  "type": "Weapon",
+  "type": "CustomWeapon",
   "row": 1000000,
+  "infusion": "Lightning",
+  "skill": 21700,
+  "upgrade": 2,
   "useIcon": false,
   "text": {
     "name": "Daggy",

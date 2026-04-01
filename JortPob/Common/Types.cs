@@ -1,6 +1,7 @@
 ﻿using SoulsFormats;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Numerics;
 
 namespace JortPob.Common
@@ -28,7 +29,7 @@ namespace JortPob.Common
         public static uint ParseBinderFileId(BinderFile file)
         {
             if (file == null || string.IsNullOrEmpty(file.Name)) return uint.MaxValue;
-            string name = Utility.PathToFileName(file.Name);
+            string name = Path.GetFileNameWithoutExtension(file.Name);
             if (string.IsNullOrEmpty(name)) return uint.MaxValue;
 
             // fast common-case: names like "m0123"

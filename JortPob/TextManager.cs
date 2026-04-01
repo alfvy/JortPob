@@ -2,7 +2,7 @@
 using SoulsFormats;
 using System;
 using System.Collections.Generic;
-using System.Threading;
+using System.IO;
 
 namespace JortPob
 {
@@ -16,7 +16,7 @@ namespace JortPob
 
         private Dictionary<TextType, FMG> menu, item;
 
-        private volatile int nextTopicId, nextNpcNameId, nextActionButtonId, nextLocationId, nextMenuId, nextTutorial, nextMapEventText, nextWeaponEffectId;
+        private volatile int nextTopicId, nextNpcNameId, nextActionButtonId, nextLocationId, nextMenuId, nextTutorial, nextMapEventText, nextWeaponEffectId, nextLoadScreenTipId;
 
         public TextManager()
         {
@@ -28,6 +28,7 @@ namespace JortPob
             nextTutorial = 500000;
             nextMapEventText = 20209000;
             nextWeaponEffectId = 7000;
+            nextLoadScreenTipId = 300;
 
             Dictionary<TextType, FMG> LoadMsgBnd(string path)
             {
@@ -37,7 +38,7 @@ namespace JortPob
                 foreach (BinderFile file in bnd.Files)
                 {
                     FMG fmg = FMG.Read(file.Bytes);
-                    string name = Utility.PathToFileName(file.Name);
+                    string name = Path.GetFileNameWithoutExtension(file.Name);
 
                     TextType type = (TextType)Enum.Parse(typeof(TextType), name);
 
@@ -68,7 +69,7 @@ namespace JortPob
         /* Check if this text already exists before adding it to avoid duplicates */
         public int AddChoice(string text)
         {
-            foreach(FMG.Entry entry in menu[TextType.EventTextForTalk].Entries)
+            foreach (FMG.Entry entry in menu[TextType.EventTextForTalk].Entries)
             {
                 if (entry.Text == text) { return entry.ID; }
             }
@@ -91,7 +92,7 @@ namespace JortPob
             FMG fmg = menu[TextType.EventTextForTalk];
             foreach (FMG.Entry entry in fmg.Entries)
             {
-                if(entry.Text == text) { return entry.ID; }
+                if (entry.Text == text) { return entry.ID; }
             }
 
             int id = nextTopicId++;
@@ -167,7 +168,7 @@ namespace JortPob
         {
             string InfusionName(ItemManager.Infusion inf, string name)
             {
-                switch(inf)
+                switch (inf)
                 {
                     case ItemManager.Infusion.FlameArt: return $"Flame Art {name}";
                     case ItemManager.Infusion.None: return name;
@@ -267,12 +268,20 @@ namespace JortPob
             GetEntry(menu[TextType.GR_MenuText], id).Text = text;
         }
 
-        public void Write(string dir)
+        public int AddLoadingTip(string title, string text)
+        {
+            int id = nextWeaponEffectId++;
+            menu[TextType.LoadingTitle].Entries.Add(new(id, text));
+            menu[TextType.LoadingText].Entries.Add(new(id, title));
+            return id;
+        }
+
+        public void Write()
         {
             void WriteBnd(string fileName, Dictionary<TextType, FMG> fmgs)
             {
                 BND4 bnd = new();
-                bnd.Compression = SoulsFormats.DCX.Type.DCX_KRAK;
+                bnd.Compression = Compression.KRAK();
                 bnd.Version = "07D7R6";
 
                 foreach (KeyValuePair<TextType, FMG> kvp in fmgs)
@@ -280,7 +289,7 @@ namespace JortPob
                     FMG fmg = kvp.Value;
                     if (!Const.DEBUG_SKIP_FMG_PARAM_SORTING)
                     {
-                        Utility.SortFMG(fmg);  // it's too slow!!!!!! jesus fucking christ make a faster sort @TODO: !!
+                        Utility.SortFMG(fmg);
                     }
 
                     BinderFile file = new();
@@ -291,7 +300,7 @@ namespace JortPob
                     bnd.Files.Add(file);
                 }
 
-                bnd.Write($"{dir}{fileName}");
+                bnd.Write(Path.Combine(Const.OUTPUT_PATH, @"msg\engus", fileName));
             }
 
             WriteBnd("menu_dlc02.msgbnd.dcx", menu);

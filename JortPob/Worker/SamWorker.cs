@@ -49,26 +49,13 @@ namespace JortPob.Worker
             int partition = (int)Math.Ceiling(datas.Count / (float)Const.THREAD_COUNT);
             List<SamWorker> workers = new();
 
-            const int MAX_ATTEMPTS = 3;
             datas.AsParallel()
                 .WithDegreeOfParallelism(Const.THREAD_COUNT)
                 .ForAll(data =>
                 {
-                    for (int i = 0; i < MAX_ATTEMPTS; i++)
-                    {
-                        try
-                        {
-                            SAM.GenerateAlt(data.dialog, data.info, data.line, data.hashName, data.npc);
-                            Lort.TaskIterate();
-                            return;
-                        }
-                        catch (Exception ex)
-                        {
-                            Lort.Log($"Failed to generate SAM ({i + 1}/{MAX_ATTEMPTS}) hash: {data.hashName}\r\nReason: {ex.Message}", Lort.Type.Debug);
-                        }
-                    }
-                    Lort.Log($"Failed to generate SAM after {MAX_ATTEMPTS} tries, exitting...", Lort.Type.Main);
-                    throw new Exception($"Failed to generate SAM after {MAX_ATTEMPTS} tries, exitting...");
+                    SAM.GenerateAlt(data.dialog, data.info, data.line, data.hashName, data.npc);
+                    Lort.TaskIterate();
+                    return;
                 });
         }
     }

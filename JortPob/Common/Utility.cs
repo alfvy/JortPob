@@ -1,14 +1,16 @@
 ﻿using SoulsFormats;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
-using System.Linq;
 using System.IO;
+using System.Linq;
+using System.Numerics;
+using System.Runtime.InteropServices;
 using WitchyFormats;
 using Xbrz;
-using System.Runtime.InteropServices;
 
 namespace JortPob.Common
 {
@@ -34,12 +36,6 @@ namespace JortPob.Common
             {
                 LinSRGBLUT[i] = (byte)(Math.Min(1f, ConvertValue(i / 255f)) * 255);
             }
-        }
-
-        /* Take a full file path and returns just a file name without directory or extensions */
-        public static string PathToFileName(string fileName)
-        {
-            return Path.GetFileNameWithoutExtension(fileName);
         }
 
         public static string ResourcePath(string path)
@@ -229,6 +225,68 @@ namespace JortPob.Common
             return true;
         }
 
+        /* Rotation conversion from Morrowind worldspace to Elden Ring worldspace. right hand XYZ to left hand XZY (afaik, it's very hard to pinpoint this and lots of guesswork) */
+        public static System.Numerics.Vector3 ConvertRotation(System.Numerics.Vector3 rotation)
+        {
+            /* The following unholy code converts morrowind (Z up) euler rotations into dark souls (Y up) euler rotations */
+            /* Big thanks to katalash, dropoff, and the TESUnity dudes for helping me sort this out */
+
+            /* Katalashes code from MapStudio */
+            Vector3 MatrixToEulerXZY(Matrix4x4 m)
+            {
+                const float Pi = (float)Math.PI;
+                const float Deg2Rad = Pi / 180.0f;
+                Vector3 ret;
+                ret.Z = MathF.Asin(-Math.Clamp(-m.M12, -1, 1));
+
+                if (Math.Abs(m.M12) < 0.9999999)
+                {
+                    ret.X = MathF.Atan2(-m.M32, m.M22);
+                    ret.Y = MathF.Atan2(-m.M13, m.M11);
+                }
+                else
+                {
+                    ret.X = MathF.Atan2(m.M23, m.M33);
+                    ret.Y = 0;
+                }
+                ret.X = ret.X <= -180.0f * Deg2Rad ? ret.X + 360.0f * Deg2Rad : ret.X;
+                ret.Y = ret.Y <= -180.0f * Deg2Rad ? ret.Y + 360.0f * Deg2Rad : ret.Y;
+                ret.Z = ret.Z <= -180.0f * Deg2Rad ? ret.Z + 360.0f * Deg2Rad : ret.Z;
+                return ret;
+            }
+
+            /* Adapted code from https://github.com/ColeDeanShepherd/TESUnity */
+            Quaternion xRot = Quaternion.CreateFromAxisAngle(new Vector3(1.0f, 0.0f, 0.0f), rotation.X);
+            Quaternion yRot = Quaternion.CreateFromAxisAngle(new Vector3(0.0f, 1.0f, 0.0f), rotation.Z);
+            Quaternion zRot = Quaternion.CreateFromAxisAngle(new Vector3(0.0f, 0.0f, 1.0f), rotation.Y);
+            Quaternion q = xRot * zRot * yRot;
+
+            return MatrixToEulerXZY(Matrix4x4.CreateFromQuaternion(q));
+        }
+
+        public static System.Numerics.Vector3 ToRadians(System.Numerics.Vector3 rotation)
+        {
+            const float pi = (float)Math.PI;
+            const float d2r = pi / 180.0f;
+            return rotation * d2r;
+        }
+
+        public static System.Numerics.Vector3 ToDegrees(System.Numerics.Vector3 rotation)
+        {
+            const float pi = (float)Math.PI;
+            const float r2d = 180.0f / pi;
+            return rotation * r2d;
+        }
+
+        /* Convert parameters from papyrus call to a Vector 3. offset moves starting index away from 0. automatically converts xyz to xzy */
+        public static System.Numerics.Vector3 Vector3FromParameters(string[] parameters, int offset = 0)
+        {
+            float x = float.Parse(parameters[0 + offset]);
+            float y = float.Parse(parameters[2 + offset]);
+            float z = float.Parse(parameters[1 + offset]);
+            return new(x, y, z);
+        }
+
         private static Random random;
         public static int RandomRange(int min, int max)
         {
@@ -301,6 +359,85 @@ namespace JortPob.Common
             return linearBitmap;
         }
 
+        public static unsafe Bitmap LinearToSRGBAlt(Bitmap bitmap)
+        {
+            Bitmap srgbBitmap = new Bitmap(bitmap.Width, bitmap.Height, PixelFormat.Format32bppArgb);
+
+            Rectangle rect = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+
+            // technically this can be done in place, but better safe than sorry
+            // due to bit manipulation shenanigens, bit locking is required
+            BitmapData bmpDataIn = bitmap.LockBits(rect, ImageLockMode.ReadOnly, bitmap.PixelFormat);
+            BitmapData bmpDataOut = srgbBitmap.LockBits(rect, ImageLockMode.WriteOnly, srgbBitmap.PixelFormat);
+
+            try
+            {
+                byte* ptrIn = (byte*)bmpDataIn.Scan0;
+                byte* ptrOut = (byte*)bmpDataOut.Scan0;
+
+                // LUT calculation
+                float[] sRGB_LUT = new float[256];
+                for (int i = 0; i < 256; i++)
+                {
+                    float linearValue = i / 255.0f;
+                    sRGB_LUT[i] = Value(linearValue);
+                }
+
+                int totalBytes = bmpDataIn.Stride * bitmap.Height;
+
+                for (int i = 0; i < totalBytes; i += 4)
+                {
+                    // since colors are big endian, they're reversed as b g r a
+                    byte linearB = ptrIn[i];
+                    byte linearG = ptrIn[i + 1];
+                    byte linearR = ptrIn[i + 2];
+                    byte alphaA = ptrIn[i + 3];
+
+                    // lut to the save
+                    float srgbR_float = sRGB_LUT[linearR];
+                    float srgbG_float = sRGB_LUT[linearG];
+                    float srgbB_float = sRGB_LUT[linearB];
+
+                    // squish the results back to range
+                    ptrOut[i] = (byte)Math.Round(srgbB_float * 255f);
+                    ptrOut[i + 1] = (byte)Math.Round(srgbG_float * 255f);
+                    ptrOut[i + 2] = (byte)Math.Round(srgbR_float * 255f);
+
+                    ptrOut[i + 3] = alphaA;
+                }
+            }
+            finally
+            {
+                // MUST unlock the bits after processing
+                bitmap.UnlockBits(bmpDataIn);
+                srgbBitmap.UnlockBits(bmpDataOut);
+            }
+
+            return srgbBitmap;
+
+            float Value(float linearValue)
+            {
+                linearValue = Math.Max(0f, Math.Min(1f, linearValue));
+
+                if (linearValue <= 0.0031308f)
+                {
+                    return linearValue * 12.92f;
+                }
+                else
+                {
+                    return 1.055f * ((float)FastPow(linearValue, 1.0f / 2.4f)) - 0.055f;
+                }
+            }
+        }
+
+        // source: trust me bro
+        public static double FastPow(double a, double b)
+        {
+            long tmp = BitConverter.DoubleToInt64Bits(a);
+            long tmp2 = (long)(b * (tmp - 4606921280493453312L)) + 4606921280493453312L;
+            return BitConverter.Int64BitsToDouble(tmp2);
+        }
+
         /* Code borrowed from https://stackoverflow.com/questions/1922040/how-to-resize-an-image-c-sharp */
         public static Bitmap ResizeBitmap(Image image, int width, int height)
         {
@@ -360,6 +497,63 @@ namespace JortPob.Common
             }
             return ret;
         }
+
+        public static void ExecuteProcess(ProcessStartInfo startInfo, bool allowTimeout)
+        {
+            if (allowTimeout) { ExecuteProcess(startInfo); }
+            else { ExecuteProcess(startInfo, -1); }
+        }
+
+        public static void ExecuteProcess(ProcessStartInfo startInfo, int timeOutMillis = 0)
+        {
+            using Process process = Process.Start(startInfo);
+            if (process == null)
+            {
+                throw new InvalidOperationException($"Failed to start process: {startInfo.FileName}");
+            }
+
+            bool exited;
+            if(timeOutMillis == 0) { exited = process.WaitForExit(TimeSpan.FromMilliseconds(Const.DEFAULT_PROCESS_TIMEOUT)); }
+            else if (timeOutMillis < 0) { process.WaitForExit(); exited = true; }
+            else { exited = process.WaitForExit(TimeSpan.FromMilliseconds(timeOutMillis)); }
+
+            if (!exited)
+            {
+                try
+                {
+                    // Forceful termination if timeout occurs
+                    process.Kill();
+                    process.WaitForExit(); // Wait for OS cleanup
+                    throw new TimeoutException($"Process timed out and was killed: {startInfo.FileName}");
+                }
+                catch (InvalidOperationException)
+                {
+                    // Process may have just exited before Kill() was called.
+                    // We'll proceed to check the exit code below.
+                }
+            }
+
+            // VITAL: Check the process exit code after successful exit or timeout kill
+            if (process.ExitCode != 0)
+            {
+                // Optional: Read StandardError for better debugging info
+                string error = startInfo.RedirectStandardError ? process.StandardError.ReadToEnd() : "N/A (Error stream not redirected)";
+
+                // Throw a specific exception indicating execution failure
+                throw new ApplicationException($"Process failed with exit code {process.ExitCode}. Error: {error}");
+            }
+        }
+    }
+
+    public static class MSBExtension
+    {
+        public static void AddRegions(this SoulsFormats.MSBE msbe, List<MSBE.Region> regions)
+        {
+            foreach(MSBE.Region region in regions)
+            {
+                msbe.Regions.Add(region);
+            }
+        }
     }
 
 
@@ -379,6 +573,16 @@ namespace JortPob.Common
                 var tmp = ts[i];
                 ts[i] = ts[r];
                 ts[r] = tmp;
+            }
+        }
+
+        /* copy pasted from example */
+        public static void Replace<T>(this IList<T> list, T oldItem, T newItem)
+        {
+            int index = list.IndexOf(oldItem);
+            if (index != -1)
+            {
+                list[index] = newItem;
             }
         }
     }

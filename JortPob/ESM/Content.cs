@@ -30,7 +30,7 @@ namespace JortPob
         public Content(Cell cell, JsonNode json, Record record)
         {
             this.cell = cell;
-            id = json["id"].ToString();
+            id = record.json["id"].ToString();
             name = record.json["name"]?.GetValue<string>();
 
             type = record.type;
@@ -46,62 +46,52 @@ namespace JortPob
             float j = float.Parse(json["rotation"][1].ToString());
             float k = float.Parse(json["rotation"][2].ToString());
 
-            /* The following unholy code converts morrowind (Z up) euler rotations into dark souls (Y up) euler rotations */
-            /* Big thanks to katalash, dropoff, and the TESUnity dudes for helping me sort this out */
-
-            /* Katalashes code from MapStudio */
-            Vector3 MatrixToEulerXZY(Matrix4x4 m)
-            {
-                const float Pi = (float)Math.PI;
-                const float Deg2Rad = Pi / 180.0f;
-                Vector3 ret;
-                ret.Z = MathF.Asin(-Math.Clamp(-m.M12, -1, 1));
-
-                if (Math.Abs(m.M12) < 0.9999999)
-                {
-                    ret.X = MathF.Atan2(-m.M32, m.M22);
-                    ret.Y = MathF.Atan2(-m.M13, m.M11);
-                }
-                else
-                {
-                    ret.X = MathF.Atan2(m.M23, m.M33);
-                    ret.Y = 0;
-                }
-                ret.X = ret.X <= -180.0f * Deg2Rad ? ret.X + 360.0f * Deg2Rad : ret.X;
-                ret.Y = ret.Y <= -180.0f * Deg2Rad ? ret.Y + 360.0f * Deg2Rad : ret.Y;
-                ret.Z = ret.Z <= -180.0f * Deg2Rad ? ret.Z + 360.0f * Deg2Rad : ret.Z;
-                return ret;
-            }
-
-            /* Adapted code from https://github.com/ColeDeanShepherd/TESUnity */
-            Quaternion xRot = Quaternion.CreateFromAxisAngle(new Vector3(1.0f, 0.0f, 0.0f), i);
-            Quaternion yRot = Quaternion.CreateFromAxisAngle(new Vector3(0.0f, 1.0f, 0.0f), k);
-            Quaternion zRot = Quaternion.CreateFromAxisAngle(new Vector3(0.0f, 0.0f, 1.0f), j);
-            Quaternion q = xRot * zRot * yRot;
-
-            Vector3 eu = MatrixToEulerXZY(Matrix4x4.CreateFromQuaternion(q));
+            Vector3 r = Utility.ConvertRotation(new(i, j, k));
 
             relative = new();
             position = new Vector3(x, y, z) * Const.GLOBAL_SCALE;
-            rotation = eu * (float)(180 / Math.PI);
+            rotation = Utility.ToDegrees(r);
             scale = (int)((json["scale"] != null ? float.Parse(json["scale"].ToString()) : 1f) * 100);
         }
 
-        public Content(string id, ESM.Type type, Int2 load, Vector3 position, Vector3 rotation, int scale)
+        /* Copy constructor for emitters */
+        public Content(Cell cell, string id, string name, ESM.Type type, Int2 load, string papyrus, Vector3 position, Vector3 rotation, int scale)
         {
+            this.cell = cell;
             this.id = id;
+            this.name = name;
             this.type = type;
             this.load = load;
+            this.papyrus = papyrus;
             this.position = position;
             this.rotation = rotation;
             this.scale = scale;
         }
+        
+        /* Copy constructor for Phasing */
+        public Content(Content content, Cell cell, Vector3 position, Vector3 rotation)
+        {
+            this.cell = cell;
+            this.position = position;
+            this.rotation = rotation;
+
+            this.id = content.id;
+            this.name = content.name;
+            this.type = content.type;
+            this.scale = content.scale;
+            this.entity = content.entity;
+            this.papyrus = content.papyrus;
+            this.relative = content.relative;
+            this.load = content.load;
+            this.mesh = content.mesh;
+        }
     }
 
-    /* npcs, humanoid only */
-    public class NpcContent : Content
+    /* abstrat class that both humanoid NPCs and creature derive from */
+    public abstract class CharacterContent : Content
     {
-        public enum Race { Any = 0, Argonian = 1, Breton = 2, DarkElf = 3, HighElf = 4, Imperial = 5, Khajiit = 6, Nord = 7, Orc = 8, Redguard = 9, WoodElf = 10 }
+        // Never EVER assign "Race.Custom" to anything! It is only used by SoundManager classes to handle unique voice roles
+        public enum Race { Custom = -2, Creature = -1, Any = 0, Argonian = 1, Breton = 2, DarkElf = 3, HighElf = 4, Imperial = 5, Khajiit = 6, Nord = 7, Orc = 8, Redguard = 9, WoodElf = 10 }
         public enum Sex { Any, Male, Female };
         public enum Service {
             OffersTraining, BartersIngredients, BartersApparatus, BartersAlchemy, BartersClothing, OffersSpells, BartersWeapons,
@@ -109,16 +99,26 @@ namespace JortPob
             OffersRepairs, BartersLockpicks, BartersProbes, BartersLights
         };
 
+        // used for determining crime response type
+        public enum Witness
+        {
+            None, Citizen, Guard
+        }
+
         public readonly string job, faction; // class is job, cant used reserved word
         public readonly Race race;
         public readonly Sex sex;
 
         public readonly int level, disposition, reputation, rank, gold;
         public readonly int hello, fight, flee, alarm;
-        public readonly bool hostile, dead;
+        public readonly bool dead;
 
         public readonly bool essential; // player gets called dumb if they kill this dood
-        public bool hasWitness; // this value is set based on local npcs. defaults false. if true then crimes comitted against this npc will cause bounty
+        public Witness witness; // this value is set based on local npcs. defaults none. if guard or citizen then crimes comitted against this npc will cause bounty
+
+        public Script.Flag packageDefaultFlag; // can be null. base ai package. if a script switches packages, it returns to this one when it's done.
+        public readonly List<Script.Flag> packageEventFlags; // all ai package flags for this content. used by switcher to clear all running events before a switch
+        public readonly List<AiPackage> packages; // defines some simple behaviours an npc can have like wandering around
 
         public readonly Stats stats; // skills and attributes
 
@@ -151,6 +151,24 @@ namespace JortPob
 
             private readonly Dictionary<Skill, int> skills;
             private readonly Dictionary<Attribute, int> attributes;
+
+            /* Defined stats for a creature constructor */
+            public Stats(JsonNode json, int level)
+            {
+                attributes = new();
+                skills = new();
+
+                foreach (Attribute attribute in Enum.GetValues(typeof(Attribute)))
+                {
+                    int val = json[attribute.ToString().ToLower()].GetValue<int>();
+                    attributes.Add(attribute, val);
+                }
+
+                foreach (Skill skill in Enum.GetValues(typeof(Skill)))
+                {
+                    skills.Add(skill, Math.Min(100, level * 5));
+                }
+            }
 
             /* Defined stats constructor */
             public Stats(JsonNode json)
@@ -218,39 +236,39 @@ namespace JortPob
             {
                 switch (skill)
                 {
-                    case NpcContent.Stats.Skill.HeavyArmor:
-                    case NpcContent.Stats.Skill.MediumArmor:
-                    case NpcContent.Stats.Skill.Spear:
+                    case CharacterContent.Stats.Skill.HeavyArmor:
+                    case CharacterContent.Stats.Skill.MediumArmor:
+                    case CharacterContent.Stats.Skill.Spear:
                         return Attribute.Endurance;
-                    case NpcContent.Stats.Skill.Acrobatics:
-                    case NpcContent.Stats.Skill.Armorer:
-                    case NpcContent.Stats.Skill.Axe:
-                    case NpcContent.Stats.Skill.BluntWeapon:
-                    case NpcContent.Stats.Skill.LongBlade:
+                    case CharacterContent.Stats.Skill.Acrobatics:
+                    case CharacterContent.Stats.Skill.Armorer:
+                    case CharacterContent.Stats.Skill.Axe:
+                    case CharacterContent.Stats.Skill.BluntWeapon:
+                    case CharacterContent.Stats.Skill.LongBlade:
                         return Attribute.Strength;
-                    case NpcContent.Stats.Skill.Block:
-                    case NpcContent.Stats.Skill.LightArmor:
-                    case NpcContent.Stats.Skill.Marksman:
-                    case NpcContent.Stats.Skill.Sneak:
+                    case CharacterContent.Stats.Skill.Block:
+                    case CharacterContent.Stats.Skill.LightArmor:
+                    case CharacterContent.Stats.Skill.Marksman:
+                    case CharacterContent.Stats.Skill.Sneak:
                         return Attribute.Agility;
-                    case NpcContent.Stats.Skill.Athletics:
-                    case NpcContent.Stats.Skill.HandToHand:
-                    case NpcContent.Stats.Skill.ShortBlade:
-                    case NpcContent.Stats.Skill.Unarmored:
+                    case CharacterContent.Stats.Skill.Athletics:
+                    case CharacterContent.Stats.Skill.HandToHand:
+                    case CharacterContent.Stats.Skill.ShortBlade:
+                    case CharacterContent.Stats.Skill.Unarmored:
                         return Attribute.Speed;
-                    case NpcContent.Stats.Skill.Mercantile:
-                    case NpcContent.Stats.Skill.Speechcraft:
-                    case NpcContent.Stats.Skill.Illusion:
+                    case CharacterContent.Stats.Skill.Mercantile:
+                    case CharacterContent.Stats.Skill.Speechcraft:
+                    case CharacterContent.Stats.Skill.Illusion:
                         return Attribute.Personality;
-                    case NpcContent.Stats.Skill.Security:
-                    case NpcContent.Stats.Skill.Alchemy:
-                    case NpcContent.Stats.Skill.Conjuration:
-                    case NpcContent.Stats.Skill.Enchant:
+                    case CharacterContent.Stats.Skill.Security:
+                    case CharacterContent.Stats.Skill.Alchemy:
+                    case CharacterContent.Stats.Skill.Conjuration:
+                    case CharacterContent.Stats.Skill.Enchant:
                         return Attribute.Intelligence;
-                    case NpcContent.Stats.Skill.Alteration:
-                    case NpcContent.Stats.Skill.Destruction:
-                    case NpcContent.Stats.Skill.Mysticism:
-                    case NpcContent.Stats.Skill.Restoration:
+                    case CharacterContent.Stats.Skill.Alteration:
+                    case CharacterContent.Stats.Skill.Destruction:
+                    case CharacterContent.Stats.Skill.Mysticism:
+                    case CharacterContent.Stats.Skill.Restoration:
                         return Attribute.Willpower;
                     default:
                         throw new Exception("What the fuck");
@@ -285,20 +303,91 @@ namespace JortPob
             }
         }
 
-        public NpcContent(ESM esm, Cell cell, JsonNode json, Record record) : base(cell, json, record)
+        /* Defines some values for ai packages */
+        public class AiPackage
         {
-            race = (Race)System.Enum.Parse(typeof(Race), record.json["race"].ToString().Replace(" ", ""));
-            job = record.json["class"].ToString();
-            faction = record.json["faction"].ToString().Trim() != "" ? record.json["faction"].ToString() : null;
+            public enum Type { Wander, Travel, Follow, Escort }   // escort seems unused. wander doubles as "nothing"
 
-            sex = record.json["npc_flags"].ToString().ToLower().Contains("female") ? Sex.Female : Sex.Male;
+            /* Not all values are used for every type. I decided against making each package type it's own class to make construction easier */
+            public readonly Type type;
+            public readonly float distance;
+            public readonly int duration;
+            public readonly string target;
+            public readonly Vector3 position;
+            public Vector3 relative;
+            public readonly string location;
 
+            public AiPackage(JsonNode json)
+            {
+                type = Enum.Parse<AiPackage.Type>(json["type"].GetValue<string>(), true);
+
+                distance = json["distance"]?.GetValue<float>() ?? 0f;
+                duration = json["duration"]?.GetValue<int>() ?? 0;
+
+                target = json["target"]?.GetValue<string>();
+                location = string.IsNullOrEmpty(json["cell"]?.GetValue<string>()) ? null : json["cell"]?.GetValue<string>();
+
+                if (json["location"] != null)
+                {
+                    JsonArray array = json["location"].AsArray();
+                    float x = array[0].GetValue<float>();
+                    float y = array[2].GetValue<float>();
+                    float z = array[1].GetValue<float>();
+
+                    if(x > 3e38) { return; }  // the "default" value for these is insane so this is a quick check
+
+                    Vector3 p = new(x, y, z);
+                    position = p * Const.GLOBAL_SCALE;
+                }
+            }
+        }
+
+        /* Normal CharacterContent contructor */
+        public CharacterContent(ESM esm, Cell cell, JsonNode json, Record record) : base(cell, json, record)
+        {
+            /* NPC Specific data */
+            if (type == ESM.Type.Npc)
+            {
+                race = (Race)System.Enum.Parse(typeof(Race), record.json["race"].ToString().Replace(" ", ""));
+                job = record.json["class"].ToString();
+                faction = record.json["faction"].ToString().Trim() != "" ? record.json["faction"].ToString() : null;
+
+                sex = record.json["npc_flags"].ToString().ToLower().Contains("female") ? Sex.Female : Sex.Male;
+
+                disposition = int.Parse(record.json["data"]["disposition"].ToString());
+                reputation = int.Parse(record.json["data"]["reputation"].ToString());
+                rank = int.Parse(record.json["data"]["rank"].ToString());
+
+                if (record.json["data"]["stats"] != null)
+                {
+                    stats = new(record.json["data"]["stats"]);
+                }
+                else
+                {
+                    stats = new(sex, esm.GetRace(record.json["race"].ToString()), esm.GetJob(job), level);
+                }
+            }
+
+            /* Creature spefic data */
+            else
+            {
+                race = Race.Creature;
+                job = "none";
+                faction = null;
+
+                sex = Sex.Male;
+
+                disposition = 50;
+                reputation = 0;
+                rank = 0;
+
+                stats = new(record.json["data"], level);
+            }
+
+            /* Generic data used by both NPC and Creature */
             essential = record.json["npc_flags"] != null ? record.json["npc_flags"].GetValue<string>().ToLower().Contains("essential") : false;
 
             level = int.Parse(record.json["data"]["level"].ToString());
-            disposition = int.Parse(record.json["data"]["disposition"].ToString());
-            reputation = int.Parse(record.json["data"]["reputation"].ToString());
-            rank = int.Parse(record.json["data"]["rank"].ToString());
             gold = int.Parse(record.json["data"]["gold"].ToString());
 
             hello = int.Parse(record.json["ai_data"]["hello"].ToString());
@@ -306,16 +395,14 @@ namespace JortPob
             flee = int.Parse(record.json["ai_data"]["flee"].ToString());
             alarm = int.Parse(record.json["ai_data"]["alarm"].ToString());
 
-            hostile = fight >= 80; // @TODO: recalc with disposition mods based off UESP calc
+            witness = Witness.None;
             dead = record.json["data"]["stats"] != null && record.json["data"]["stats"]["health"] != null ? (int.Parse(record.json["data"]["stats"]["health"].ToString()) <= 0) : false;
 
-            if (record.json["data"]["stats"] != null)
+            packageEventFlags = new();
+            packages = new();
+            foreach(JsonNode jsonNode in record.json["ai_packages"].AsArray())
             {
-                stats = new(record.json["data"]["stats"]);
-            }
-            else
-            {
-                stats = new(sex, esm.GetRace(record.json["race"].ToString()), esm.GetJob(job), level);
+                packages.Add(new AiPackage(jsonNode));
             }
 
             string[] serviceFlags = record.json["ai_data"]["services"].ToString().Split("|");
@@ -323,6 +410,7 @@ namespace JortPob
             foreach (string s in serviceFlags)
             {
                 string trim = s.Trim().ToLower().Replace("_", "");
+                if(trim == "") { continue; }
                 try
                 {
                     Service service = (Service)System.Enum.Parse(typeof(Service), trim, true);
@@ -358,6 +446,39 @@ namespace JortPob
                 travel.Add(new Travel(t));
             }
         }
+
+        /* Copy constructor for phasing */
+        public CharacterContent(CharacterContent content, Cell cell, Vector3 position, Vector3 rotation) : base(content, cell, position, rotation)
+        {
+            job = content.job;
+            faction = content.faction;
+            race = content.race;
+            sex = content.sex;
+            level = content.level;
+            disposition = content.disposition;
+            reputation = content.reputation;
+            rank = content.rank;
+            gold = content.gold;
+            hello = content.hello;
+            fight = content.fight;
+            flee = content.flee;
+            alarm = content.alarm;
+            dead = content.dead;
+            essential = content.essential;
+            witness = content.witness;
+            packageEventFlags = new();       // we do not want to share a list reference between objects here. each phased copy of the character needs their own unique package event flags
+            packages = content.packages;
+            stats = content.stats;
+            treasure = content.treasure;
+            services = content.services;
+            inventory = content.inventory;
+            spells = content.spells;
+            travel = content.travel;
+            barter = content.barter;
+        }
+
+        /* Checks innate fight value to determine if npc is naturally hostile to the player or not */
+        public bool IsHostile() { return fight >= 80; } // @TODO: recalc with disposition mods based off UESP calc}
 
         /* Return true if this npc is a generic guard that can arrest the player for crimes */
         public bool IsGuard() { return job == "Guard" || job == "Ordinator Guard"; }
@@ -425,19 +546,73 @@ namespace JortPob
         }
     }
 
-    /* creatures, both leveled and non-leveled */
-    public class CreatureContent : Content
+    /* npcs, humanoid only */
+    public class NpcContent : CharacterContent
     {
-        public CreatureContent(Cell cell, JsonNode json, Record record) : base(cell, json, record)
-        {
-            // Kinda stubby for now
+        public readonly string head, hair;
 
-            rotation += new Vector3(0f, 180f, 8);  // models are rotated during conversion, placements like this are rotated here during serializiation to match
+        // can be null, these fields are resolved by ItemManager.ResolveInventory
+        public ItemManager.ItemInfo equipWeaponLeft, equipWeaponRight, equipRange, equipHead, equipBody, equipHands, equipLegs, equipArrow, equipBolt;
+        public ItemManager.ItemInfo[] equipAcc, equipGood;
+
+        public NpcContent(ESM esm, Cell cell, JsonNode json, Record record) : base(esm, cell, json, record)
+        {
+            equipAcc = [];   // initialized with empty arrays because if a character has an empty inventory (barbarians) we will skip resolving equipment for them
+            equipGood = [];
+
+            head = record.json["head"].GetValue<string>();
+            hair = record.json["hair"].GetValue<string>();
+        }
+
+        public NpcContent(NpcContent content, Cell cell, Vector3 position, Vector3 rotation) : base(content, cell, position, rotation)
+        {
+            head = content.head;
+            hair = content.hair;
+
+            equipWeaponLeft = content.equipWeaponLeft;
+            equipWeaponRight = content.equipWeaponRight;
+            equipRange = content.equipRange;
+            equipHead = content.equipHead;
+            equipBody = content.equipBody;
+            equipHands = content.equipHands;
+            equipLegs = content.equipLegs;
+            equipArrow = content.equipArrow;
+            equipBolt = content.equipBolt;
+            equipAcc = content.equipAcc;
+            equipGood = content.equipGood;
         }
     }
 
+    public class PhasedNpcContent : NpcContent
+    {
+        public readonly uint source;  // source entity id. from original NpcContent that was converted to phased
+        public readonly int phase;   // index of which phase this is for the phased npc
+
+        public PhasedNpcContent(NpcContent content, Cell cell, Vector3 position, Vector3 rotation, uint source, int phase) : base(content, cell, position, rotation)
+        {
+            this.source = source;
+            this.phase = phase;
+        }
+    }
+
+    /* creatures, both leveled and non-leveled */
+    public class CreatureContent : CharacterContent
+    {
+        public CreatureContent(ESM esm, Cell cell, JsonNode json, Record record) : base(esm, cell, json, record)
+        {
+            /* Parent constructor does all the work */
+        }
+    }
+
+    /* Abstract base class for any content that just ends up as a static mesh in the overworld, excluding some special cases like loose items */
+    public abstract class StaticContent : Content
+    {
+        public StaticContent(Cell cell, JsonNode json, Record record) : base(cell, json, record) { }
+        public StaticContent(Cell cell, string id, string name, ESM.Type type, Int2 load, string papyrus, Vector3 position, Vector3 rotation, int scale) : base(cell, id, name, type, load, papyrus, position, rotation, scale) { }
+    }
+
     /* static meshes to be converted to assets */
-    public class AssetContent : Content
+    public class AssetContent : StaticContent
     {
         public AssetContent(Cell cell, JsonNode json, Record record) : base(cell, json, record)
         {
@@ -446,12 +621,27 @@ namespace JortPob
 
         public EmitterContent ConvertToEmitter()
         {
-            return new EmitterContent(id, type, load, position, rotation, scale, mesh);
+            return new EmitterContent(cell, id, name, type, load, papyrus, position, rotation, scale, mesh);
+        }
+    }
+
+    /* beds, which will have esd objects assocaitd with them */
+    public class BedContent : AssetContent
+    {
+        public readonly string ownerNpc; // npc record id of the owenr of this bed, can be null
+        public readonly string ownerFaction; // faction id that owns this bed, player can use it if they are in that faction. can be null
+        public readonly string ownerGlobal; // a global var is used to control ownership. used by rentable beds
+
+        public BedContent(Cell cell, JsonNode json, Record record) : base(cell, json, record)
+        {
+            ownerNpc = json["owner"]?.GetValue<string>();
+            ownerFaction = json["owner_faction"]?.GetValue<string>();
+            ownerGlobal = json["owner_global"]?.GetValue<string>();
         }
     }
 
     /* doors, both warp doors and activator doors */
-    public class DoorContent : Content
+    public class DoorContent : StaticContent
     {
         public class Warp
         {
@@ -474,41 +664,10 @@ namespace JortPob
                 float j = float.Parse(json["rotation"][1].ToString());
                 float k = float.Parse(json["rotation"][2].ToString());
 
-                // Same rotation code as in content, just copy pasted because lol lmao
-                /* Katalashes code from MapStudio */
-                Vector3 MatrixToEulerXZY(Matrix4x4 m)
-                {
-                    const float Pi = (float)Math.PI;
-                    const float Deg2Rad = Pi / 180.0f;
-                    Vector3 ret;
-                    ret.Z = MathF.Asin(-Math.Clamp(-m.M12, -1, 1));
-
-                    if (Math.Abs(m.M12) < 0.9999999)
-                    {
-                        ret.X = MathF.Atan2(-m.M32, m.M22);
-                        ret.Y = MathF.Atan2(-m.M13, m.M11);
-                    }
-                    else
-                    {
-                        ret.X = MathF.Atan2(m.M23, m.M33);
-                        ret.Y = 0;
-                    }
-                    ret.X = ret.X <= -180.0f * Deg2Rad ? ret.X + 360.0f * Deg2Rad : ret.X;
-                    ret.Y = ret.Y <= -180.0f * Deg2Rad ? ret.Y + 360.0f * Deg2Rad : ret.Y;
-                    ret.Z = ret.Z <= -180.0f * Deg2Rad ? ret.Z + 360.0f * Deg2Rad : ret.Z;
-                    return ret;
-                }
-
-                /* Adapted code from https://github.com/ColeDeanShepherd/TESUnity */
-                Quaternion xRot = Quaternion.CreateFromAxisAngle(new Vector3(1.0f, 0.0f, 0.0f), i);
-                Quaternion yRot = Quaternion.CreateFromAxisAngle(new Vector3(0.0f, 1.0f, 0.0f), k);
-                Quaternion zRot = Quaternion.CreateFromAxisAngle(new Vector3(0.0f, 0.0f, 1.0f), j);
-                Quaternion q = xRot * zRot * yRot;
-
-                Vector3 eu = MatrixToEulerXZY(Matrix4x4.CreateFromQuaternion(q));
+                Vector3 r = Utility.ConvertRotation(new(i, j, k));
 
                 position = new Vector3(x, y, z) * Const.GLOBAL_SCALE;
-                rotation = (eu * (float)(180 / Math.PI)) + new Vector3(0f, 180f, 0); // bonus rotation here, actual models get rotated 180 Y in the model itself, placements like this need it here
+                rotation = Utility.ToDegrees(r) + new Vector3(0f, 180f, 0); // bonus rotation here, actual models get rotated 180 Y in the model itself, placements like this need it here
                 cell = json["cell"].ToString().Trim();
                 if (cell == "") { cell = null; }
             }
@@ -528,7 +687,7 @@ namespace JortPob
     }
 
     /* static mesh of a container in the world that can **CAN** (but not always) be lootable */
-    public class ContainerContent : Content
+    public class ContainerContent : StaticContent
     {
         public readonly string ownerNpc; // npc record id of the owenr of this container, can be null
         public readonly string ownerFaction; // faction id that owns this container, player can take it if they are in that faction. can be null
@@ -561,7 +720,7 @@ namespace JortPob
     }
 
     /* PickableContent */    // plants you can pick for alchemy ingredients. EX: rowa berry bushes
-    public class PickableContent : Content
+    public class PickableContent : StaticContent
     {
         public List<(string id, int quantity)> inventory;
 
@@ -612,14 +771,14 @@ namespace JortPob
     }
 
     /* static meshes that have emitters/lights EX: candles/campfires -- converted to assets but also generates ffx files and params to make them work */
-    public class EmitterContent : Content
+    public class EmitterContent : StaticContent
     {
         public EmitterContent(Cell cell, JsonNode json, Record record) : base(cell, json, record)
         {
             mesh = record.json["mesh"].ToString().ToLower();
         }
 
-        public EmitterContent(string id, ESM.Type type, Int2 load, Vector3 position, Vector3 rotation, int scale, string mesh) : base(id, type, load, position, rotation, scale)
+        public EmitterContent(Cell cell, string id, string name, ESM.Type type, Int2 load, string papyrus, Vector3 position, Vector3 rotation, int scale, string mesh) : base(cell, id, name, type, load, papyrus, position, rotation, scale)
         {
             this.mesh = mesh;
         }

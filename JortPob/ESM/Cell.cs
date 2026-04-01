@@ -1,10 +1,10 @@
 ﻿using JortPob.Common;
-using SharpAssimp.Configs;
+using SoulsFormats.Formats.Morpheme.NSA;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Text.Json.Nodes;
-using static JortPob.NpcContent;
 
 namespace JortPob
 {
@@ -20,6 +20,8 @@ namespace JortPob
         public readonly Vector3 boundsMax;
 
         public readonly List<Flag> flags;
+
+        public readonly List<Vector3> paths;
 
         public readonly List<Content> contents;            // All of this
         public readonly List<CreatureContent> creatures;
@@ -55,6 +57,28 @@ namespace JortPob
             float half = Const.CELL_SIZE / 2f;
             center = new Vector3(coordinate.x, 0.0f, coordinate.y) * Const.CELL_SIZE + new Vector3(half, 0f, half);
 
+            /* Cell Pathgrid Data */
+            paths = new();
+            JsonNode pathJson;
+            if(IsExterior()) { pathJson = esm.FindPathRecord(coordinate); }
+            else { pathJson = esm.FindPathRecord(name); }
+            if (pathJson != null)  // not all cells have pathgrids so it can be null
+            {
+                JsonArray pathPoints = pathJson["points"].AsArray();
+                foreach (JsonNode pathPoint in pathPoints)
+                {
+                    JsonArray location = pathPoint["location"].AsArray();
+                    float X = location[0].GetValue<float>();
+                    float Y = location[2].GetValue<float>();
+                    float Z = location[1].GetValue<float>();
+                    Vector3 point = new Vector3(X, Y, Z);
+                    Vector3 offset;
+                    if (IsExterior()) { offset = new(coordinate.x, 0f, coordinate.y); }
+                    else { offset = Vector3.Zero; }
+                    paths.Add((point * Const.GLOBAL_SCALE) + (offset * Const.CELL_SIZE));
+                }
+            }
+
             /* Cell Content Data */
             contents = new();
             creatures = new();
@@ -76,25 +100,33 @@ namespace JortPob
 
                 string mesh = record.json["mesh"]?.ToString(); // mesh can just be "" sometimes
 
-                switch(record.type)
+                switch (record.type)
                 {
                     case ESM.Type.Static:
                     case ESM.Type.Activator:
-                        if (!string.IsNullOrEmpty(mesh)) { assets.Add(new AssetContent(this, reference, record)); }
+                        if (string.IsNullOrEmpty(mesh)) { break; }
+                        string script = record.json["script"]?.GetValue<string>().ToLower().Trim();
+                        if (script == "bed_standard" || script == "chargenbed") { assets.Add(new BedContent(this, reference, record)); }
+                        else { assets.Add(new AssetContent(this, reference, record)); }
                         break;
                     case ESM.Type.Door:
                         if (!string.IsNullOrEmpty(mesh)) { doors.Add(new DoorContent(this, reference, record)); }
                         break;
                     case ESM.Type.Light:
-                        if (!string.IsNullOrEmpty(mesh)) { lights.Add(new LightContent(this, reference, record)); }
+                        if (string.IsNullOrEmpty(mesh)) { lights.Add(new LightContent(this, reference, record)); }
                         else { emitters.Add(new EmitterContent(this, reference, record)); }
                         break;
                     case ESM.Type.Npc:
                         npcs.Add(new NpcContent(esm, this, reference, record));
                         break;
                     case ESM.Type.Creature:
+                        creatures.Add(new CreatureContent(esm, this, reference, record));
+                        break;
                     case ESM.Type.LeveledCreature:
-                        creatures.Add(new CreatureContent(this, reference, record));
+                        Record resolvedRecord = esm.ResolveLeveledCreature(id);
+                        if (resolvedRecord.type == ESM.Type.Creature) { creatures.Add(new CreatureContent(esm, this, reference, resolvedRecord)); }
+                        else if (resolvedRecord.type == ESM.Type.Npc) { npcs.Add(new NpcContent(esm, this, reference, resolvedRecord)); }
+                        else { throw new Exception("Invalid leveled list result record type"); } // if this ever happens todd howard owes me a blood sacrifice
                         break;
                     case ESM.Type.Container:
                         if (id.ToLower().StartsWith("flora_") && id.ToLower() != "flora_treestump_unique") // this specific id is a weird outlier so just adding it as a condition here
@@ -176,6 +208,17 @@ namespace JortPob
                 }
             }
             return false;
+        }
+
+        /* Returns number of BedContents in this cell */
+        public int BedCount()
+        {
+            return assets.Where(content => content is BedContent).Count();
+        }
+
+        public bool IsExterior()
+        {
+            return !flags.Contains(Flag.IsInterior);
         }
     }
 }

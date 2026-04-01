@@ -3,6 +3,7 @@ using JortPob.Model;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.IO;
 
 namespace JortPob.Worker
 {
@@ -41,7 +42,7 @@ namespace JortPob.Worker
                 if (landscape == null) { continue; }
 
                 TerrainInfo terrainInfo = new(landscape.coordinate, $"terrain\\ext{landscape.coordinate.x},{landscape.coordinate.y}.flver");
-                terrainInfo = ModelConverter.LANDSCAPEtoFLVER(materialContext, terrainInfo, landscape, $"{Const.CACHE_PATH}terrain\\ext{landscape.coordinate.x},{landscape.coordinate.y}.flver");
+                terrainInfo = ModelConverter.LANDSCAPEtoFLVER(materialContext, terrainInfo, landscape, Path.Combine(Const.CACHE_PATH, "terrain", $"ext{landscape.coordinate.x},{landscape.coordinate.y}.flver"));
 
                 // Set some stuff
                 terrainInfo.hasWater = landscape.hasWater;

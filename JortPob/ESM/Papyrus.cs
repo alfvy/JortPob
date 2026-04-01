@@ -3,15 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json.Nodes;
-using System.Text.Json.Schema;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using static HKLib.hk2018.hkSerialize.CompatTypeParentInfo;
-using static JortPob.Papyrus;
-using static SoulsFormats.DRB.Shape;
 
 namespace JortPob
 {
@@ -22,7 +15,7 @@ namespace JortPob
 
         public Papyrus(JsonNode json)
         {
-            id = json["id"].GetValue<string>();
+            id = json["id"].GetValue<string>().ToLower();
 
             Stack<Call> stack = new();
             string raw = json["text"].GetValue<string>();
@@ -261,6 +254,27 @@ namespace JortPob
             return ret;
         }
 
+        public List<Call> GetCalls()
+        {
+            List<Call> ret = new();
+            void RecursiveCheck(Scope scope)
+            {
+                foreach (Call call in scope.calls)
+                {
+                    if (call is Conditional conditional)
+                    {
+                        ret.Add(conditional.left);
+                        ret.Add(conditional.right);
+                        RecursiveCheck(conditional.pass);
+                        RecursiveCheck(conditional.fail);
+                    }
+                    else { ret.Add(call); }
+                }
+            }
+            RecursiveCheck(scope);
+            return ret;
+        }
+
         public class Scope
         {
             public readonly List<Call> calls;
@@ -284,25 +298,19 @@ namespace JortPob
 
             public enum Type
             {
-                /* Default */
                 None,
 
-                /* Papyrus calls that are fully implemented in dialog and script */
-
-                /* Papyrus calls that are fully implemented in dialog */
                 Set,
                 Journal, Choice, AddTopic,
                 ModDisposition, SetDisposition, ModReputation,
                 ModPcFacRep, PcJoinFaction, PcClearExpelled, PcRaiseRank, PcExpell,
                 SetPcCrimeLevel, MessageBox,
 
-                /* Papyrus calls that are partially implemented */
                 Goodbye,
                 StartCombat,
                 AddItem, RemoveItem,
                 PayFine, GoToJail,
 
-                /* Papyrus calls that are not implemented yet */
                 Disable, Enable,
                 Activate, Playgroup, Say, GetTarget, GetItemCount, Lock, Unlock, GetSpell, SayDone, GetRace, ModRegion, GetDetected, ForceSneak, ClearForceSneak,
                 ChangeWeather, GetPos, RotateWorld, DontSaveObject, HasSoulGem, WakeUpPc, Resurrect, PlayBink, SetAtStart, RemoveSoulGem, Fall,
@@ -310,14 +318,15 @@ namespace JortPob
                 GetDistance, Drop, GetDisabled, OnDeath, SetFlee, GetBlightDisease, OnActivate, HurtStandingActor,
                 GetPcRank, SetPos, GetAttacked, GetCommonDisease, GetEffect, SetFight, ShowMap, AddSpell, RemoveSpell, RaiseRank, StopCombat,
                 ModFactionReaction, ModFlee, SetAlarm, PlaceAtPc, ClearInfoActor, Cast, ForceGreeting, SetHello, GetJournalIndex, PayFineThief,
-                AiWander, AiFollow, AiFollowCell, AiEscort, GetAiPackageDone, GetCurrentAiPackage, AiTravel, AiFollowCellPlayer, PositionCell, ModFight,
-                GetPcCell, MenuMode, OnPcSoulGemUse, GetLOS, GetLineOfSight, GetDeadCount, CellChanged, OnPcHitMe, OnPcEquip, OnPcAdd, GetStandingPc,
+                AiWander, AiFollow, AiFollowCell, AiEscort, AiEscortCell, GetAiPackageDone, GetCurrentAiPackage, AiTravel, AiFollowCellPlayer, PositionCell, ModFight,
+                GetPcCell, MenuMode, OnPcSoulGemUse, GetLOS, GetLineOfSight, GetDeadCount, CellChanged, HitOnMe, OnPcHitMe, OnPcEquip, OnPcAdd, GetStandingPc,
                 GetPcCrimeLevel, GetCollidingPC, GetWaterLevel, GetPcInJail, GetPcTraveling, GetButtonPressed,
                 OnKnockout, GetSpellEffects, GetSoundPlaying, ScriptRunning, GetCurrentWeather, OnMurder, GetPcSleep, PcVampire, PcExpelled, GetLocked,
                 PlaceItem, SetScale, ModResistParalysis, ModResistPoison, ModResistMagicka, ModResistFire, ModResistFrost, SetDelete, ExplodeSpell, TurnMoonRed, TurnMoonWhite, BecomeWerewolf,
                 Random,
                 Xbox,
-                GameHour, Day, Month,
+
+                GetSecondsPassed,
 
                 GetHealth, GetMagicka, GetFatigue,
 
@@ -328,15 +337,17 @@ namespace JortPob
                 SetStrength, SetIntelligence, SetWillpower, SetAgility, SetSpeed, SetEndurance, SetPersonality, SetLuck,
                 ModStrength, ModIntelligence, ModWillpower, ModAgility, ModSpeed, ModEndurance, ModPersonality, ModLuck,
 
-                GetSecurity, GetMarksman,
-                SetAthletics, SetMarksman, SetLongBlade, SetAlchemy, SetBlock, SetMercantile, SetEnchant, SetDestruction, SetAlteration, SetIllusion, SetConjuration, SetMysticism, SetRestoration, SetSpear, SetAxe, SetBluntWeapon, SetArmorer, SetHeavyArmor, SetMediumArmor,
-                ModRestoration, ModAthletics, ModLongBlade, ModHeavyArmor, ModMediumArmor, ModBlock, ModSpear, ModAxe, ModBluntWeapon, ModArmorer, ModMarksman, ModMercantile,
+                GetAcrobatics, GetAlchemy, GetAlteration, GetArmorer, GetAthletics, GetAxe, GetBlock, GetBluntWeapon, GetConjuration, GetDestruction, GetEnchant, GetHandToHand, GetHeavyArmor, GetIllusion, GetLightArmor, GetLongBlade, GetMarksman, GetMediumArmor, GetMercantile, GetMysticism, GetRestoration, GetSecurity, GetShortBlade, GetSneak, GetSpear, GetSpeechcraft, GetUnarmored,
+                ModAcrobatics, ModAlchemy, ModAlteration, ModArmorer, ModAthletics, ModAxe, ModBlock, ModBluntWeapon, ModConjuration, ModDestruction, ModEnchant, ModHandToHand, ModHeavyArmor, ModIllusion, ModLightArmor, ModLongBlade, ModMarksman, ModMediumArmor, ModMercantile, ModMysticism, ModRestoration, ModSecurity, ModShortBlade, ModSneak, ModSpear, ModSpeechcraft, ModUnarmored,
+                SetAcrobatics, SetAlchemy, SetAlteration, SetArmorer, SetAthletics, SetAxe, SetBlock, SetBluntWeapon, SetConjuration, SetDestruction, SetEnchant, SetHandToHand, SetHeavyArmor, SetIllusion, SetLightArmor, SetLongBlade, SetMarksman, SetMediumArmor, SetMercantile, SetMysticism, SetRestoration, SetSecurity, SetShortBlade, SetSneak, SetSpear, SetSpeechcraft, SetUnarmored,
 
                 ShowRestMenu,
                 EnableStatsMenu, EnableMapMenu, EnableRaceMenu, EnableMagicMenu, EnableStatReviewMenu, EnableBirthMenu, EnableClassMenu, EnableInventoryMenu, EnableNameMenu,
                 EnableVanityMode, EnableRest, EnablePlayerJumping, EnablePlayerFighting, EnablePlayerControls, EnablePlayerMagic, EnableTeleporting, EnablePlayerViewSwitch,
                 DisablePlayerViewSwitch, DisableTeleporting, DisablePlayerFighting, DisablePlayerJumping, DisablePlayerControls, DisableVanityMode, DisablePlayerMagic,
-                PlaySound3D, PlaySound3DVP, StopSound, PlayLoopSound3d, PlayLoopSound3DVP, PlaySound, PlayLoopSoundD3DVP, PlaySoundVP,
+                PlaySound3D, PlaySound3DVP, StopSound, PlayLoopSound3D, PlayLoopSound3DVP, PlaySound, PlayLoopSoundD3DVP, PlaySoundVP,
+
+                GetPlayerControlsDisabled, GetPlayerFightingDisabled, GetPlayerJumpingDisabled, GetPlayerLookingDisabled, GetPlayerMagicDisabled, GetPlayerViewSwitch,
 
                 /* Papyrus calls we (probably) cannot implement and will discard */
                 Rotate, SetAngle, GetAngle,
@@ -462,7 +473,7 @@ namespace JortPob
                         .ToList();
 
                     type = (Type)Enum.Parse(typeof(Type), ps[0], true);
-                    target = split[0].Replace("\"", "");
+                    target = split[0].Replace("\"", "").ToLower().Trim();
                     ps.RemoveAt(0);
                     parameters = ps.ToArray();
                 }
@@ -519,6 +530,7 @@ namespace JortPob
                 foreach(string p in parameters)
                 {
                     if(p == "==" || p == "!=" || p == ">" || p == "<" || p == ">=" || p == "<=" || p == "=") { op = p; }
+                    else if (op == null && p.Contains(" ") && p.Contains("->")) { l += $"\"{p.Replace("->", "\"->")} "; }
                     else if(op == null && p.Contains(" ")) { l += $"\"{p}\" "; }
                     else if(op == null) { l += $"{p} "; }
                     else if(p.Contains(" ")) { r += $"\"{p}\" "; }
