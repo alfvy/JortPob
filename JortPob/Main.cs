@@ -1275,7 +1275,6 @@ namespace JortPob
 
             /* Generate some params and write to file */
             Lort.Log($"Creating PARAMs...", Lort.Type.Main);
-            param.GeneratePartDrawParams();
             param.GenerateAssetRows(cache.assets);
             param.GenerateAssetRows(cache.emitters);
             param.GeneratePickableAssetRows(item, cache.GetPickables());

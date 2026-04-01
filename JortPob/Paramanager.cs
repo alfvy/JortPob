@@ -90,7 +90,6 @@ namespace JortPob
         public Dictionary<string, int> interactActionButtons, itemActionButtons; // string is the text of the button prompt, int is the row id
 
         public short terrainDrawParamID;
-        private Dictionary<int, int> lodPartDrawParamIDs; // first int is the index of the array from Const.ASSET_LOD_VALUES, second int is the param row id
         private int nextMessageParam, nextMapItemLotId, nextEnemyItemLotId, nextActionButtonId;
 
         public Paramanager(TextManager textManager)
@@ -241,6 +240,27 @@ namespace JortPob
             worldMapPlaecNameParam.ClearRows();
             AddRow(worldMapPlaecNameParam, worldMapPlaecNameParamTemplate);
 
+            /* Create single partdrawparam row for terrain */
+            FsParam drawParam = param[ParamType.PartsDrawParam];
+            FsParam.Row drawRow = CloneRow(drawParam[1001], $"mw | terrain | 2lod | static", Const.TERRAIN_PART_DRAW_PARAM); // generic long distance lod drawparam
+            drawRow.Cells[0].SetValue(Const.TERRAIN_LOD_VALUES[0].DISTANCE); // border 0
+            drawRow.Cells[1].SetValue(16f);
+            drawRow.Cells[2].SetValue(Const.TERRAIN_LOD_VALUES[1].DISTANCE); // border 1
+            drawRow.Cells[3].SetValue(32f);
+            drawRow.Cells[4].SetValue(Const.TERRAIN_LOD_VALUES[2].DISTANCE); // border 2
+            drawRow.Cells[5].SetValue(64f);
+            drawRow.Cells[13].SetValue(99999f); // drawdist
+            drawRow.Cells[14].SetValue(0f); //fadeoff
+            drawRow.Cells[10].SetValue(256f); // tex_lv1_borderdist [512]
+            drawRow.Cells[11].SetValue(32f);    // tex_lv1_playdist [10]
+            drawRow.Cells[24].SetValue((sbyte)0);    // include lod map level [2]
+            drawRow.Cells[26].SetValue((byte)1);    // lodtype [1]
+            drawRow.Cells[30].SetValue(99999f); // distant view model border dist [30]
+            drawRow.Cells[31].SetValue(0f);    // distant view model play dist [5]
+            AddRow(drawParam, drawRow);
+            terrainDrawParamID = (short)drawRow.ID;
+
+            /* Wrap up */
             GC.Collect(); // maybe fixes a bug with fsparam. 80% sure
         }
 
@@ -301,19 +321,6 @@ namespace JortPob
             extendedTalkParam.Write(Path.Combine(Const.OUTPUT_PATH, "ExtendedTalkParam.param"));
         }
 
-        /* picks the partdrawparam for an asset based on its size. smaller assets have shorter render distance etc */
-        private int AssetPartDrawParamBySize(ModelInfo asset)
-        {
-            for (int i = 0; i < Const.ASSET_LOD_VALUES.Count(); i++)
-            {
-                // we do a little cheating here. dynamics can be scaled so im just giving them a huge size mult to compensate.
-                // realstically an optimization should be made to calculate this but its a minor concern so very low priority @TODO:
-                float[] values = Const.ASSET_LOD_VALUES[i];
-                if ((asset.IsDynamic() ? asset.size * 10f : asset.size) < values[0]) { return lodPartDrawParamIDs[i]; }
-            }
-            return lodPartDrawParamIDs.Last().Value;
-        }
-
         /* These 3 methods generate the params for assets and assetsfx for emitters */
         public void GenerateAssetRows(List<ModelInfo> assets)
         {
@@ -324,14 +331,14 @@ namespace JortPob
             FsParam.Column behaviourType = assetParam["behaviorType"];
             foreach (ModelInfo asset in assets)
             {
+                // Clone a specific row as our baseline
+                FsParam.Row row = CloneRow(electedStoneBuildingRow, asset.name, asset.AssetRow());   // 7077 is a big stone building part in the overworld
+
                 /* Dynamic */
                 if (asset.IsDynamic() || !asset.HasCollision())
                 {
-                    // Clone a specific row as our baseline
-                    FsParam.Row row = CloneRow(electedStoneBuildingRow, asset.name, asset.AssetRow());   // 7077 is a big stone building part in the overworld
-
                     // Set some values and add
-                    drawParamID.SetValue(row, AssetPartDrawParamBySize(asset));        // DrawParamID
+                    drawParamID.SetValue(row, GeneratePartDrawParam(asset));        // DrawParamID
                     hitType.SetValue(row, (sbyte)0);           // Hit type (LO ONLY)
                     behaviourType.SetValue(row, (byte)0);           // BehaviourType, affects HKX scaling and breakability
                     AddRow(assetParam, row);
@@ -339,15 +346,14 @@ namespace JortPob
                 /* Static */
                 else
                 {
-                    // Clone a specific row as our baseline
-                    FsParam.Row row = CloneRow(electedStoneBuildingRow, asset.name, asset.AssetRow());   // 7077 is a big stone building part in the overworld
-
                     // Set some values and add
-                    drawParamID.SetValue(row, AssetPartDrawParamBySize(asset));        // DrawParamID
                     hitType.SetValue(row, (sbyte)0);           // Hit type (LO ONLY)
                     behaviourType.SetValue(row, (byte)1);           // BehaviourType, affects HKX scaling and breakability
                     AddRow(assetParam, row);
                 }
+
+                /* Generic */
+                drawParamID.SetValue(row, GeneratePartDrawParam(asset));        // DrawParamID
             }
         }
 
@@ -372,7 +378,7 @@ namespace JortPob
                     FsParam.Row row = CloneRow(blessedStoneBuildingRow, asset.record, asset.AssetRow());   // 7077 is a big stone building part in the overworld
 
                     // Set some values and add
-                    drawParamID.SetValue(row, AssetPartDrawParamBySize(asset.model));        // DrawParamID
+                    drawParamID.SetValue(row, GeneratePartDrawParam(asset.model));        // DrawParamID
                     hitType.SetValue(row, (sbyte)0);           // Hit type (LO ONLY)
                     behaviourType.SetValue(row, (byte)0);           // BehaviourType, affects HKX scaling and breakability
                     AddRow(assetParam, row);
@@ -498,7 +504,7 @@ namespace JortPob
                 // Setup asset param
                 FsParam.Row assetRow = CloneRow(assetParam[99680], $"Pickable->{pickable.name}", pickable.AssetRow()); // 99680 is an erdleaf flower
 
-                assetRow["refDrawParamId"].Value.SetValue(AssetPartDrawParamBySize(pickable.model));        // DrawParamID
+                assetRow["refDrawParamId"].Value.SetValue(GeneratePartDrawParam(pickable.model));        // DrawParamID
                 assetRow["pickUpActionButtonParamId"].Value.SetValue(actionRow.ID);
                 assetRow["pickUpItemLotParamId"].Value.SetValue(nextMapItemLotId);
 
@@ -520,80 +526,44 @@ namespace JortPob
             }
         }
 
-        /* Make some parts draw params for us to use on different types of assets */
-        public void GeneratePartDrawParams()
+        /* Make a part draw param for a given modelinfo */
+        public int GeneratePartDrawParam(ModelInfo modelInfo)
         {
             FsParam drawParam = param[ParamType.PartsDrawParam];
-            float NONE = 99999f;
-            short drawParamId = Const.PART_DRAW_PARAM;
-            lodPartDrawParamIDs = new();
+            FsParam.Row row = CloneRow(drawParam[1001], $"asset {modelInfo.name}::{modelInfo.scale}", modelInfo.AssetRow());
 
-            FsParam.Row genericlongdistanceloddrawparam = drawParam[1001];
+            const float SIZE_MIN = .25f, SIZE_MAX = 50f;
+            float bias = (float)Math.Pow(Math.Min(1f, Math.Max(0f, (modelInfo.size - SIZE_MIN)) / (SIZE_MAX - SIZE_MIN)), .5f);
 
-            FsParam.Column lv01_BorderDist = drawParam["lv01_BorderDist"];
-            FsParam.Column lv01_PlayDist = drawParam["lv01_PlayDist"];
+            const float DIST_0_MIN = 5f,  DIST_0_MAX = 100f;    // LOD 0 radius
+            const float DIST_1_MIN = 15f, DIST_1_MAX = 500f;    // LOD 1 radius
+            const float DIST_X_MIN = 25f, DIST_X_MAX = 100000f; // Fade out radius
 
-            FsParam.Column drawDist = drawParam["drawDist"];
-            FsParam.Column drawFadeRange = drawParam["drawFadeRange"];
+            const float PLAY_0_MIN = 1f,  PLAY_0_MAX = 5f;    // Play distance betwen 0-1
+            const float PLAY_1_MIN = 3f,  PLAY_1_MAX = 10f;   // Play distance betwen 1-2
+            const float PLAY_X_MIN = 5f,  PLAY_X_MAX = 25f;   // Fade out distance
 
-            FsParam.Column tex_lv01_BorderDist = drawParam["tex_lv01_BorderDist"];
-            FsParam.Column tex_lv01_PlayDist = drawParam["tex_lv01_PlayDist"];
-            FsParam.Column IncludeLodMapLv = drawParam["IncludeLodMapLv"];
-            FsParam.Column lodType = drawParam["lodType"];
+            const float TEX_DIST_MIN = 8f, TEX_DIST_MAX = 64f;  // Texture quality distance
+            const float TEX_PLAY_MIN = 1f, TEX_PLAY_MAX = 8f;  // Texture quality play
 
-            FsParam.Column DistantViewModel_BorderDist = drawParam["DistantViewModel_BorderDist"];
-            FsParam.Column DistantViewModel_PlayDist = drawParam["DistantViewModel_PlayDist"];
+            row["lv01_BorderDist"].Value.SetValue(float.Lerp(DIST_0_MIN, DIST_0_MAX, bias));
+            row["lv01_PlayDist"].Value.SetValue(float.Lerp(PLAY_0_MIN, PLAY_0_MAX, bias));
+            row["lv12_BorderDist"].Value.SetValue(float.Lerp(DIST_1_MIN, DIST_1_MAX, bias));
+            row["lv12_PlayDist"].Value.SetValue(float.Lerp(PLAY_1_MIN, PLAY_1_MAX, bias));
 
-            // Clone a specific row as our baseline
-            for (int i = 0; i < Const.ASSET_LOD_VALUES.Count(); i++)
-            {
-                float[] values = Const.ASSET_LOD_VALUES[i];
+            row["drawDist"].Value.SetValue(float.Lerp(DIST_X_MIN, DIST_X_MAX, bias));
+            row["drawFadeRange"].Value.SetValue(float.Lerp(PLAY_X_MIN, PLAY_X_MAX, bias));
 
-                FsParam.Row row = CloneRow(genericlongdistanceloddrawparam, $"mw | generic | 0lod | size_{values[0]} | static", drawParamId); // generic long distance lod drawparam
+            row["tex_lv01_BorderDist"].Value.SetValue(float.Lerp(TEX_DIST_MIN, TEX_DIST_MAX, bias));
+            row["tex_lv01_PlayDist"].Value.SetValue(float.Lerp(TEX_PLAY_MIN, TEX_PLAY_MAX, bias));
+            row["IncludeLodMapLv"].Value.SetValue((sbyte)0);
+            row["lodType"].Value.SetValue((byte)1);
 
-                // set some values
-                lv01_BorderDist.SetValue(row, NONE);  // border 0
-                lv01_PlayDist.SetValue(row, 0f);
+            row["DistantViewModel_BorderDist"].Value.SetValue(DIST_X_MAX);
+            row["DistantViewModel_PlayDist"].Value.SetValue(0f);
 
-                drawDist.SetValue(row, values[1]); // drawdist
-                drawFadeRange.SetValue(row, values[2]); // fadeoff
-
-                tex_lv01_BorderDist.SetValue(row, 256f); // tex_lv1_borderdist [512]
-                tex_lv01_PlayDist.SetValue(row, 32f);    // tex_lv1_playdist [10]
-                IncludeLodMapLv.SetValue(row, (sbyte)0);    // include lod map level [2]
-                lodType.SetValue(row, (byte)1);    // lodtype [1]
-
-                DistantViewModel_BorderDist.SetValue(row, NONE); // distant view model border dist [30]
-                DistantViewModel_PlayDist.SetValue(row, 0f);    // distant view model play dist [5]
-                lodPartDrawParamIDs.Add(i, drawParamId++);
-                AddRow(drawParam, row);
-            }
-
-            // Clone a specific row as our baseline
-            {
-                FsParam.Row row = CloneRow(drawParam[1001], $"mw | terrain | 2lod | static", drawParamId); // generic long distance lod drawparam
-
-                // set some values and add
-                row.Cells[0].SetValue(Const.TERRAIN_LOD_VALUES[0].DISTANCE); // border 0
-                row.Cells[1].SetValue(16f);
-                row.Cells[2].SetValue(Const.TERRAIN_LOD_VALUES[1].DISTANCE); // border 1
-                row.Cells[3].SetValue(32f);
-                row.Cells[4].SetValue(Const.TERRAIN_LOD_VALUES[2].DISTANCE); // border 2
-                row.Cells[5].SetValue(64f);
-
-                row.Cells[13].SetValue(NONE); // drawdist
-                row.Cells[14].SetValue(0f); //fadeoff
-
-                row.Cells[10].SetValue(256f); // tex_lv1_borderdist [512]
-                row.Cells[11].SetValue(32f);    // tex_lv1_playdist [10]
-                row.Cells[24].SetValue((sbyte)0);    // include lod map level [2]
-                row.Cells[26].SetValue((byte)1);    // lodtype [1]
-
-                row.Cells[30].SetValue(NONE); // distant view model border dist [30]
-                row.Cells[31].SetValue(0f);    // distant view model play dist [5]
-                AddRow(drawParam, row);
-                terrainDrawParamID = drawParamId++;
-            }
+            AddRow(drawParam, row);
+            return row.ID;
         }
 
         public class WeatherData

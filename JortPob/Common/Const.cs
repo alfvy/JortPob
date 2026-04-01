@@ -85,17 +85,6 @@ namespace JortPob.Common
             new LOD_VALUE(2, FLVER2.FaceSet.FSFlags.LodLevel2, 16, 99999),
         };
 
-        /* values are [0] = size of the asset model (calculated by radius and stored in modelinfo) [1] = distance it's visible via partsdrawparam. [2] = fade out range */
-        public static readonly List<float[]> ASSET_LOD_VALUES = new()
-        {
-            new float[] {1f, 5f, 7f},
-            new float[] {3f, 7f, 9},
-            new float[] {7f, 9f, 10f},
-            new float[] {14f, 18f, 22f},
-            new float[] {22f, 25f, 30f},
-            new float[] {35f, 40f, 45f}
-        };
-
         /* Calculated... ESM lowest cell is [-20,-20]~ on the grid. MSB lowest value is [+33,+40]~. Offset so they overlap */
         /* Updated for bloodmoon: bloodmoons furthest cell to the left is -28, 28 so we need to shift a bit more to make that fit */
         public static readonly Vector3 LAYOUT_COORDINATE_OFFSET = new((21*CELL_SIZE)+(35*TILE_SIZE), 0, (12*CELL_SIZE)+(38*TILE_SIZE));
@@ -131,7 +120,7 @@ namespace JortPob.Common
         public static readonly int PICKABLE_ASSET_GROUP = 911;
 
         /// param row starting id for this type of param
-        public static readonly short PART_DRAW_PARAM = 9000;
+        public static readonly short TERRAIN_PART_DRAW_PARAM = 9000;
 
         /// used to build water. primarily, if a collision triangle is under this value it becomes the water material. i have no idea why morrowind water is at -3f
         public static readonly float WATER_HEIGHT = -3 * GLOBAL_SCALE;

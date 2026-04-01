@@ -521,7 +521,7 @@ namespace JortPob
             foreach (Script.Flag flag in allFlags)
             {
                 if (flag.designation != Script.Flag.Designation.Hostile) { continue; }  // only reset hostility flags
-                string onOff = flag.value == 0 ? "Off" : "On";
+                string onOff = flag.value == 0 ? "OFF" : "ON";
                 absolveEvent.Instructions.Add(common.AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, {flag.id}, {onOff});"));
 
                 if(++delayCounter > 512)
@@ -563,7 +563,7 @@ namespace JortPob
             foreach (Script.Flag flag in allFlags)
             {
                 if (flag.designation != Script.Flag.Designation.Hostile) { continue; }  // only reset hostility flags
-                string onOff = flag.value == 0 ? "Off" : "On";
+                string onOff = flag.value == 0 ? "OFF" : "ON";
                 resetEvent.Instructions.Add(common.AUTO.ParseAdd($"SetEventFlag(TargetEventFlagType.EventFlag, {flag.id}, {onOff});"));
 
                 if (++delayCounter > 512)
