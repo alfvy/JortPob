@@ -17,6 +17,7 @@
     <PackageReference Include="Mutagen.Bethesda.Skyrim" />
     <PackageReference Include="NAudio" />
     <PackageReference Include="SharpAssimp" />
+    <PackageReference Include="SharpCompress" />
     <PackageReference Include="System.Drawing.Common" />
     <PackageReference Include="System.Speech" />
     <PackageReference Include="TeximpNet" />

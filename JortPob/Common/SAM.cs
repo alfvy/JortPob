@@ -1,18 +1,26 @@
 ﻿using Microsoft.Scripting.Utils;
+using SharpCompress.Archives;
+using SharpCompress.Common;
+using SharpCompress.Compressors.ZStandard;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Formats.Tar;
 using System.IO;
+using System.Linq;
 using System.Speech.AudioFormat;
 using System.Speech.Synthesis;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Windows.Media;
 
 /* This exists for me to test if full voice acting will work properly before we get voice actors involved */
 namespace JortPob.Common
 {
     public class SAM
     {
+        public static List<string> VAHashes = new();
+
         /* Creates the WWISE project. Made this a seperate call so that we don't have multiple threads trying to do this at the same time! */
         public static void CreateProject()
         {
@@ -35,6 +43,40 @@ namespace JortPob.Common
                 startInfo.ArgumentList.AddRange(["create-new-project", $"\"{projectPath}\"", "--platform", "Windows"]);
                 Utility.ExecuteProcess(startInfo);
             }
+
+            var linesArchivePath = @"D:\Repos\modding\elden-scrolls\lines.tar.zst";
+            var outLinesPath = Path.Combine(Const.CACHE_PATH, "VaLines");
+
+            var compressedStream = File.OpenRead(linesArchivePath);
+
+            Directory.CreateDirectory(outLinesPath);
+
+            using var fileStream = File.OpenRead(linesArchivePath);
+
+            using var zstdStream = new DecompressionStream(fileStream);
+
+            using var reader = new TarReader(zstdStream);
+
+            var read = true;
+            while (read)
+            {
+                var entry = reader.GetNextEntry();
+
+                if (entry == null)
+                {
+                    read = false;
+                    continue;
+                }
+
+                if (!(entry.EntryType == TarEntryType.Directory))
+                {
+                    var entryPath = Path.Combine(outLinesPath, Path.GetFileName(entry.Name));
+                    if (!File.Exists(entryPath))
+                        entry.ExtractToFile(entryPath, true);
+                }
+            }
+
+            VAHashes.AddRange(Directory.EnumerateFiles(outLinesPath));
         }
 
         /* DO NOT USE */
@@ -134,6 +176,7 @@ namespace JortPob.Common
             string wavPath = Path.Combine(lineDir, $"{hashName}.wav");
             string wemPath = Path.Combine(lineDir, $"{hashName}.wem");
             string flitePath = Path.Combine(Environment.CurrentDirectory, "Resources", "tts", "flite.exe");
+            bool hasVA = VAHashes.Count(f => f.Contains(hashName)) > 0;
 
             string safeText;
             if (useCustom || isCreature) { safeText = MakeSafe($"{npc.id} says {line}"); }
@@ -156,23 +199,30 @@ namespace JortPob.Common
                         Directory.CreateDirectory(lineDir);
                     }
 
-                    // 2. Generate WAV (Text-to-Speech)
-                    // string ssmlLine = $"<speak>{line}<break time='500ms'/></speak>";
-                    string voice = npc.sex == CharacterContent.Sex.Female ? "slt" : "rms";
-                    string args = $"-t \"{safeText}\" -voice {voice} \"{wavPath}\"";
-
-                    ProcessStartInfo fliteStartInfo = new(flitePath)
+                    if (hasVA)
                     {
-                        Arguments = args,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true, // Added for better error capture
-                        WorkingDirectory = lineDir,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    };
+                        File.Copy(VAHashes.First(f => f.Contains(hashName)), wavPath, true);
+                        Lort.Log($"Line {hashName}: {safeText}, was replaced with a VA line", Lort.Type.Debug);
+                    } 
+                    else
+                    {// 2. Generate WAV (Text-to-Speech)
+                     // string ssmlLine = $"<speak>{line}<break time='500ms'/></speak>";
+                        string voice = npc.sex == CharacterContent.Sex.Female ? "slt" : "rms";
+                        string args = $"-t \"{safeText}\" -voice {voice} \"{wavPath}\"";
 
-                    // The helper method handles the execution, timeout, kill, and exit code check
-                    Utility.ExecuteProcess(fliteStartInfo);
+                        ProcessStartInfo fliteStartInfo = new(flitePath)
+                        {
+                            Arguments = args,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true, // Added for better error capture
+                            WorkingDirectory = lineDir,
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+
+                        // The helper method handles the execution, timeout, kill, and exit code check
+                        Utility.ExecuteProcess(fliteStartInfo);
+                    }
 
                     // --- 3. Convert WAV to WEM (Wwise Console) ---
                     

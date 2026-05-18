@@ -1,5 +1,6 @@
 ﻿using JortPob.Common;
 using JortPob.Worker;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -121,6 +122,48 @@ namespace JortPob
             else { return Path.Combine(Const.CACHE_PATH, @$"dialog\{npc.race}\{npc.sex}\{dialog.id}\{hashName}\{hashName}.wem"); }
         }
 
+
+        // this generates the json file used for the VA manifest, which is used to link lines to npcs and info for the override system.
+        // This is only generated in debug mode since it's really only useful for development,
+        public void GenerateVAManifest()
+        {
+#if DEBUG
+            var vaManifestContents = samQueue.Select(sam => new
+            {
+                line = new
+                {
+                    sam.line,
+                    sam.info.type,
+                    sam.info.race,
+                    sam.info.rank,
+                    gender = sam.info.sex,
+                    sam.info.faction,
+                    sam.info.job,
+                    sam.info.cell,
+                    sam.info.disposition,
+                    sam.info.filters
+                },
+                npc = new
+                {
+                    sam.npc.name,
+                    sam.npc.race,
+                    sam.npc.rank,
+                    gender = sam.npc.sex,
+                    sam.npc.faction,
+                    sam.npc.job,
+                    sam.npc.services,
+                    sam.npc.disposition,
+                    sam.npc.essential,
+                    sam.npc.reputation,
+                },
+                hash = sam.hashName
+            });
+
+            var vaManifest = JsonConvert.SerializeObject(vaManifestContents);
+            File.WriteAllText($"{Const.CACHE_PATH}/Manifest.json", vaManifest);
+#endif
+        }
+
         /* Writes all soundbanks to given dir */
         /* This has been broken up into multiple stages to try and improve performance */
         /* 1 - Generate all JSON for bnks in multiple threads */
@@ -129,6 +172,8 @@ namespace JortPob
         public void Write()
         {
             if (Const.DEBUG_SKIP_SOUND) { return; } // worlds largest time save
+
+            GenerateVAManifest();
 
             SamWorker.Go(samQueue); // actually generate tts and convert wems
 

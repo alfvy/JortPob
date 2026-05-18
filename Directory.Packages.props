@@ -14,6 +14,7 @@
     <PackageVersion Include="Mutagen.Bethesda.Skyrim" Version="0.53.1" />
     <PackageVersion Include="NAudio" Version="2.2.1" />
     <PackageVersion Include="SharpAssimp" Version="6.0.5" />
+    <PackageVersion Include="SharpCompress" Version="0.48.1" />
     <PackageVersion Include="System.Drawing.Common" Version="9.0.5" />
     <PackageVersion Include="System.Speech" Version="9.0.9" />
     <PackageVersion Include="TeximpNet" Version="1.4.3" />
@@ -23,5 +24,6 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="17.12.6" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="1.4.3" />
     <PackageVersion Include="MSTest" Version="3.6.4" />
+    <PackageVersion Include="ZstdSharp.Port" Version="0.8.8" />
   </ItemGroup>
 </Project>
