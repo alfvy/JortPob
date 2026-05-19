@@ -62,7 +62,7 @@ namespace JortPob
 
             foreach (SoundBankInfo bankInfo in banks)
             {
-                if(useCustom && bankInfo.race == CharacterContent.Race.Custom && bankInfo.custom == npc.id && bankInfo.uses <= Const.MAX_ESD_PER_VCBNK)
+                if (useCustom && bankInfo.race == CharacterContent.Race.Custom && bankInfo.custom == npc.id && bankInfo.uses <= Const.MAX_ESD_PER_VCBNK)
                 {
                     return bankInfo;
                 }
@@ -77,7 +77,7 @@ namespace JortPob
             }
             SoundBankInfo bnk;
             if (useCustom) { bnk = new(nextBankId++, CharacterContent.Race.Custom, npc.sex, new SoundBank(globals), npc.id); }
-            else if(isCreature) { bnk = new(nextBankId++, CharacterContent.Race.Creature, npc.sex, new SoundBank(globals), npc.id); }
+            else if (isCreature) { bnk = new(nextBankId++, CharacterContent.Race.Creature, npc.sex, new SoundBank(globals), npc.id); }
             else { bnk = new(nextBankId++, npc.race, npc.sex, new SoundBank(globals)); }
             banks.Add(bnk);
             return bnk;
@@ -118,7 +118,7 @@ namespace JortPob
             samQueue.Add(dat);
 
             if (useCustom) { return Path.Combine(Const.CACHE_PATH, @$"dialog\{CharacterContent.Race.Custom}\{npc.id}\{dialog.id}\{hashName}\{hashName}.wem"); }
-            else if(isCreature) { return Path.Combine(Const.CACHE_PATH, @$"dialog\{CharacterContent.Race.Creature}\{npc.id}\{dialog.id}\{hashName}\{hashName}.wem"); }
+            else if (isCreature) { return Path.Combine(Const.CACHE_PATH, @$"dialog\{CharacterContent.Race.Creature}\{npc.id}\{dialog.id}\{hashName}\{hashName}.wem"); }
             else { return Path.Combine(Const.CACHE_PATH, @$"dialog\{npc.race}\{npc.sex}\{dialog.id}\{hashName}\{hashName}.wem"); }
         }
 
@@ -127,7 +127,7 @@ namespace JortPob
         // This is only generated in debug mode since it's really only useful for development,
         public void GenerateVAManifest()
         {
-#if DEBUG
+            // #if DEBUG
             var vaManifestContents = samQueue.Select(sam => new
             {
                 line = new
@@ -146,7 +146,7 @@ namespace JortPob
                 npc = new
                 {
                     sam.npc.name,
-                    sam.npc.race,
+                    race = sam.npc.race.ToString(),
                     sam.npc.rank,
                     gender = sam.npc.sex,
                     sam.npc.faction,
@@ -161,7 +161,7 @@ namespace JortPob
 
             var vaManifest = JsonConvert.SerializeObject(vaManifestContents);
             File.WriteAllText($"{Const.CACHE_PATH}/Manifest.json", vaManifest);
-#endif
+            // #endif
         }
 
         /* Writes all soundbanks to given dir */
@@ -233,7 +233,7 @@ namespace JortPob
                     string bnkPath = $@"{bnkDir}.bnk";
                     string bnkRebuiltPath = $@"{bnkDir}.created.bnk";
 
-                    if(Const.DEBUG_REUSE_FILES && File.Exists(bnkPath)) { Lort.TaskIterate(); return; } // if debug_reuse is on, skip if file already created
+                    if (Const.DEBUG_REUSE_FILES && File.Exists(bnkPath)) { Lort.TaskIterate(); return; } // if debug_reuse is on, skip if file already created
 
                     ProcessStartInfo startInfo = new(Utility.ResourcePath(@"tools\Bnk2Json\bnk2json.exe"), $"\"{bnkDir}\"")
                     {

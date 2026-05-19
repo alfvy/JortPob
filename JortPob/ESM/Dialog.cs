@@ -1,5 +1,6 @@
 ﻿using JortPob.Common;
 using JortPob.Scripts;
+using Reloaded.Memory.Extensions;
 using SoulsFormats;
 using System;
 using System.Collections.Generic;
@@ -131,6 +132,12 @@ namespace JortPob
             private static uint DISCARD_COUNT = 0; // some tracking to see how effective the filter discards are
             public bool IsUnreachableFor(ScriptManager scriptManager, CharacterContent npc)
             {
+                if (npc.name.ToLowerInvariantFast().Contains("dagoth")) 
+                {
+                    Lort.Log($"Found Ash Vampire: {npc.name}", Lort.Type.Debug);
+                    return false; 
+                }
+
                 if (speaker != null && speaker != npc.id) { return true; }
                 if (race != CharacterContent.Race.Any && race != npc.race) { return true; }
                 if (job != null && job != npc.job) { return true; }

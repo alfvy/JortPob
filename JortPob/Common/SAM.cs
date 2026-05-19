@@ -170,7 +170,10 @@ namespace JortPob.Common
 
             string lineDir;
             if (useCustom) { lineDir = Path.Combine(Const.CACHE_PATH, "dialog", CharacterContent.Race.Custom.ToString(), npc.id, dialog.id.ToString(), hashName); }
-            else if(isCreature) { lineDir = Path.Combine(Const.CACHE_PATH, "dialog", CharacterContent.Race.Creature.ToString(), npc.id, dialog.id.ToString(), hashName); }
+            else if (isCreature)
+            {
+                lineDir = Path.Combine(Const.CACHE_PATH, "dialog", CharacterContent.Race.Creature.ToString(), npc.id, dialog.id.ToString(), hashName);
+            }
             else { lineDir = Path.Combine(Const.CACHE_PATH, "dialog", npc.race.ToString(), npc.sex.ToString(), dialog.id.ToString(), hashName); }
 
             string wavPath = Path.Combine(lineDir, $"{hashName}.wav");
@@ -203,7 +206,7 @@ namespace JortPob.Common
                     {
                         File.Copy(VAHashes.First(f => f.Contains(hashName)), wavPath, true);
                         Lort.Log($"Line {hashName}: {safeText}, was replaced with a VA line", Lort.Type.Debug);
-                    } 
+                    }
                     else
                     {// 2. Generate WAV (Text-to-Speech)
                      // string ssmlLine = $"<speak>{line}<break time='500ms'/></speak>";
@@ -225,13 +228,13 @@ namespace JortPob.Common
                     }
 
                     // --- 3. Convert WAV to WEM (Wwise Console) ---
-                    
+
                     string wwiseConsolePath = Path.Combine(Const.WWISE_PATH, "WwiseConsole.exe");
                     string xmlName = $"{hashName}.wsources";
                     string xmlPath = Path.Combine(lineDir, xmlName);
                     string projectDir = Path.Combine(Const.CACHE_PATH, "wwise");
                     string projectPath = Path.Combine(projectDir, "wwise.wproj");
-                    
+
                     // Create XML file
                     string xmlRaw = $"""
                         <?xml version='1.0' encoding='UTF-8'?>
@@ -261,7 +264,7 @@ namespace JortPob.Common
                     {
                         return wemPath;
                     }
-                    
+
                     // If processes succeeded but the file isn't there, something is wrong, we retry
                     throw new FileNotFoundException($"WEM file was not found after successful conversion: {wemPath}");
                 }
@@ -327,7 +330,7 @@ namespace JortPob.Common
             // A. Remove Invalid File Name Characters
             // These characters are illegal in file names on Windows and many other systems
             char[] invalidChars = Path.GetInvalidFileNameChars();
-            
+
             // Note: Path.GetInvalidFileNameChars() includes path separators ('\' and '/') 
             // but we often need to allow them if the input is a full relative/absolute path. 
             // Since the user asked to handle paths, we'll focus on the illegal chars for segments.
@@ -345,7 +348,7 @@ namespace JortPob.Common
                 }
             }
             sanitized = sb.ToString();
-            
+
             // B. Remove Directory Traversal Attempts (e.g., "name/../secret.txt")
             // This prevents an attacker from moving the file creation location.
             // This is a simple but important check. More complex validation might be needed.
