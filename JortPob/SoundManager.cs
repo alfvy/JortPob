@@ -146,7 +146,7 @@ namespace JortPob
                 npc = new
                 {
                     sam.npc.name,
-                    race = sam.npc.race.ToString(),
+                    race = sam.npc.race,
                     sam.npc.rank,
                     gender = sam.npc.sex,
                     sam.npc.faction,
@@ -155,6 +155,7 @@ namespace JortPob
                     sam.npc.disposition,
                     sam.npc.essential,
                     sam.npc.reputation,
+                    entity = (int)sam.npc.entity
                 },
                 hash = sam.hashName
             });

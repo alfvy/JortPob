@@ -121,7 +121,7 @@ namespace JortPob
             if (content.race == CharacterContent.Race.Creature && !esm.HasDialog((CreatureContent)content)) { return 0; } // if this is a creature, verify it has dialog lines to build dialog for
 
             // First check if we even need one, hostile or dead npcs dont' get talk data for now
-            if (content.dead || content.IsHostile()) { return 0; }
+            if (content.dead) { return 0; }
 
             /* There used to be a check here that looked for an esd tied to the record id of the npc, i'm removing this */
             /* Every instance of an npc needs its own esd. Sharing esd's will only lead to horrible bugs long term */
