@@ -66,7 +66,8 @@ namespace JortPob
             public readonly DialogRecord.Type type;
 
             // static requirements for a dialog to be added
-            public readonly string speaker, job, faction, cell;
+            public readonly string
+            speaker, job, faction, cell;
             public readonly int rank;
             public readonly CharacterContent.Race race;
             public readonly CharacterContent.Sex sex;
@@ -87,7 +88,7 @@ namespace JortPob
 
             public DialogInfoRecord(DialogRecord.Type type, JsonNode json)
             {
-                id = DialogInfoRecord.NEXT_ID+=10;  // increment by 10 so we can use the 9 values between each id as the split text ids (guh)
+                id = DialogInfoRecord.NEXT_ID += 10;  // increment by 10 so we can use the 9 values between each id as the split text ids (guh)
                 this.type = type;
 
                 string NullEmpty(string s) { return s.Trim() == "" ? null : s; }
@@ -103,7 +104,7 @@ namespace JortPob
 
                 playerFaction = NullEmpty(json["player_faction"].ToString());
                 disposition = int.Parse(json["data"]["disposition"].ToString());
-                playerRank = playerFaction!=null?int.Parse(json["data"]["player_rank"].ToString()):-1;  // minor MW bug fix. some dialogs have a mistake where they have a required rank set but no faction
+                playerRank = playerFaction != null ? int.Parse(json["data"]["player_rank"].ToString()) : -1;  // minor MW bug fix. some dialogs have a mistake where they have a required rank set but no faction
 
                 filters = new();
                 foreach (JsonNode filterNode in json["filters"].AsArray())
@@ -132,10 +133,10 @@ namespace JortPob
             private static uint DISCARD_COUNT = 0; // some tracking to see how effective the filter discards are
             public bool IsUnreachableFor(ScriptManager scriptManager, CharacterContent npc)
             {
-                if (npc.name.ToLowerInvariantFast().Contains("dagoth")) 
+                if (npc.name.ToLowerInvariantFast().Contains("dagoth"))
                 {
                     Lort.Log($"Found Ash Vampire: {npc.name}", Lort.Type.Debug);
-                    return false; 
+                    return false;
                 }
 
                 if (speaker != null && speaker != npc.id) { return true; }
@@ -156,7 +157,8 @@ namespace JortPob
                             {
                                 case DialogFilter.Function.FactionRankDifference:
                                     {
-                                        if (npc.faction == null) { return true; } break;
+                                        if (npc.faction == null) { return true; }
+                                        break;
                                     }
                                 case DialogFilter.Function.RankRequirement:
                                     {
@@ -175,7 +177,7 @@ namespace JortPob
                                     }
                                 case DialogFilter.Function.Reputation:
                                     {
-                                        if(!filter.ResolveOperator(npc.reputation)) { return true; }
+                                        if (!filter.ResolveOperator(npc.reputation)) { return true; }
                                         break;
                                     }
                                 case DialogFilter.Function.Level:
@@ -302,7 +304,7 @@ namespace JortPob
                     conditions.Add($"GetEventFlagValue({flag.id}, {(int)flag.type}) >= {disposition}");
                 }
 
-                if(playerFaction != null)
+                if (playerFaction != null)
                 {
                     Script.Flag flag = scriptManager.GetFlag(Script.Flag.Designation.FactionJoined, playerFaction);
                     conditions.Add($"GetEventFlag({flag.id}) == True");
@@ -339,7 +341,7 @@ namespace JortPob
                                         {
                                             if (npcContent.faction == null) { return "False"; } // static false return if npc is not in a faction
                                             Script.Flag rvar = scriptManager.GetFlag(Script.Flag.Designation.FactionRank, npcContent.faction);
-                                            return $"(GetEventFlagValue({rvar.id}, {rvar.Bits()}) - {rank+1}) {filter.OperatorSymbol()} {filter.value}";
+                                            return $"(GetEventFlagValue({rvar.id}, {rvar.Bits()}) - {rank + 1}) {filter.OperatorSymbol()} {filter.value}";
                                         }
                                     case DialogFilter.Function.RankRequirement:
                                         {
@@ -432,7 +434,7 @@ namespace JortPob
                                         {
                                             List<SpeffManager.SpeffSpell> speffs = speffManager.GetBlights();
                                             List<string> conditions = new();
-                                            foreach(SpeffManager.SpeffSpell speff in speffs)
+                                            foreach (SpeffManager.SpeffSpell speff in speffs)
                                             {
                                                 conditions.Add($"DoesPlayerHaveSpEffect({speff.row}) == True");
                                             }
@@ -549,7 +551,7 @@ namespace JortPob
                                             }
 
                                             Flag gvar = scriptManager.GetFlag(Script.Flag.Designation.Global, filter.id); // look for flag. if not found return a static 'False' as it's probably a float variable
-                                            if(gvar == null) { return "False"; }
+                                            if (gvar == null) { return "False"; }
                                             return $"GetEventFlagValue({gvar.id}, {gvar.Bits()}) {filter.OperatorSymbol()} {filter.value}";
                                         }
 
@@ -558,12 +560,12 @@ namespace JortPob
 
                             case DialogFilter.Type.Dead:
                                 {
-                                    switch(filter.function)
+                                    switch (filter.function)
                                     {
                                         case DialogFilter.Function.DeadType:
                                             {
                                                 Flag deadCount = scriptManager.GetFlag(Flag.Designation.DeadCount, filter.id);
-                                                if(deadCount == null) { return "False"; } // Only happens if doing a partial build of the game world
+                                                if (deadCount == null) { return "False"; } // Only happens if doing a partial build of the game world
                                                 return $"GetEventFlagValue({deadCount.id}, {deadCount.Bits()}) {filter.OperatorSymbol()} {filter.value}";
                                             }
                                     }
@@ -576,7 +578,7 @@ namespace JortPob
                                     case DialogFilter.Function.VariableCompare:
                                         {
                                             Flag lvar = scriptManager.GetFlagLocal(npcContent, filter.id); // look for flag
-                                            if(lvar == null) { return "True"; } // if we don't find the flag for a local var it doesn't exist
+                                            if (lvar == null) { return "True"; } // if we don't find the flag for a local var it doesn't exist
                                             return $"False";
                                         }
 
@@ -588,7 +590,7 @@ namespace JortPob
                                     case DialogFilter.Function.NotCell:
                                         {
                                             // static check, characters in elden ring can't really travel around so it's fine for now. may need to change at some point tho
-                                            if(npcContent.cell.name == null) { return "True"; }
+                                            if (npcContent.cell.name == null) { return "True"; }
                                             if (npcContent.cell.name.ToLower().StartsWith(filter.id.ToLower())) { return "False"; }
                                             return "True";
                                         }
@@ -601,7 +603,7 @@ namespace JortPob
                                     case DialogFilter.Function.NotIdType:
                                         {
                                             // Checking speaker id, static true/false is fine for this one
-                                            if(npcContent.id != filter.id) { return "True"; }
+                                            if (npcContent.id != filter.id) { return "True"; }
                                             else { return "False"; }
                                         }
 
@@ -682,7 +684,7 @@ namespace JortPob
                     }
 
                     string filterCond = handleFilter(filter);
-                    if(filterCond == null)
+                    if (filterCond == null)
                     {
                         string unsupportedFilterType = $"{filter.type}::{filter.function}";
                         if (!debugUnsupportedFiltersLogging.Contains(unsupportedFilterType))
@@ -723,7 +725,7 @@ namespace JortPob
                 {
                     Papyrus.Call call = new(line);
                     if (call.type == Papyrus.Call.Type.None) { continue; } // discard empty calls
-                    if(call.type == Papyrus.Call.Type.Choice)  // choice calls are special and are stored differently
+                    if (call.type == Papyrus.Call.Type.Choice)  // choice calls are special and are stored differently
                     {
                         choice = new PapyrusChoice(call);
                         continue;
@@ -778,7 +780,7 @@ namespace JortPob
                     Script.Flag retFlag = null;
 
                     // probably a local var of this object. ex: powerLevel or angryness
-                    if (!varName.Contains(".")) 
+                    if (!varName.Contains("."))
                     {
                         retFlag = scriptManager.GetFlagLocal(npcContent, varName); // look for flag
                     }
@@ -818,7 +820,7 @@ namespace JortPob
                             }
                         case Papyrus.Call.Type.Journal:
                             {
-                                Flag jvar = scriptManager.common.GetOrCreateFlag(Flag.Category.Saved, Flag.Type.Byte, Script.Flag.Designation.Journal, call.parameters[0]); 
+                                Flag jvar = scriptManager.common.GetOrCreateFlag(Flag.Category.Saved, Flag.Type.Byte, Script.Flag.Designation.Journal, call.parameters[0]);
                                 lines.Add($"SetEventFlagValue({jvar.id}, {jvar.Bits()}, {int.Parse(call.parameters[1])})");
                                 break;
                             }
@@ -951,7 +953,8 @@ namespace JortPob
                                 if (
                                     (location != null && target.cell.name.ToLower() == location.ToLower()) || // goal is valid as it is in the same interior cell
                                     (location == null && !areaScript.IsInterior()) // goal is valid as it is an ext target and we are outside
-                                ) {
+                                )
+                                {
                                     if (position != Vector3.Zero)
                                     {
                                         Layout.TravelPoint goal = layout.FindTravelable(location, position);
@@ -1185,14 +1188,14 @@ namespace JortPob
                                 BaseScript script = scriptManager.FindScriptFor(layout, target); // grab area script of target
 
                                 Script.Flag triggerFlag;
-                                if(call.type == Papyrus.Call.Type.Disable) { triggerFlag = script.GetOrRegisterTriggerDisable(target); }
+                                if (call.type == Papyrus.Call.Type.Disable) { triggerFlag = script.GetOrRegisterTriggerDisable(target); }
                                 else { triggerFlag = script.GetOrRegisterTriggerEnable(target); }
 
                                 switch (target)
                                 {
                                     case CharacterContent c:
                                         {
-                                            if(c.dead) { goto default; } // dead bodies can be treated basically like static objects
+                                            if (c.dead) { goto default; } // dead bodies can be treated basically like static objects
                                             Script.Flag deadFlag = scriptManager.GetFlag(Flag.Designation.Dead, target);
                                             lines.Add($"if not GetEventFlag({deadFlag.id}):");               // if character is not dead then trigger enable/disable
                                             lines.Add($"    SetEventFlag({triggerFlag.id}, FlagState.On)");
@@ -1200,7 +1203,7 @@ namespace JortPob
                                         }
                                     case ItemContent i:
                                         {
-                                            if(i.treasure == null) { goto default; }  // items that dont have treasure are literally just statics so treat them as such
+                                            if (i.treasure == null) { goto default; }  // items that dont have treasure are literally just statics so treat them as such
                                             lines.Add($"if not GetEventFlag({i.treasure.id}):");               // if item has not been picked up then trigger enable/disable
                                             lines.Add($"    SetEventFlag({triggerFlag.id}, FlagState.On)");
                                             break;
@@ -1392,13 +1395,15 @@ namespace JortPob
                                 if (call.parameters[0].Trim() == "player")
                                 {
                                     // if a guard starts combat with a player its a crime, if its anyone else it's just them being angy at you
-                                    if (targetA.IsGuard()) {
+                                    if (targetA.IsGuard())
+                                    {
                                         Flag cvar = scriptManager.GetFlag(Flag.Designation.CrimeEvent, targetA);
                                         Script.Flag lvar = scriptManager.GetFlag(Script.Flag.Designation.CrimeLevel, "CrimeLevel"); // crime gold flag
                                         lines.Add($"SetEventFlagValue({lvar.id}, {lvar.Bits()}, {Const.CRIME_GOLD_RESIST})");
                                         lines.Add($"SetEventFlag({cvar.id}, FlagState.On)");
                                     }
-                                    else {
+                                    else
+                                    {
                                         Flag hvar = scriptManager.GetFlag(Flag.Designation.Hostile, targetA);
                                         lines.Add($"SetEventFlag({hvar.id}, FlagState.On)");
                                         lines.Add($"GiveSpEffectToSelf({(int)SpeffManager.Functional.VoidMurder})");
@@ -1453,7 +1458,7 @@ namespace JortPob
                             {
                                 SoundInfo info = esm.GetSound(call.parameters[0].ToLower().Trim());
                                 float volume, pitch;
-                                switch(call.type)
+                                switch (call.type)
                                 {
                                     case Papyrus.Call.Type.PlaySound:
                                     case Papyrus.Call.Type.PlaySound3D:
@@ -1596,7 +1601,7 @@ namespace JortPob
                                 BaseScript targetScript = scriptManager.FindScriptFor(layout, target);
 
                                 // See if the subscript is already created. this is needed as multiple scripts can potenitlaly start/stop the same subscript.
-                                Script.Flag subscriptRunFlag = scriptManager.GetFlag(Script.Flag.Designation.RunSubscript, $"{npcContent.entity}->{subscript.id}"); 
+                                Script.Flag subscriptRunFlag = scriptManager.GetFlag(Script.Flag.Designation.RunSubscript, $"{npcContent.entity}->{subscript.id}");
 
                                 // If the subscript does not exist yet, we create it
                                 if (subscriptRunFlag == null)
@@ -1618,8 +1623,8 @@ namespace JortPob
                                 break;
                             }
                         default:
-                            { 
-                                if(!debugUnsupportedPapyrusCallLogging.Contains(call.type.ToString()))
+                            {
+                                if (!debugUnsupportedPapyrusCallLogging.Contains(call.type.ToString()))
                                 {
                                     Lort.Log($" ## WARNING ## Unsupported papyrus call {call.type}", Lort.Type.Debug);
                                     debugUnsupportedPapyrusCallLogging.Add(call.type.ToString());
@@ -1629,7 +1634,7 @@ namespace JortPob
                     }
                 }
 
-                if(lines.Count() <= 0) { return ""; } // if empty just return nothing lol lmao
+                if (lines.Count() <= 0) { return ""; } // if empty just return nothing lol lmao
 
                 string space = "";
                 for (int i = 0; i < indent; i++)
@@ -1651,7 +1656,7 @@ namespace JortPob
                 {
                     choices = new();
 
-                    for(int i=0;i<call.parameters.Count();i+=2)
+                    for (int i = 0; i < call.parameters.Count(); i += 2)
                     {
                         int ind = int.Parse(call.parameters[i + 1]);
                         string text = call.parameters[i];
