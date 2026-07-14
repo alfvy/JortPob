@@ -862,7 +862,7 @@ namespace JortPob
             return itemInfos;
         }
 
-        public ItemInfo GetItem(string id)
+        public ItemInfo GetItem(string id, float difficulty = 0f)   // optional difficulty value is for world difficulty scaling. value from 0 to 1 determines if leveldlists resolve as a level 0 or level 55 player
         {
             /* First search for a regular item */
             foreach(ItemInfo item in items)
@@ -873,7 +873,7 @@ namespace JortPob
             /* If no result, search for a leveled list, if we find one resolve it for an item */
             foreach(LeveledList list in lists)
             {
-                if(list.id.ToLower() == id.ToLower()) { return list.Get(); }
+                if(list.id.ToLower() == id.ToLower()) { return list.Get(difficulty); }
             }
 
             /* No match! */
@@ -919,7 +919,7 @@ namespace JortPob
             {
                 for (int i = 0; i < entry.quantity; i++)
                 {
-                    ItemInfo itemInfo = GetItem(entry.id); // getitem resolves leveled lists so a single record id CAN return multiple different items!
+                    ItemInfo itemInfo = GetItem(entry.id, Override.GetDifficultyScalar(content.cell)); // getitem resolves leveled lists so a single record id CAN return multiple different items!
                     AddOrIncrement(inventory, itemInfo);
                 }
             }
@@ -1251,21 +1251,20 @@ namespace JortPob
             }
 
             /* Resolves the leveled list statically using level requirements as weighting for chance */
-            public ItemInfo Get()
+            public ItemInfo Get(float difficulty)
             {
                 if (list.Count <= 0) { return null; }  // empty lists are a theoretical possibility
                 if (Utility.RandomRange(0, 100) < chance) { return null; }  // chance is a chance for no item at all so resolve that first
 
-                int w = 0;
-                int roll = Utility.RandomRange(0, weight);
-                foreach((ItemInfo item, int level) entry in list)
-                {
-                    w += entry.level;
+                int reqLevel = (int)Math.Max(1f, difficulty * 55f);  // conversion of world difficulty scale to player character level here. very fast and loose. this should be good enough though
+                List<(ItemInfo item, int level)> validItems = list
+                    .Where(l => l.level <= reqLevel)
+                    .ToList();
 
-                    if (roll < w) { return entry.item; }
-                }
+                if (validItems.Count() <= 0) { return list[0].item; } // if the level req for every entry is not met and we have an emtpy list return the lowest level item (the first one)
 
-                return list[^1].item; // return last entry, i think this is unreachable but good fallback incase
+                int rand = Utility.RandomRange(0, validItems.Count());
+                return validItems[rand].item;
             }
 
             public List<ItemInfo> Possibilites()

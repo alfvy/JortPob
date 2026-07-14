@@ -1,13 +1,16 @@
 ﻿using JortPob.Common;
 using JortPob.Model;
 using JortPob.Worker;
+using Newtonsoft.Json;
 using SoulsFormats;
 using System;
 using System.Collections.Generic;
-using System.Numerics;
-using System.Threading;
 using System.IO;
+using System.Numerics;
+using System.Text.Json.Nodes;
+using System.Threading;
 using static JortPob.LiquidManager;
+using static JortPob.Override;
 
 namespace JortPob
 {
@@ -16,6 +19,67 @@ namespace JortPob
         /* This entire class i just for adding temporary test code for things */
         /* Nothing in here actually matters and will not be used in actual builds. some of these may be debug flags in the const */
         /* Basically just have this to keep the resst of the program clean and free of random test code */
+
+        public static void GenerateInteriorDifficultyJsonViaRecursvieDoorLinkTraversal(ESM esm)
+        {
+            Dictionary<Int2, float> WORLD_DIFFICULTY_MAP = new();
+            JsonArray jsonDifMap = JsonNode.Parse(File.ReadAllText(Utility.ResourcePath(@"overrides\world_difficulty_map.json"))).AsArray();
+            foreach (JsonNode jsonNode in jsonDifMap)
+            {
+                int x = jsonNode["x"].GetValue<int>();
+                int y = jsonNode["y"].GetValue<int>();
+                float d = jsonNode["d"].GetValue<float>();
+                WORLD_DIFFICULTY_MAP.Add(new(x, y), d);
+            }
+            Cell FindExteriorCellLinkedTo(ESM esm, Cell cell)
+            {
+                if (!cell.IsExterior())
+                {
+                    List<Cell> searched = new();
+                    Cell ExteriorLinkSearch(Cell cell)
+                    {
+                        searched.Add(cell);
+
+                        foreach (DoorContent door in cell.doors)
+                        {
+                            if (door.warp != null)
+                            {
+                                // found exterior
+                                if (door.warp.cell == null)
+                                {
+                                    Cell linked = esm.GetCellByPosition(door.warp.position);
+                                    if (linked != null && linked.IsExterior()) { return linked; }
+                                }
+                                // another interior...
+                                else
+                                {
+                                    Cell linked = esm.GetCellByName(door.warp.cell);
+                                    if (!searched.Contains(linked))
+                                    {
+                                        Cell result = ExteriorLinkSearch(linked);
+                                        if (result != null && result.IsExterior()) { return result; }
+                                    }
+                                }
+                            }
+                        }
+
+                        return null;
+                    }
+
+                    Cell linkedExterior = ExteriorLinkSearch(cell);
+                    return linkedExterior;
+                }
+                throw new Exception("WHAT?!");
+            }
+
+            string fuckAss = "";
+            foreach (Cell cell in esm.interior)
+            {
+                Cell link = FindExteriorCellLinkedTo(esm, cell);
+                if (link == null) { continue; } // no link, likely debug room with no doors
+                fuckAss += $"\"{cell.name}\": [{link.coordinate.x}, {link.coordinate.y}],\r\n";
+            }
+        }
 
         /* Test ESD creation */
         public static void GenerateCharacterESD(Paramanager param, uint id)

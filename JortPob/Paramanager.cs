@@ -2,6 +2,8 @@
 using JortPob.Common;
 using JortPob.Scripts;
 using JortPob.Worker;
+using Mutagen.Bethesda.Skyrim;
+using NexusMods.Paths.Trees.Traits;
 using SoulsFormats;
 using SoulsFormats.Cryptography;
 using System;
@@ -9,6 +11,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Windows.Forms;
 using WitchyFormats;
 
 namespace JortPob
@@ -91,9 +94,11 @@ namespace JortPob
 
         public Dictionary<string, int> itemActionButtons; // string is the text of the button prompt, int is the row id
 
+        public Dictionary<int, int> difficultyScalingSpeffs;
+
         public short terrainDrawParamID;
         private Dictionary<int, int> lodPartDrawParamIDs; // first int is the index of the array from Const.ASSET_LOD_VALUES, second int is the param row id
-        private int nextMessageParam, nextMapItemLotId, nextEnemyItemLotId, nextActionButtonId, nextWeatherLotParamId;
+        private int nextMessageParam, nextMapItemLotId, nextEnemyItemLotId, nextActionButtonId, nextWeatherLotParamId, nextSpeffId;
 
         public Paramanager(Cache cache, TextManager textManager)
         {
@@ -105,8 +110,10 @@ namespace JortPob
             nextEnemyItemLotId = 720000000;
             nextActionButtonId = 300000;
             nextWeatherLotParamId = 500000000;
+            nextSpeffId = 50000;
 
             itemActionButtons = new();
+            difficultyScalingSpeffs = new();
 
             SoulsFormats.BND4 paramBnd = RegulationDecryptor.DecryptERRegulation(Utility.ResourcePath(@"misc\regulation.bin"));
             string[] files = Directory.GetFiles(Utility.ResourcePath(@"misc\paramdefs"));
@@ -263,6 +270,9 @@ namespace JortPob
             KillAllBut255(mapNameTexParam);
             KillAllBut255(mapPieceTexParam);
             KillAllBut255(weatherTexParam);
+
+            /* Generate difficulty scaling speffs */
+            GenerateDifficultySpeffs();
 
             GC.Collect(); // maybe fixes a bug with fsparam. 80% sure
         }
@@ -874,7 +884,33 @@ namespace JortPob
             AddOrReplaceRow(charInitParam, row);
         }
 
-        public void GenerateNpcParam(ItemManager itemManager, BaseScript script, NpcContent npc, int id)
+        public void GenerateDifficultySpeffs()
+        {
+            const int templateRow = 7000; // this is the area difficulty of Stranded Graveyard, this is the "base difficulty" of +0 from what i can tell
+
+            Override.WorldDifficultyInfo settings = Override.GetDifficultyInfo();
+            for (int i = 0; i < settings.tiers; i++)
+            {
+                FsParam.Row row = CloneRow(GetRow(param[ParamType.SpEffectParam], templateRow), $"Difficulty Scaling Lv.{i:D2}", nextSpeffId);
+
+                /* Calculate difficulty values from settings json */
+                float scalar = i * (1f / (settings.tiers-1));
+                foreach(var entry in settings.data)
+                {
+                    string field = entry.Key;
+                    float[] range = entry.Value;
+                    float value = float.Lerp(range[0], range[1], scalar);
+                    row[field].Value.SetValue(value);
+                }
+
+                difficultyScalingSpeffs.Add(i, nextSpeffId);
+                AddOrReplaceRow(param[ParamType.SpEffectParam], row);
+
+                nextSpeffId += 10;
+            }
+        }
+
+        public void GenerateNpcParam(ItemManager itemManager, BaseScript script, NpcContent npc, int level, int id)
         {
             // It seems like special poses are tied to npcparam in some way so i need to copy lanya to get the 'dead body' pose
             int rowToCopy;
@@ -882,7 +918,7 @@ namespace JortPob
             else { rowToCopy = 523010000; }          // white mask varre
 
             FsParam npcParam = param[ParamType.NpcParam];
-            FsParam.Row row = CloneRow(npcParam[rowToCopy], npc.id, id);
+            FsParam.Row row = CloneRow(npcParam[rowToCopy], $"{npc.id} | diff+{level}", id);
 
             int itemLotRow;
             List<(ItemManager.ItemInfo item, int quantity)> inventory = itemManager.ResolveInventory(npc);
@@ -891,32 +927,79 @@ namespace JortPob
             }
             else { itemLotRow = -1; }
 
+            /* Setup basic info */
             int textId = textManager.AddNpcName(npc.name);
             row.Cells[5].SetValue(textId); // nameId
             row.Cells[105].SetValue((byte)26); // team type [friendlynpc=26]
             row["itemLotId_enemy"].Value.SetValue(itemLotRow);
 
-            AddOrReplaceRow(npcParam, row);
+            /* Clear generic difficulty speffs */
+            for(int i=0;i<32;i++)
+            {
+                FsParam.Cell cell = (FsParam.Cell)row[$"spEffectID{i}"];
+                int speffId = (int)(cell.Value);
+                if(speffId >= 7000 && speffId <= 7680) { cell.SetValue(-1); }                   // Area Scaling +0 to +25 & NG+ Scaling
+                else if(speffId >= 19350 && speffId <= 19370) { cell.SetValue(-1); }           // Special Humanoid Area Scaling
+                else if(speffId >= 19500 && speffId <= 19517) { cell.SetValue(-1); }          // Special Humanoid NG+ Scaling
+                else if(speffId >= 20007000 && speffId <= 20008750) { cell.SetValue(-1); }   // DLC Scaling
+                else if(speffId == 0) { cell.SetValue(-1); }                                // This annoys me, 0 and -1 are the same but GUH
+            }
+
+            /* Add difficulty speff for area difficulty level of this npcparam */
+            int difficultySpeffId = difficultyScalingSpeffs[level];
+            for (int i = 0; i < 32; i++)
+            {
+                FsParam.Cell cell = (FsParam.Cell)row[$"spEffectID{i}"];
+                int speffId = (int)(cell.Value);
+
+                if (speffId == -1) { cell.SetValue(difficultySpeffId); break; }  // find first empty slot and add
+            }
+
+             AddOrReplaceRow(npcParam, row);
         }
 
-        public void GenerateNpcParam(ItemManager itemManager, BaseScript script, CreatureContent creature, int id, Override.EnemyRemap remap)
+        public void GenerateNpcParam(ItemManager itemManager, BaseScript script, CreatureContent creature, int level, int id, Override.EnemyRemap remap)
         {
             int rowToCopy = remap.npc.row;
 
             FsParam npcParam = param[ParamType.NpcParam];
-            FsParam.Row row = CloneRow(npcParam[rowToCopy], creature.id, id);
+            FsParam.Row row = CloneRow(npcParam[rowToCopy], $"{creature.id} | diff+{level}", id);
 
             int itemLotRow;
             List<(ItemManager.ItemInfo item, int quantity)> inventory = itemManager.ResolveInventory(creature);
             if (inventory.Count() > 0) { itemLotRow = GenerateInventoryItemLot(script, creature, inventory); }    // @TODO: rework item lot generation for creatures to be non-fixed
             else { itemLotRow = -1; }
 
-            SillyJsonUtils.ModifyRow(row, remap.npc.data);
-
+            /* Setup basic npc param stuff */
             int textId = textManager.AddNpcName(creature.name);
             row.Cells[5].SetValue(textId); // nameId
             row.Cells[105].SetValue((byte)(creature.IsHostile() ? 6 : 26)); // team type (enemy=6, hostilenpc=27, friendlynpc=26)
             row["itemLotId_enemy"].Value.SetValue(itemLotRow);
+
+            /* Apply param cell values from JSON data */
+            SillyJsonUtils.ModifyRow(row, remap.npc.data);
+
+            /* Clear generic difficulty speffs */
+            for (int i = 0; i < 32; i++)
+            {
+                FsParam.Cell cell = (FsParam.Cell)row[$"spEffectID{i}"];
+                int speffId = (int)(cell.Value);
+                if (speffId >= 7000 && speffId <= 7680) { cell.SetValue(-1); }                   // Area Scaling +0 to +25 & NG+ Scaling
+                else if (speffId >= 19350 && speffId <= 19370) { cell.SetValue(-1); }           // Special Humanoid Area Scaling
+                else if (speffId >= 19500 && speffId <= 19517) { cell.SetValue(-1); }          // Special Humanoid NG+ Scaling
+                else if (speffId >= 20007000 && speffId <= 20008750) { cell.SetValue(-1); }   // DLC Scaling
+                else if (speffId == 0) { cell.SetValue(-1); }                                // This annoys me, 0 and -1 are the same but GUH
+            }
+
+            /* Add difficulty speff for area difficulty level of this npcparam */
+            int difficultySpeffId = difficultyScalingSpeffs[level];
+            for (int i = 0; i < 32; i++)
+            {
+                FsParam.Cell cell = (FsParam.Cell)row[$"spEffectID{i}"];
+                int speffId = (int)(cell.Value);
+
+                if (speffId == -1) { cell.SetValue(difficultySpeffId); break; }  // find first empty slot and add
+            }
 
             AddOrReplaceRow(npcParam, row);
         }

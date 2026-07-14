@@ -1,0 +1,32 @@
+[
+  {
+    "tiers": 10, // number of difficulty "levels" to create, larger numbers means smoother gradients between areas. Elden Ring uses roughly 20 for the entire game
+    "data": {
+      "maxHpRate": [ 1.0, 7.5 ], // primary attributes
+      "maxMpRate": [ 0.85, 1.75 ],
+      "maxStaminaRate": [ 1.0, 2 ],
+
+      "staminaAttackRate": [ 1.0, 1.4 ], // stamina drain on shields
+
+      "physicsAttackPowerRate": [ 0.85, 3.5 ], // damage
+      "magicAttackPowerRate": [ 0.85, 3.5 ],
+      "fireAttackPowerRate": [ 0.85, 3.5 ],
+      "thunderAttackPowerRate": [ 0.85, 3.5 ],
+      "darkAttackPowerRate": [ 0.85, 3.5 ],
+
+      "physicsDiffenceRate": [ 1.0, 1.3 ], // defence (SIC)
+      "magicDiffenceRate": [ 1.0, 1.3 ],
+      "fireDiffenceRate": [ 1.0, 1.3 ],
+      "thunderDiffenceRate": [ 1.0, 1.3 ],
+      "darkDiffenceRate": [ 1.0, 1.3 ],
+
+      "registPoizonChangeRate": [ 1.75, 2.75 ], // status effect resist (SIC)
+      "registDiseaseChangeRate": [ 1.75, 2.75 ],
+      "registBloodChangeRate": [ 1.75, 2.75 ],
+      "registCurseChangeRate": [ 1.75, 2.75 ],
+      "registFreezeChangeRate": [ 1.75, 2.75 ],
+      "registSleepChangeRate": [ 1.75, 2.75 ],
+      "registMadnessChangeRate": [ 1.75, 2.75 ]
+    }
+  }
+]
