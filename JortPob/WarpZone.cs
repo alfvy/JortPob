@@ -21,7 +21,7 @@ namespace JortPob
         {
 
             /* DEBUG - Add a warp from stranded graveyard to various useful locations for debuggin */
-            /* @TODO: DELETE THIS WHEN IT IS NO LONGER NEEDED! */
+            /* @TODO: Create a setting.json toggle that adds/removes this room from a build and instead places the player in the actual starting cell instead of debug room */
             MSBE debugMSB = MSBE.Read(Utility.ResourcePath(@"test\m18_00_00_00.msb.dcx"));
             MSBE.Part.Asset debugThingToDupe = null;
             uint debugEntityIdNext = 1042360750;
@@ -74,9 +74,32 @@ namespace JortPob
                     Script.Flag debugEventFlag = debugScript.CreateFlag(Script.Flag.Category.Event, Script.Flag.Type.Bit, Script.Flag.Designation.Event, $"m{debugScript.map}_{debugScript.x}_{debugScript.y}_{debugScript.block}::DebugWarp");
                     EMEVD.Event debugWarpEvent = new(debugEventFlag.id);
 
+                    Layout.WarpDestination warpTarget = area.warps[0]; // defaults to first valid warp dest
+                    Layout.MapPoint mpMatch = null;
+                    // Find mappoint that has a similar name to the cell name we are looking for
+                    foreach(Layout.MapPoint mp in area.points)
+                    {
+                        if(mp.name.ToLower().Contains(areaName.ToLower()))
+                        {
+                            mpMatch = mp;
+                            break;
+                        }
+                    }
+                    // Test distance from the matched mappoint from each warpdestination and pick nearest one. should place warpzone outlet to somewhere near center of the named location
+                    if(mpMatch != null)
+                    {
+                        foreach(Layout.WarpDestination warp in area.warps)
+                        {
+                            if(Vector3.Distance(warp.position, mpMatch.relative) < Vector3.Distance(warpTarget.position, mpMatch.relative))
+                            {
+                                warpTarget = warp;
+                            }
+                        }
+                    }
+
                     int actionButtonId = paramanager.GenerateActionButtonInteractParam($"Debug Warp: {areaName}");
                     debugWarpEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"IfActionButtonInArea(MAIN, {actionButtonId}, {debugAsset.EntityID});"));
-                    debugWarpEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"WarpPlayer({area.map}, {area.coordinate.x}, {area.coordinate.y}, 0, {area.warps[0].id}, 0)"));
+                    debugWarpEvent.Instructions.Add(debugScript.AUTO.ParseAdd($"WarpPlayer({area.map}, {area.coordinate.x}, {area.coordinate.y}, 0, {warpTarget.id}, 0)"));
 
                     debugScript.init.Instructions.Add(debugScript.AUTO.ParseAdd($"InitializeEvent(0, {debugEventFlag.id})"));
 
