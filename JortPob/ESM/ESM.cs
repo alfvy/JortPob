@@ -779,6 +779,8 @@ namespace JortPob
 
         public string Get(float difficulty)
         {
+            if (creatures.Count() <= 0) { throw new Exception($"Attemped to 'get' from an empty LeveledCreature list: {id}"); }
+
             int reqLevel = (int)Math.Max(1f, difficulty * 55f);  // conversion of world difficulty scale to player character level here. very fast and loose. this should be good enough though
             List<(string id, int level)> validCreatures = creatures
                 .Where(c => c.level <= reqLevel)

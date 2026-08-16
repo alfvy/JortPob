@@ -290,7 +290,17 @@ namespace JortPob
         }
 
         /* Classes for serializing */
-        public record WorldDifficultyInfo(int tiers, Dictionary<string, float[]> data);
+        public record WorldDifficultyInfo
+        {
+            public readonly int tiers;
+            public readonly Dictionary<string, float[]> data;
+
+           public WorldDifficultyInfo(int tiers, Dictionary<string, float[]> data)
+           {
+               this.tiers = Math.Min(50, Math.Max(2, tiers));
+               this.data = data;
+            }
+        };
 
         public record PlayerClass(string name, string description, Dictionary<string, int> data);
 
