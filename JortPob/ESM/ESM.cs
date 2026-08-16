@@ -430,12 +430,12 @@ namespace JortPob
             return ds;
         }
 
-        public Record ResolveLeveledCreature(string id)
+        public Record ResolveLeveledCreature(string id, float difficulty)
         {
             LeveledCreature leveledCreatureList = GetLeveledCreature(id) ?? throw new Exception($"Failed to resolve leveled creature list: {id}");
-            string resolvedId = leveledCreatureList.Get();
+            string resolvedId = leveledCreatureList.Get(difficulty);
             Record resolvedRecord = FindRecordById(resolvedId);
-            if (resolvedRecord.type == ESM.Type.LeveledCreature) { resolvedRecord = ResolveLeveledCreature(resolvedId); }  // leveld lists can be recursive. jfk todd, why?
+            if (resolvedRecord.type == ESM.Type.LeveledCreature) { resolvedRecord = ResolveLeveledCreature(resolvedId, difficulty); }  // leveld lists can be recursive. jfk todd, why?
             return resolvedRecord;
         }
 
@@ -777,11 +777,19 @@ namespace JortPob
             }
         }
 
-        /* @TODO: better selection code. currently just using a starndard random draw */
-        public string Get()
+        public string Get(float difficulty)
         {
-            int rand = Utility.RandomRange(0, creatures.Count());
-            return creatures[rand].id;
+            if (creatures.Empty()) { throw new Exception($"Attemped to 'get' from an empty LeveledCreature list: {id}"); }
+
+            int reqLevel = (int)Math.Max(1f, difficulty * 55f);  // conversion of world difficulty scale to player character level here. very fast and loose. this should be good enough though
+            List<(string id, int level)> validCreatures = creatures
+                .Where(c => c.level <= reqLevel)
+                .ToList();
+
+            if(validCreatures.Empty()) { return creatures[0].id; } // if the level req for every entry is not met and we have an emtpy list return the lowest level creature (the first one)
+
+            int rand = Utility.RandomRange(0, validCreatures.Count());
+            return validCreatures[rand].id;
         }
     }
 

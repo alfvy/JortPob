@@ -125,7 +125,7 @@ namespace JortPob
                         creatures.Add(new CreatureContent(esm, this, reference, record));
                         break;
                     case ESM.Type.LeveledCreature:
-                        Record resolvedRecord = esm.ResolveLeveledCreature(id);
+                        Record resolvedRecord = esm.ResolveLeveledCreature(id, Override.GetDifficultyScalar(this));
                         if (resolvedRecord.type == ESM.Type.Creature) { creatures.Add(new CreatureContent(esm, this, reference, resolvedRecord)); }
                         else if (resolvedRecord.type == ESM.Type.Npc) { npcs.Add(new NpcContent(esm, this, reference, resolvedRecord)); }
                         else { throw new Exception("Invalid leveled list result record type"); } // if this ever happens todd howard owes me a blood sacrifice

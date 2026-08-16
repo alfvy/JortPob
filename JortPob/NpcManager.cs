@@ -31,6 +31,9 @@ namespace JortPob
         private readonly SpeffManager speffManager;
         private readonly ScriptManager scriptManager;
 
+        private readonly Dictionary<(string id, int level), int> npcParams; // stores npcparam row ids for given recordid + difficulty level. npcparams are resuable unlike ESD
+        private readonly Dictionary<string, int> thinkParams;              // stores thinkparam row ids for given recordid. these are also reusable and don't have difficulty scaling
+
         private readonly Dictionary<string, int> topicText; // topic text id map
         private readonly List<EsdInfo> esds; // npcs, beds
 
@@ -51,6 +54,9 @@ namespace JortPob
             esds = new();
             topicText = new();
 
+            npcParams = new();
+            thinkParams = new();
+
             nextNpcParamId = 544900010;
             nextNpcThinkParamId = 544900010;
             nextCharInitId = 2050000;
@@ -68,15 +74,22 @@ namespace JortPob
 
         private int GetNpcParam(ItemManager itemManager, BaseScript script, NpcContent content)
         {
+            int level = Override.GetDifficultyLevel(content.cell);
+            if (npcParams.ContainsKey((content.id, level))) { return npcParams[(content.id, level)]; }
+
             int id = nextNpcParamId += 10;
-            paramanager.GenerateNpcParam(itemManager, script, content, id);
+            paramanager.GenerateNpcParam(itemManager, script, content, level, id);
+            npcParams.Add((content.id, level), id);
             return id;
         }
 
         private int GetThinkParam(ItemManager itemManager, BaseScript script, NpcContent content)
         {
+            if (thinkParams.ContainsKey(content.id)) { return thinkParams[content.id]; }
+
             int id = nextNpcThinkParamId += 10;
             paramanager.GenerateThinkParam(itemManager, script, content, id);
+            thinkParams.Add(content.id, id);
             return id;
         }
 
@@ -97,15 +110,22 @@ namespace JortPob
 
         private int GetNpcParam(ItemManager itemManager, BaseScript script, CreatureContent content, Override.EnemyRemap remap)
         {
+            int level = Override.GetDifficultyLevel(content.cell);
+            if (npcParams.ContainsKey((content.id, level))) { return npcParams[(content.id, level)]; }
+
             int id = nextNpcParamId += 10;
-            paramanager.GenerateNpcParam(itemManager, script, content, id, remap);
+            paramanager.GenerateNpcParam(itemManager, script, content, level, id, remap);
+            npcParams.Add((content.id, level), id);
             return id;
         }
 
         private int GetThinkParam(ItemManager itemManager, BaseScript script, CreatureContent content, Override.EnemyRemap remap)
         {
+            if (thinkParams.ContainsKey(content.id)) { return thinkParams[content.id]; }
+
             int id = nextNpcThinkParamId += 10;
             paramanager.GenerateThinkParam(itemManager, script, content, id, remap);
+            thinkParams.Add(content.id, id);
             return id;
         }
 
