@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json.Nodes;
+using static IronPython.Modules._ast;
 
 namespace JortPob
 {
@@ -34,6 +36,9 @@ namespace JortPob
         private static Dictionary<string, Layout.MapPoint.Icon> MAP_ICONS;
         private static List<LoadingTip> LOADING_TIPS;
         private static Dictionary<string, byte> REGION;
+        private static Dictionary<Int2, float> WORLD_DIFFICULTY_MAP;
+        private static Dictionary<string, int[]> WORLD_EXTERIOR_LINKS;
+        private static WorldDifficultyInfo WORLD_DIFFICULTY_SETTINGS;
 
         public static bool CheckDoNotPlace(string id)
         {
@@ -150,6 +155,33 @@ namespace JortPob
             else { return 255; }  // default
         }
 
+        public static float GetDifficultyScalar(Cell cell)
+        {
+            if (!cell.IsExterior())
+            {
+                if(WORLD_EXTERIOR_LINKS.ContainsKey(cell.name))
+                {
+                    int[] c = WORLD_EXTERIOR_LINKS[cell.name];
+                    Int2 coordinate = new(c[0], c[1]);
+                    if (WORLD_DIFFICULTY_MAP.ContainsKey(coordinate)) { return WORLD_DIFFICULTY_MAP[coordinate]; } // got diff from map
+                    return 0f;  // failed to find difficulty on map, likely ocean so 0%
+                }
+                else
+                {
+                    return 0.5f; // interior is not in the world_exteriro_link.json so we are just defaulting to 50% difficulty. likely a mod area or debug room
+                }
+            }
+            else if (WORLD_DIFFICULTY_MAP.ContainsKey(cell.coordinate)) { return WORLD_DIFFICULTY_MAP[cell.coordinate]; } // got diff from map
+            return 0f; // failed to find difficulty on map, likely ocean so 0%
+        }
+
+        public static int GetDifficultyLevel(Cell cell)
+        {
+            return (int)Math.Round(WORLD_DIFFICULTY_SETTINGS.tiers * GetDifficultyScalar(cell));
+        }
+
+        public static WorldDifficultyInfo GetDifficultyInfo() { return WORLD_DIFFICULTY_SETTINGS; }
+
         /* load all the override jsons into this class */
         public static void Initialize()
         {
@@ -238,9 +270,39 @@ namespace JortPob
 
             /* Loading region bytes */
             REGION = JsonConvert.DeserializeObject<Dictionary<string, byte>>(File.ReadAllText(Utility.ResourcePath(@"overrides\region.json")));
+
+            /* Loading json for world difficulty map */
+            WORLD_DIFFICULTY_MAP = new();
+            JsonArray jsonDifMap = JsonNode.Parse(File.ReadAllText(Utility.ResourcePath(@"overrides\world_difficulty_map.json"))).AsArray();
+            foreach (JsonNode jsonNode in jsonDifMap)
+            {
+                int x = jsonNode["x"].GetValue<int>();
+                int y = jsonNode["y"].GetValue<int>();
+                float d = jsonNode["d"].GetValue<float>();
+                WORLD_DIFFICULTY_MAP.Add(new(x, y), d);
+            }
+
+            /* Loading json for world difficulty settings */
+            WORLD_DIFFICULTY_SETTINGS = JsonConvert.DeserializeObject<List<WorldDifficultyInfo>>(File.ReadAllText(Utility.ResourcePath(@"overrides\world_difficulty_settings.json"))).ToList()[0];
+
+            /* Loading json for world exterior links. This lists out every interior cell name and gives a grid coordinate for where it is located in the exterior */
+            WORLD_EXTERIOR_LINKS = JsonConvert.DeserializeObject<List<Dictionary<string, int[]>>>(File.ReadAllText(Utility.ResourcePath(@"overrides\world_exterior_links.json"))).ToList()[0];
         }
 
         /* Classes for serializing */
+        public record WorldDifficultyInfo
+        {
+            public readonly int tiers;
+            public readonly Dictionary<string, float[]> data;
+
+            public WorldDifficultyInfo(int tiers, Dictionary<string, float[]> data)
+            {
+                this.tiers = Math.Min(50, Math.Max(2, tiers));
+                this.data = data;
+                if (this.tiers != tiers) { Lort.Log($"Silly value for world difficulty tiers was clamped to reasoanble range: {tiers} -> {this.tiers}", Lort.Type.Debug); }
+            }
+        };
+
         public record PlayerClass(string name, string description, Dictionary<string, int> data);
 
         public record PlayerRace(string name, string description, byte id);
