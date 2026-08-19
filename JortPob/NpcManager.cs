@@ -122,7 +122,18 @@ namespace JortPob
             string cell,
             int disposition,
             List<DialogFilter> filters
-        );
+        )
+        {
+            public bool Equals(DialogLine x, DialogLine y)
+            {
+                return x.hash == y.hash;
+            }
+
+            public int GetHashCode(DialogLine obj)
+            {
+                return obj.hash.GetHashCode();
+            }
+        };
 
         public record DialogNpc(
             bool unique,
@@ -141,7 +152,7 @@ namespace JortPob
         );
 
         private List<DialogNpc> npcs = new();
-        private List<DialogLine> dialogLines = new();
+        private HashSet<DialogLine> dialogLines = new();
 
         /* Creates an ESD for the given instance of a npc */
         /* ESDs are generally 1 to 1 with characters but there are some exceptions like guards */
@@ -162,7 +173,7 @@ namespace JortPob
 
             List<TopicData> data = [];
 
-            var dlines = new List<DialogLine>();
+            var dlines = new HashSet<DialogLine>();
             bool unique = Override.CheckCustomVoice(content.name);
             foreach ((DialogRecord dia, List<Dialog.DialogInfoRecord> infos) in dialog)
             {
@@ -192,8 +203,6 @@ namespace JortPob
                         /* This sharing is required, and unfortunately it had to be added in at the end so its not a great implementation */
                         SoundBank.Sound snd = soundManager.FindSound(content, info.id + i); // look for a generated wem sound that matches the npc (race/sex) and dialog line (dialoginforecord id)
 
-                        // Use an existing wem and talkparam we already generated because it's a match
-                        if (snd != null) { talkRows.Add(bankInfo.bank.AddSound(snd)); continue; } // and continue here
 
                         /* Debug voice acting using SAM */
                         string wemFile;
@@ -204,6 +213,25 @@ namespace JortPob
                             lineHash = $"{content.name}{line}";
                         }
                         string hashName = $"{lineHash.GetMD5Hash()}+{i}"; // Get the hash of the actual text string for this line, it will be our unique identier and filename for the cached wav/wem
+                        // Use an existing wem and talkparam we already generated because it's a match
+                        if (snd != null)
+                        {
+                            dlines.Add(new(
+                                hashName,
+                                line,
+                                info.type,
+                                info.race,
+                                info.rank,
+                                info.sex,
+                                info.faction,
+                                info.job,
+                                info.cell,
+                                info.disposition,
+                                info.filters
+                            ));
+                            talkRows.Add(bankInfo.bank.AddSound(snd));
+                            continue;
+                        } // and continue here
                         if (Const.USE_SAM && !Const.DEBUG_SKIP_SOUND) { wemFile = soundManager.GenerateLine(dia, info, line, hashName, content); }
                         else { wemFile = Const.DEFAULT_DIALOG_WEM; }
 
@@ -253,7 +281,7 @@ namespace JortPob
             EsdInfo esdInfo = new(pyPath, esdPath, content.id, esdId);
             esds.Add(esdInfo);
 
-            dialogLines.AddRange(dlines);
+            dialogLines.UnionWith(dlines);
 
             npcs.Add(new(
                 unique,
@@ -525,7 +553,7 @@ namespace JortPob
         {
             EsdWorker.Go(esds);
 
-            var manifestJson = JsonConvert.SerializeObject(new { lines = dialogLines, npcs });
+            var manifestJson = JsonConvert.SerializeObject(new { lines = dialogLines.ToList(), npcs });
             File.WriteAllText($"{Const.CACHE_PATH}/ESDManifest.json", manifestJson);
 
             Lort.Log($"Binding {esds.Count()} ESDs...", Lort.Type.Main);
