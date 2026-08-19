@@ -127,26 +127,26 @@ namespace JortPob
         public static Layout.MapPoint.Icon GetMapIcon(string name)
         {
             string n = name.ToLower().ToString();
-            if(MAP_ICONS.ContainsKey(n)) { return MAP_ICONS[n]; }
+            if (MAP_ICONS.ContainsKey(n)) { return MAP_ICONS[n]; }
             else { return Layout.MapPoint.Icon.Auto; }
         }
 
         public static Hair GetHair(string name)
         {
-            if(HAIR_REMAP.ContainsKey(name.ToLower().Trim())) { return HAIR_REMAP[name.ToLower().Trim()]; }
+            if (HAIR_REMAP.ContainsKey(name.ToLower().Trim())) { return HAIR_REMAP[name.ToLower().Trim()]; }
             else { return new Hair(0, Hair.Color.Black); }  // BALD!
         }
 
         public static FaceData GetFace(string name)
         {
-            if(FACE_REMAP.ContainsKey(name.ToLower().Trim())) { return FACE_REMAP[name.ToLower().Trim()]; }
+            if (FACE_REMAP.ContainsKey(name.ToLower().Trim())) { return FACE_REMAP[name.ToLower().Trim()]; }
             else { return FACE_REMAP["default"]; }
         }
 
         public static byte GetRegionByte(string id)
         {
             string ID = id.ToLower().Trim();
-            if(REGION.ContainsKey(ID)) { return REGION[ID]; }
+            if (REGION.ContainsKey(ID)) { return REGION[ID]; }
             else { return 255; }  // default
         }
 
@@ -196,7 +196,7 @@ namespace JortPob
             /* Load all item definitinos from resources/override/items */
             ITEM_DEFINITIONS_BY_ID = Directory.GetFiles(Utility.ResourcePath(@"overrides\items"))
                 .Select(file =>
-                { 
+                {
                     var obj = JsonConvert.DeserializeObject<ItemDefinition>(File.ReadAllText(file));
                     obj.id = Path.GetFileNameWithoutExtension(file);
                     return obj;
@@ -291,7 +291,7 @@ namespace JortPob
         {
             public EnemyRemapData(int row)
                 : this(row, new())
-            {}
+            { }
         }
 
         public record EnemyRemap(string id, string comment, string character, EnemyRemapData npc, EnemyRemapData think)
@@ -299,7 +299,7 @@ namespace JortPob
             /* Default constructor, points to a Goat */
             public EnemyRemap()
                 : this("DEFAULT", "Default constructor, used when no remap found. Creates a goat.", "c6060", new(60600010), new(60600000))
-            {}
+            { }
         }
 
         public record FaceData(Dictionary<string, byte> data)

@@ -1,6 +1,7 @@
 ﻿using JortPob.Common;
 using JortPob.Scripts;
 using JortPob.Worker;
+using Newtonsoft.Json;
 using SoulsFormats;
 using System;
 using System.Collections.Generic;
@@ -19,7 +20,7 @@ namespace JortPob
         /* Morrowind makes a distinction between these 2 types of characters but ER does not */
 
         /* Bonus soda: This class also handles Beds because the morrowind c1000 object is technically an enemy so guh gughhh */
-        
+
         /* Extra Bonus soda: This calls also now resolves default AiPackages */
 
         private readonly ESM esm;
@@ -109,6 +110,39 @@ namespace JortPob
             return id;
         }
 
+        public record DialogLine(
+            string hash,
+            string line,
+            DialogRecord.Type type,
+            CharacterContent.Race race,
+            int rank,
+            CharacterContent.Sex gender,
+            string faction,
+            string job,
+            string cell,
+            int disposition,
+            List<DialogFilter> filters
+        );
+
+        public record DialogNpc(
+            bool unique,
+            string name,
+            CharacterContent.Race race,
+            int rank,
+            CharacterContent.Sex gender,
+            string faction,
+            string job,
+            List<CharacterContent.Service> services,
+            int disposition,
+            bool essential,
+            int reputation,
+            uint entity,
+            IEnumerable<string> hashes
+        );
+
+        private List<DialogNpc> npcs = new();
+        private List<DialogLine> dialogLines = new();
+
         /* Creates an ESD for the given instance of a npc */
         /* ESDs are generally 1 to 1 with characters but there are some exceptions like guards */
         public int GetESD(int[] msbIdList, MSBE msb, CharacterContent content)
@@ -116,7 +150,8 @@ namespace JortPob
             if (content.race == CharacterContent.Race.Creature && !esm.HasDialog((CreatureContent)content)) { return 0; } // if this is a creature, verify it has dialog lines to build dialog for
 
             // First check if we even need one, hostile or dead npcs dont' get talk data for now
-            if (content.dead || content.IsHostile()) { return 0; }
+            // if (content.dead || content.IsHostile()) { return 0; }
+            if (content.dead) { return 0; }
 
             /* There used to be a check here that looked for an esd tied to the record id of the npc, i'm removing this */
             /* Every instance of an npc needs its own esd. Sharing esd's will only lead to horrible bugs long term */
@@ -126,6 +161,9 @@ namespace JortPob
             SoundManager.SoundBankInfo bankInfo = soundManager.GetBank(content);
 
             List<TopicData> data = [];
+
+            var dlines = new List<DialogLine>();
+            bool unique = Override.CheckCustomVoice(content.name);
             foreach ((DialogRecord dia, List<Dialog.DialogInfoRecord> infos) in dialog)
             {
                 int topicId = 20000000; // generic "talk" as default, should never actually end up being used
@@ -146,7 +184,7 @@ namespace JortPob
                     List<string> lines = Utility.CivilizedSplit(info.text);
                     List<int> talkRows = new();
                     int baseRow = -1;
-                    for (int i=0;i<lines.Count();i++)
+                    for (int i = 0; i < lines.Count(); i++)
                     {
                         string line = lines[i];
                         /* Search existing soundbanks for the specific dialoginfo we are about to generate. if it exists just yoink it instead of generating a new one */
@@ -160,7 +198,12 @@ namespace JortPob
                         /* Debug voice acting using SAM */
                         string wemFile;
                         uint nxtid = (uint)(info.id + i);
-                        string hashName = $"{info.text.GetMD5Hash()}+{i}"; // Get the hash of the actual text string for this line, it will be our unique identier and filename for the cached wav/wem
+                        string lineHash = $"{content.race}{content.sex}{line}";
+                        if (unique)
+                        {
+                            lineHash = $"{content.name}{line}";
+                        }
+                        string hashName = $"{lineHash.GetMD5Hash()}+{i}"; // Get the hash of the actual text string for this line, it will be our unique identier and filename for the cached wav/wem
                         if (Const.USE_SAM && !Const.DEBUG_SKIP_SOUND) { wemFile = soundManager.GenerateLine(dia, info, line, hashName, content); }
                         else { wemFile = Const.DEFAULT_DIALOG_WEM; }
 
@@ -175,6 +218,20 @@ namespace JortPob
                             baseRow = bankInfo.bank.AddSound(wemFile, info.id + i, line);
                             talkRows.Add(baseRow);
                         }
+
+                        dlines.Add(new(
+                            hashName,
+                            line,
+                            info.type,
+                            info.race,
+                            info.rank,
+                            info.sex,
+                            info.faction,
+                            info.job,
+                            info.cell,
+                            info.disposition,
+                            info.filters
+                        ));
                     }
                     // The parmanager function will automatically skip duplicates when addign talkparam rows so we don't need to do anything here. the esd gen needs those dupes so ye
                     topicData.talks.Add(new(info, talkRows, lines));
@@ -184,7 +241,7 @@ namespace JortPob
             }
             paramanager.GenerateTalkParam(data);
 
-            int esdId = int.Parse($"{bankInfo.id.ToString("D3")}{bankInfo.uses++.ToString("D2")}{msbIdList[0]:D2}{(msbIdList[0]==60?0:msbIdList[1]):D2}");  // i know guh guhhhhh
+            int esdId = int.Parse($"{bankInfo.id.ToString("D3")}{bankInfo.uses++.ToString("D2")}{msbIdList[0]:D2}{(msbIdList[0] == 60 ? 0 : msbIdList[1]):D2}");  // i know guh guhhhhh
 
             BaseScript areaScript = scriptManager.GetScript(msbIdList[0], msbIdList[1], msbIdList[2], msbIdList[3]); // get area script for this npc
 
@@ -195,6 +252,24 @@ namespace JortPob
 
             EsdInfo esdInfo = new(pyPath, esdPath, content.id, esdId);
             esds.Add(esdInfo);
+
+            dialogLines.AddRange(dlines);
+
+            npcs.Add(new(
+                unique,
+                content.name,
+                content.race,
+                content.rank,
+                content.sex,
+                content.faction,
+                content.job,
+                content.services,
+                content.disposition,
+                content.essential,
+                content.reputation,
+                content.entity,
+                dlines.Select(l => l.hash)
+            ));
 
             return esdId;
         }
@@ -223,14 +298,14 @@ namespace JortPob
             if (content.dead) { return; } // get the fuck outttaaa heeeereeeee
 
             // This is the "Do nothing forever" check. In this case we don't need to create a packageFlag or do any scripts. They will just stand there!
-            if(!content.IsGuard() && (content.packages.Count() <= 0 || (content.packages[0].type == CharacterContent.AiPackage.Type.Wander && content.packages[0].distance == 0 && content.packages[0].duration == 0 ))) { return; }
+            if (!content.IsGuard() && (content.packages.Count() <= 0 || (content.packages[0].type == CharacterContent.AiPackage.Type.Wander && content.packages[0].distance == 0 && content.packages[0].duration == 0))) { return; }
 
             // Create flag for package index
             Script.Flag packageFlag = script.GetOrCreateFlag(Script.Flag.Category.Temporary, Script.Flag.Type.Nibble, Script.Flag.Designation.AiPackage, content.entity.ToString());  // purposefully avoid phased rerouting
             List<string> code = new();
 
             // Generate emevd code
-            for (int i=0;i<content.packages.Count()&&i<16;i++)  // max allowed packages is 16. we could expand this if needed but lmao, 99% of npcs have 1 package
+            for (int i = 0; i < content.packages.Count() && i < 16; i++)  // max allowed packages is 16. we could expand this if needed but lmao, 99% of npcs have 1 package
             {
                 CharacterContent.AiPackage package = content.packages[i];
 
@@ -270,7 +345,7 @@ namespace JortPob
 
                     //const float MOVESPEED = 1.1f; // npc walking averages around 2~ units per second. we use this to estimate a worst case duration
 
-                    if(package.duration > 0)
+                    if (package.duration > 0)
                     {
                         // Initialize a timer event if this event has a duration set
                         float duration = 2.5f * 60f * package.duration; // mw uses hours, er uses seconds. 1 hour in morrowind is 2.5~ minutes
@@ -328,7 +403,7 @@ namespace JortPob
 
                     if (package.duration <= 0) { break; } // wander FOREVER
                 }
-                else if(package.type == CharacterContent.AiPackage.Type.Travel)
+                else if (package.type == CharacterContent.AiPackage.Type.Travel)
                 {
                     List<string> scope = new();
 
@@ -349,7 +424,7 @@ namespace JortPob
                     code.Add($"SkipIfConditionGroupStateUncompiled({scope.Count()}, FAIL, OR_01);");    // skip if fails, do if pass
                     code.AddRange(scope);
                 }
-                else if(package.type == CharacterContent.AiPackage.Type.Follow)
+                else if (package.type == CharacterContent.AiPackage.Type.Follow)
                 {
                     List<string> scope = new();
 
@@ -360,7 +435,7 @@ namespace JortPob
                         Script.Flag timerEvtFlag = CreateDurationEvent(packageFlag, i, duration);
                         scope.Add($"InitializeEvent(0, {timerEvtFlag.id}, 0);");
                     }
-                    
+
                     scope.Add($"SetSpEffect({content.entity}, {(int)SpeffManager.Functional.NpcFollow});");     // add follower SPEFF to character
 
                     code.Add($"IfElapsedSeconds(MAIN, 0);");                                              // reset conditions groups
@@ -385,14 +460,15 @@ namespace JortPob
                 $"SkipIfEventFlag(1, OFF, TargetEventFlagType.EventFlag, {deadFlag.id});",      // if dead...
                 $"EndUnconditionally(EventEndType.End);",                                      // kill event early
             ];
-            if(disableFlag != null) { startup.Add($"IfEventFlag(MAIN, OFF, TargetEventFlagType.EventFlag, {disableFlag.id});"); }  // blocking wait until character is not disabled
-            if (content is PhasedNpcContent phased) {
+            if (disableFlag != null) { startup.Add($"IfEventFlag(MAIN, OFF, TargetEventFlagType.EventFlag, {disableFlag.id});"); }  // blocking wait until character is not disabled
+            if (content is PhasedNpcContent phased)
+            {
                 Script.Flag phaseFlag = scriptManager.GetFlag(Script.Flag.Designation.Phase, content);
                 startup.Add($"IfEventValue(MAIN, {phaseFlag.id}, {phaseFlag.Bits()}, 0, {phased.phase});"); // blocking wait until phase matches this npcs phase
-            } 
+            }
 
             // Inject a few more lines here for guard chase down
-            if(content.IsGuard())
+            if (content.IsGuard())
             {
                 Script.Flag crimeLevelFlag = scriptManager.GetFlag(Script.Flag.Designation.CrimeLevel, "CrimeLevel");
                 Script.Flag hostileFlag = scriptManager.GetFlag(Script.Flag.Designation.Hostile, content);
@@ -449,14 +525,17 @@ namespace JortPob
         {
             EsdWorker.Go(esds);
 
+            var manifestJson = JsonConvert.SerializeObject(new { lines = dialogLines, npcs });
+            File.WriteAllText($"{Const.CACHE_PATH}/ESDManifest.json", manifestJson);
+
             Lort.Log($"Binding {esds.Count()} ESDs...", Lort.Type.Main);
             Lort.NewTask($"Binding ESDs", esds.Count());
 
             /* Create all needed bnds */
             Dictionary<(int, int), BND4> bnds = new();
-            foreach(EsdInfo esd in esds)
+            foreach (EsdInfo esd in esds)
             {
-                if(!bnds.ContainsKey((esd.map, esd.area)))
+                if (!bnds.ContainsKey((esd.map, esd.area)))
                 {
                     BND4 bnd = new();
                     bnd.Compression = Compression.KRAK();
@@ -466,7 +545,7 @@ namespace JortPob
             }
 
             /* Write esds to bnds */
-            foreach(EsdInfo esd in esds)
+            foreach (EsdInfo esd in esds)
             {
                 BND4 bnd = bnds[(esd.map, esd.area)];
                 BinderFile file = new();
@@ -535,9 +614,9 @@ namespace JortPob
             /* Special case where a topic contains only infos with the filter type "choice" making it unreachable */
             public bool IsOnlyChoice()
             {
-                foreach(TalkData talk in talks)
+                foreach (TalkData talk in talks)
                 {
-                    if(talk.dialogInfo.type != DialogRecord.Type.Choice) { return false; }
+                    if (talk.dialogInfo.type != DialogRecord.Type.Choice) { return false; }
                 }
                 return true;
             }
