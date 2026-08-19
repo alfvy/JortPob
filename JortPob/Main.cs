@@ -36,6 +36,8 @@ namespace JortPob
             SoundManager sound = new();                                                                       // Manages vcbanks
             NpcManager character = new(esm, layout, sound, param, text, item, speff, scriptManager);         // Manages dialog esd
 
+            esm.dialog.Where(n => n.type != Dialog.DialogRecord.Type.Journal && n.infos.Any(k => k.speaker == "chargen door guard" || k.speaker == "Ganciele Douar"));
+
             /* Some quick setup stuff */
             scriptManager.SetupSpecialFlags(esm);
 
@@ -49,7 +51,7 @@ namespace JortPob
             MapInfoTexWorker.Go(); // @TODO: this is like... designed as a worker but runs on 1 thread lol
 
             /* Replace openign cutscene */
-            if(!Const.DEBUG_SKIP_CUTSCENES) { Cutscener.Create(Path.Combine(Const.MORROWIND_PATH, @"Data Files\video\mw_intro.bik"), 0040); }
+            if (!Const.DEBUG_SKIP_CUTSCENES) { Cutscener.Create(Path.Combine(Const.MORROWIND_PATH, @"Data Files\video\mw_intro.bik"), 0040); }
 
             /* Collect content that needs script compiling for post MSB generation */
             List<PleaseCompile> contentToCompile = new();
@@ -226,8 +228,9 @@ namespace JortPob
                             bed.EntityID = entityIds.bed;
                             bed.TalkID = character.GetESD(group.IdList(), msb, bedContent);
 
-                            if (group.IsInterior) {
-                                bed.CollisionPartName = rootCollision.Name;   
+                            if (group.IsInterior)
+                            {
+                                bed.CollisionPartName = rootCollision.Name;
                             }
                             msb.Parts.Enemies.Add(bed);
 
@@ -613,7 +616,7 @@ namespace JortPob
                                 mpr.Shape = new MSB.Shape.Sphere(point.radius);
                                 mpr.Position = point.relative + Const.MSB_OFFSET;
                                 mpr.EntityID = script.CreateEntity(EntityType.Region, point.name);
-                                
+
                             }
                             mpr.Name = $"{point.name} placename";
                             mpr.RegionID = nextMPR++;
@@ -901,7 +904,7 @@ namespace JortPob
             WarpZone.Generate(layout, scriptManager, param);
 
             /* Write sound BNKs */
-            sound.Write();
+            // sound.Write();
 
             /* Write ESD bnds */
             character.Write();

@@ -40,11 +40,11 @@ namespace JortPob.Common
             {
                 switch (SKYRIM_EDITION)
                 {
-                    case "SE": 
+                    case "SE":
                         return GameRelease.SkyrimSE;
-                    case "SEGOG": 
+                    case "SEGOG":
                         return GameRelease.SkyrimSEGog;
-                    case "VR": 
+                    case "VR":
                         return GameRelease.SkyrimVR;
                     case "LE":
                     default:
@@ -267,7 +267,7 @@ namespace JortPob.Common
         #region Dialog
 
         /// very ultra mega hyper slow, only for stress testing dialog
-        [Setting(DefaultValue = true)]
+        [Setting(DefaultValue = false)]
         public static bool USE_SAM { get; private set; }
 
         /// generating voice synth is slightly inconsistent. it occasionally fails for no real reason.
@@ -333,7 +333,7 @@ namespace JortPob.Common
         [Setting(DefaultValue = true)]
         public static bool DEBUG_DISCARD_ANIMATED_DOORS { get; private set; }
 
-        [Setting] 
+        [Setting]
         public static bool DEBUG_SKIP_FMG_PARAM_SORTING { get; private set; }
 
         /// skip building dialog AND scripts
