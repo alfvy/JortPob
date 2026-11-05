@@ -54,11 +54,11 @@ namespace JortPob
                 {
                     // Copy our master esm to the cache folder
                     esmPath = Path.Combine(Const.CACHE_PATH, "morrowind.esm");
-                    if(File.Exists(esmPath)) { File.Delete(esmPath); }
+                    if (File.Exists(esmPath)) { File.Delete(esmPath); }
                     File.Copy(Path.Combine(Const.MORROWIND_PATH, "Data Files", Const.LOAD_ORDER[0]), esmPath);
 
                     // Merge the rest of the load order into that esm
-                    for (int i=1;i<Const.LOAD_ORDER.Length;i++)
+                    for (int i = 1; i < Const.LOAD_ORDER.Length; i++)
                     {
                         Lort.Log($"Merging '{Const.LOAD_ORDER[i]}' ...", Lort.Type.Main);
                         string childPath = Path.Combine(Const.MORROWIND_PATH, "Data Files", Const.LOAD_ORDER[i]);
@@ -201,7 +201,7 @@ namespace JortPob
 
             /* Load regioninfo from esm */
             regions = new();
-            foreach(JsonNode jsonNode in GetAllRecordsByType(ESM.Type.Region))
+            foreach (JsonNode jsonNode in GetAllRecordsByType(ESM.Type.Region))
             {
                 regions.Add(new(jsonNode));
             }
@@ -221,7 +221,7 @@ namespace JortPob
 
             /* Load leveled creature lists so we can resolve them to creatures while processing cells */
             leveled = new();
-            foreach(JsonNode jsonNode in GetAllRecordsByType(ESM.Type.LeveledCreature))
+            foreach (JsonNode jsonNode in GetAllRecordsByType(ESM.Type.LeveledCreature))
             {
                 leveled.Add(new(jsonNode));
             }
@@ -232,7 +232,7 @@ namespace JortPob
 
             /* Process papyrus scripts */
             scripts = new();
-            foreach(JsonNode jsonNode in GetAllRecordsByType(ESM.Type.Script))
+            foreach (JsonNode jsonNode in GetAllRecordsByType(ESM.Type.Script))
             {
                 try
                 {
@@ -336,7 +336,7 @@ namespace JortPob
         /* By Morrowind coordinates, not elden ring relative coordinates. Only exterior cells (obviously) */
         public Cell GetCellByPosition(System.Numerics.Vector3 position)
         {
-            foreach(Cell cell in exterior)
+            foreach (Cell cell in exterior)
             {
                 if (cell.IsPointInside(position)) { return cell; }
             }
@@ -402,16 +402,16 @@ namespace JortPob
         public List<Tuple<DialogRecord, List<DialogInfoRecord>>> GetDialog(ScriptManager scriptManager, CharacterContent npc)
         {
             List<Tuple<DialogRecord, List<DialogInfoRecord>>> ds = new();  // i am really sorry about this type
-            foreach(DialogRecord dialogRecord in dialog)
+            foreach (DialogRecord dialogRecord in dialog)
             {
                 if (dialogRecord.type == DialogRecord.Type.Journal) { continue; } // obviously skip these lmao
 
                 // Check if the npc meets requirements for any lines in this topic
                 List<DialogInfoRecord> infos = new();
-                foreach(DialogInfoRecord info in dialogRecord.infos)
+                foreach (DialogInfoRecord info in dialogRecord.infos)
                 {
-                    if (info.type == DialogRecord.Type.Flee) { continue; } // discarding this for now
-                    if (info.type == DialogRecord.Type.Intruder) { continue; } // discarding this for now
+                    // if (info.type == DialogRecord.Type.Flee) { continue; } // discarding this for now
+                    // if (info.type == DialogRecord.Type.Intruder) { continue; } // discarding this for now
 
                     if (npc.race == CharacterContent.Race.Creature && info.speaker != npc.id) { continue; } // creatures only have lines with the speaker condition set for them explicitly
 
@@ -457,7 +457,7 @@ namespace JortPob
             hasDialogCache.Add(content.id, false);
             return false;
         }
-        
+
         public ScriptReferenceMetadata GetScriptReferences()
         {
             /* Find all objects targeted by script calls so we can make sure they are placd in regular tiles. Objects in Big/Huge tiles can't have script data */
@@ -509,7 +509,8 @@ namespace JortPob
 
             toggleableRefs.UnionWith(
                 exterior.Concat(interior).SelectMany(cell => cell.contents)
-                    .Where(content => {
+                    .Where(content =>
+                    {
                         var papyrus = GetPapyrus(content.papyrus);
                         return papyrus != null && (papyrus.HasCall(Papyrus.Call.Type.Disable) ||
                                                    papyrus.HasCall(Papyrus.Call.Type.Enable) ||
@@ -548,7 +549,7 @@ namespace JortPob
             name = json["name"].GetValue<string>();
 
             weathers = new();
-            foreach(var property in json["weather_chances"].AsObject())
+            foreach (var property in json["weather_chances"].AsObject())
             {
                 ScriptCommon.WeatherPapyrus w = Enum.Parse<ScriptCommon.WeatherPapyrus>(property.Key, ignoreCase: true);
                 float chance = property.Value.GetValue<float>();
@@ -594,7 +595,7 @@ namespace JortPob
 
             }
 
-            for (int i=0;i<=6;i++)  // 7 is the number of skills a race can have as thier 'bonus' skills. hardcoded to esm. indexed as skill_0 to skill_6
+            for (int i = 0; i <= 6; i++)  // 7 is the number of skills a race can have as thier 'bonus' skills. hardcoded to esm. indexed as skill_0 to skill_6
             {
                 string s = json["data"]["skill_bonuses"][$"skill_{i}"].GetValue<string>();
                 if (s.ToLower() == "none") { continue; }
@@ -635,7 +636,7 @@ namespace JortPob
 
             attributes.Add(Enum.Parse<CharacterContent.Stats.Attribute>(json["data"]["attribute1"].GetValue<string>()));
             attributes.Add(Enum.Parse<CharacterContent.Stats.Attribute>(json["data"]["attribute2"].GetValue<string>()));
-            for(int i=1;i<=5;i++)
+            for (int i = 1; i <= 5; i++)
             {
                 major.Add(Enum.Parse<CharacterContent.Stats.Skill>(json["data"][$"major{i}"].GetValue<string>()));
                 minor.Add(Enum.Parse<CharacterContent.Stats.Skill>(json["data"][$"minor{i}"].GetValue<string>()));
@@ -647,7 +648,7 @@ namespace JortPob
         public bool HasMinor(CharacterContent.Stats.Skill skill) { return minor.Contains(skill); }
         public bool HasSpecialization(CharacterContent.Stats.Skill skill)
         {
-            switch(skill)
+            switch (skill)
             {
                 case CharacterContent.Stats.Skill.Armorer:
                 case CharacterContent.Stats.Skill.Athletics:
@@ -699,18 +700,18 @@ namespace JortPob
             ranks = new();
             JsonArray rankNames = json["rank_names"].AsArray();
             JsonArray rankRequirements = json["data"]["requirements"].AsArray();
-            for (int i=0;i< rankNames.Count();i++)
+            for (int i = 0; i < rankNames.Count(); i++)
             {
                 string rankName = rankNames[i].GetValue<string>();
                 JsonNode rankRequiremnt = rankRequirements[i];
                 int reputation = rankRequiremnt["reputation"].GetValue<int>();
-                Rank rank = new(rankName, i+1, reputation);
+                Rank rank = new(rankName, i + 1, reputation);
                 ranks.Add(rank);
             }
 
             reactions = new();
             JsonArray reacts = json["reactions"].AsArray();
-            for(int i=0;i< reacts.Count();i++)
+            for (int i = 0; i < reacts.Count(); i++)
             {
                 JsonNode entry = reacts[i];
                 reactions.Add((entry["faction"].GetValue<string>().ToLower(), entry["reaction"].GetValue<int>()));
@@ -786,7 +787,7 @@ namespace JortPob
                 .Where(c => c.level <= reqLevel)
                 .ToList();
 
-            if(validCreatures.Empty()) { return creatures[0].id; } // if the level req for every entry is not met and we have an emtpy list return the lowest level creature (the first one)
+            if (validCreatures.Empty()) { return creatures[0].id; } // if the level req for every entry is not met and we have an emtpy list return the lowest level creature (the first one)
 
             int rand = Utility.RandomRange(0, validCreatures.Count());
             return validCreatures[rand].id;
@@ -797,7 +798,7 @@ namespace JortPob
     {
         public readonly string id, path;
         public readonly int volume, min, max;
-        
+
         public SoundInfo(JsonNode json)
         {
             id = json["id"].GetValue<string>().ToLower();
